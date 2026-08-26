@@ -29,12 +29,11 @@ struct WaniChecklistRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel(item.isCompleted ? "Reopen checklist item" : "Complete checklist item")
 
-            TextField("Checklist item", text: $item.title)
+            TextField("Checklist item", text: itemTitleBinding)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
                 .foregroundStyle(item.isCompleted ? palette.tertiaryText : palette.secondaryText)
                 .strikethrough(item.isCompleted)
-                .onSubmit(save)
 
             Button(action: delete) {
                 Image(systemName: "xmark")
@@ -48,5 +47,16 @@ struct WaniChecklistRow: View {
         .overlay(alignment: .top) {
             Rectangle().fill(palette.faintLine).frame(height: 1)
         }
+    }
+
+    private var itemTitleBinding: Binding<String> {
+        Binding(
+            get: { item.title },
+            set: { title in
+                item.title = title
+                item.updatedAt = .now
+                save()
+            }
+        )
     }
 }

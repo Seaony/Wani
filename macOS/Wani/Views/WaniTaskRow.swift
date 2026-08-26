@@ -111,11 +111,11 @@ struct WaniTaskRow: View {
 
     private var expandedEditor: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("To-do", text: $todo.title)
+            TextField("To-do", text: todoTitleBinding)
                 .textFieldStyle(.plain)
                 .font(.system(size: 14, weight: .medium))
 
-            TextEditor(text: $todo.notes)
+            TextEditor(text: todoNotesBinding)
                 .font(.system(size: 13))
                 .foregroundStyle(palette.secondaryText)
                 .scrollContentBackground(.hidden)
@@ -308,6 +308,31 @@ struct WaniTaskRow: View {
 
     private func saveChanges() {
         try? modelContext.save()
+    }
+
+    private var todoTitleBinding: Binding<String> {
+        Binding(
+            get: { todo.title },
+            set: { title in
+                todo.title = title
+                touchTodoAndSave()
+            }
+        )
+    }
+
+    private var todoNotesBinding: Binding<String> {
+        Binding(
+            get: { todo.notes },
+            set: { notes in
+                todo.notes = notes
+                touchTodoAndSave()
+            }
+        )
+    }
+
+    private func touchTodoAndSave() {
+        todo.updatedAt = .now
+        saveChanges()
     }
 
     private func syncReminder() {

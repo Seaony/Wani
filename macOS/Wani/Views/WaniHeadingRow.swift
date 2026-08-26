@@ -11,11 +11,10 @@ struct WaniHeadingRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            TextField("Heading", text: $heading.title)
+            TextField("Heading", text: headingTitleBinding)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13.5, weight: .semibold))
                 .foregroundStyle(palette.secondaryText)
-                .onSubmit(save)
             Spacer(minLength: 8)
             Menu {
                 Button("Archive", systemImage: "archivebox", action: archive)
@@ -46,5 +45,16 @@ struct WaniHeadingRow: View {
             return reorder(movingID, heading.id)
         }
         .onHover { isHovered = $0 }
+    }
+
+    private var headingTitleBinding: Binding<String> {
+        Binding(
+            get: { heading.title },
+            set: { title in
+                heading.title = title
+                heading.updatedAt = .now
+                save()
+            }
+        )
     }
 }
