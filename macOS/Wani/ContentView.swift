@@ -1339,10 +1339,7 @@ struct ContentView: View {
     }
 
     private var canAddToCurrentList: Bool {
-        switch selection {
-        case .smart(.logbook), .smart(.trash): false
-        default: true
-        }
+        selection.acceptsNewTodos(areas: areas, projects: projects)
     }
 
     private func toolbarButton(

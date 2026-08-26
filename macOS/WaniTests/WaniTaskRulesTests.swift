@@ -231,6 +231,46 @@ struct WaniTaskRulesTests {
         #expect(shortcuts.first?.title == "⌃Space")
     }
 
+    @Test("Only active navigation targets accept new to-dos")
+    func navigationCreationTargets() {
+        let area = WaniArea(title: "Personal")
+        let active = WaniProject(title: "Active", area: area)
+        let completed = WaniProject(title: "Completed", area: area)
+        completed.completedAt = date(2026, 8, 26, 12)
+        let canceled = WaniProject(title: "Canceled", area: area)
+        canceled.canceledAt = date(2026, 8, 26, 12)
+        let deleted = WaniProject(title: "Deleted", area: area)
+        deleted.deletedAt = date(2026, 8, 26, 12)
+        let projects = [active, completed, canceled, deleted]
+
+        #expect(WaniNavigationTarget.smart(.today).acceptsNewTodos(
+            areas: [area],
+            projects: projects
+        ))
+        #expect(!WaniNavigationTarget.smart(.logbook).acceptsNewTodos(
+            areas: [area],
+            projects: projects
+        ))
+        #expect(!WaniNavigationTarget.smart(.trash).acceptsNewTodos(
+            areas: [area],
+            projects: projects
+        ))
+        #expect(WaniNavigationTarget.area(area.id).acceptsNewTodos(
+            areas: [area],
+            projects: projects
+        ))
+        #expect(WaniNavigationTarget.project(active.id).acceptsNewTodos(
+            areas: [area],
+            projects: projects
+        ))
+        for project in [completed, canceled, deleted] {
+            #expect(!WaniNavigationTarget.project(project.id).acceptsNewTodos(
+                areas: [area],
+                projects: projects
+            ))
+        }
+    }
+
     @Test("Smart lists classify tasks by lifecycle and date")
     func smartListClassification() {
         let now = date(2026, 8, 26, 12)

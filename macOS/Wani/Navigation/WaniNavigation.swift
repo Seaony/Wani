@@ -5,6 +5,27 @@ enum WaniNavigationTarget: Hashable {
     case smart(WaniSmartList)
     case area(UUID)
     case project(UUID)
+
+    func acceptsNewTodos(
+        areas: [WaniArea],
+        projects: [WaniProject]
+    ) -> Bool {
+        switch self {
+        case .smart(.logbook), .smart(.trash):
+            return false
+        case .smart:
+            return true
+        case .area(let areaID):
+            return areas.contains { $0.id == areaID }
+        case .project(let projectID):
+            guard let project = projects.first(where: { $0.id == projectID }) else {
+                return false
+            }
+            return project.completedAt == nil
+                && project.canceledAt == nil
+                && project.deletedAt == nil
+        }
+    }
 }
 
 extension WaniSmartList {
