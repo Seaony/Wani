@@ -184,7 +184,8 @@ struct WaniTaskRow: View {
                     palette: palette,
                     toggle: { toggleChecklistItem(item) },
                     save: saveChanges,
-                    delete: { deleteChecklistItem(item) }
+                    delete: { deleteChecklistItem(item) },
+                    reorder: reorderChecklistItem
                 )
             }
 
@@ -306,6 +307,16 @@ struct WaniTaskRow: View {
     private func deleteChecklistItem(_ item: WaniChecklistItem) {
         modelContext.delete(item)
         saveChanges()
+    }
+
+    private func reorderChecklistItem(_ movingID: UUID, before targetID: UUID) -> Bool {
+        guard WaniTaskRules.reorderChecklistItems(
+            sortedChecklistItems,
+            moving: movingID,
+            to: targetID
+        ) else { return false }
+        saveChanges()
+        return true
     }
 
     private func saveTags() {

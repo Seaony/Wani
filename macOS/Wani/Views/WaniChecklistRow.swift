@@ -6,6 +6,7 @@ struct WaniChecklistRow: View {
     let toggle: () -> Void
     let save: () -> Void
     let delete: () -> Void
+    let reorder: (UUID, UUID) -> Bool
 
     var body: some View {
         HStack(spacing: 10) {
@@ -46,6 +47,16 @@ struct WaniChecklistRow: View {
         .padding(.vertical, 7)
         .overlay(alignment: .top) {
             Rectangle().fill(palette.faintLine).frame(height: 1)
+        }
+        .draggable("checklist:\(item.id.uuidString)")
+        .dropDestination(for: String.self) { values, _ in
+            guard
+                let value = values.first(where: { $0.hasPrefix("checklist:") }),
+                let movingID = UUID(
+                    uuidString: String(value.dropFirst("checklist:".count))
+                )
+            else { return false }
+            return reorder(movingID, item.id)
         }
     }
 

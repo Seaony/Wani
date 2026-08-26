@@ -87,6 +87,25 @@ struct WaniTaskRulesTests {
         #expect([first, second, third].allSatisfy { $0.updatedAt == updatedAt })
     }
 
+    @Test("Reordering checklist items preserves the checklist's sort slots")
+    func reorderChecklistItems() {
+        let first = WaniChecklistItem(title: "First", sortOrder: 2)
+        let second = WaniChecklistItem(title: "Second", sortOrder: 7)
+        let third = WaniChecklistItem(title: "Third", sortOrder: 11)
+        let updatedAt = Date(timeIntervalSince1970: 2_400)
+
+        #expect(WaniTaskRules.reorderChecklistItems(
+            [first, second, third],
+            moving: third.id,
+            to: first.id,
+            at: updatedAt
+        ))
+        #expect(third.sortOrder == 2)
+        #expect(first.sortOrder == 7)
+        #expect(second.sortOrder == 11)
+        #expect([first, second, third].allSatisfy { $0.updatedAt == updatedAt })
+    }
+
     @Test("Global Quick Entry exposes distinct configurable shortcuts")
     func globalQuickEntryShortcuts() {
         let shortcuts = WaniQuickEntryShortcut.allCases
