@@ -278,7 +278,7 @@ struct WaniSettingsOverlay: View {
             }
 
             settingRow("Search") {
-                keycap("⌘K")
+                keycap("⌘F")
             }
 
             settingRow("Dismiss") {

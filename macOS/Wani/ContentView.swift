@@ -209,9 +209,11 @@ struct ContentView: View {
             WaniItemCommandActions(
                 canEdit: !selectedTodos.isEmpty || focusedToolbarTodo != nil,
                 canClose: selectedTodos.contains { $0.status == .open }
-                    || focusedToolbarTodo != nil,
+                    || focusedToolbarTodo != nil
+                    || canCloseSelectedProject,
                 canDuplicate: !duplicateCommandTodos.isEmpty,
                 canRepeat: repeatCommandTodo != nil,
+                canSaveAndClose: focusedToolbarTodo != nil,
                 openWhen: openWhenCommand,
                 openMove: openMoveCommand,
                 openTags: openTagsCommand,
@@ -220,6 +222,7 @@ struct ContentView: View {
                 copy: copyItemCommand,
                 paste: pasteTodosFromClipboard,
                 duplicate: duplicateItemCommand,
+                saveAndClose: saveAndCloseItemCommand,
                 complete: completeItemCommand,
                 cancel: cancelItemCommand
             )
@@ -247,6 +250,7 @@ struct ContentView: View {
         }
         .onChange(of: selection) {
             clearTodoSelection()
+            expandedTodoID = nil
             projectTagFilter = nil
             projectLogbookExpanded = false
             toolbarDateEditorOpen = false
@@ -429,22 +433,12 @@ struct ContentView: View {
                     Button("Complete Project", systemImage: "checkmark.circle") {
                         completeSelectedProject()
                     }
-                    .keyboardShortcut("k", modifiers: .command)
-                    .disabled(!WaniTaskRules.canCompleteProject(
-                        project,
-                        todos: todos,
-                        headings: headings
-                    ))
+                    .disabled(!canCloseSelectedProject)
 
                     Button("Cancel Project", systemImage: "xmark.circle") {
                         cancelSelectedProject()
                     }
-                    .keyboardShortcut("k", modifiers: [.command, .option])
-                    .disabled(!WaniTaskRules.canCompleteProject(
-                        project,
-                        todos: todos,
-                        headings: headings
-                    ))
+                    .disabled(!canCloseSelectedProject)
 
                     Menu("Move to Area", systemImage: "folder") {
                         Button("No Area") {
@@ -576,6 +570,19 @@ struct ContentView: View {
     private var selectedProject: WaniProject? {
         guard case .project(let projectID) = selection else { return nil }
         return projects.first { $0.id == projectID }
+    }
+
+    private var canCloseSelectedProject: Bool {
+        guard
+            let selectedProject,
+            selectedProject.completedAt == nil,
+            selectedProject.canceledAt == nil
+        else { return false }
+        return WaniTaskRules.canCompleteProject(
+            selectedProject,
+            todos: todos,
+            headings: headings
+        )
     }
 
     private var selectedArea: WaniArea? {
@@ -1104,6 +1111,7 @@ struct ContentView: View {
                 },
                 recurrenceChanged: generateDueRepeatingTodos
             )
+            .id("\(todo.id.uuidString):\(expandedTodoID == todo.id)")
         }
     }
 
@@ -1581,7 +1589,6 @@ struct ContentView: View {
                 showsTitle: showsTitles,
                 action: completeSelectedTodos
             )
-                .keyboardShortcut("k", modifiers: .command)
                 .disabled(!selectedTodos.contains { $0.status == .open })
 
             batchToolbarButton(
@@ -1590,7 +1597,6 @@ struct ContentView: View {
                 showsTitle: showsTitles,
                 action: cancelSelectedTodos
             )
-                .keyboardShortcut("k", modifiers: [.command, .option])
                 .disabled(!selectedTodos.contains { $0.status == .open })
 
             batchToolbarButton(
@@ -2138,9 +2144,12 @@ struct ContentView: View {
 
     private func completeItemCommand() {
         if selectedTodos.isEmpty {
-            guard let todo = focusedToolbarTodo else { return }
-            toggleCompleted(todo)
-            expandedTodoID = nil
+            if let todo = focusedToolbarTodo {
+                toggleCompleted(todo)
+                expandedTodoID = nil
+            } else if canCloseSelectedProject {
+                completeSelectedProject()
+            }
         } else {
             completeSelectedTodos()
         }
@@ -2148,11 +2157,20 @@ struct ContentView: View {
 
     private func cancelItemCommand() {
         if selectedTodos.isEmpty {
-            guard let todo = focusedToolbarTodo else { return }
-            cancel(todo)
+            if let todo = focusedToolbarTodo {
+                cancel(todo)
+            } else if canCloseSelectedProject {
+                cancelSelectedProject()
+            }
         } else {
             cancelSelectedTodos()
         }
+    }
+
+    private func saveAndCloseItemCommand() {
+        guard focusedToolbarTodo != nil else { return }
+        saveChanges()
+        expandedTodoID = nil
     }
 
     private func setTagForSelectedTodos(_ tag: String, enabled: Bool) {

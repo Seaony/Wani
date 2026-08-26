@@ -32,7 +32,7 @@ struct WaniSidebar: View {
                     Image(systemName: "magnifyingglass")
                     Text("Search")
                     Spacer()
-                    Text("⌘K")
+                    Text("⌘F")
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(palette.tertiaryText)
@@ -42,7 +42,6 @@ struct WaniSidebar: View {
                 .background(palette.hover, in: RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain)
-            .keyboardShortcut("k", modifiers: .command)
             .accessibilityLabel("Search")
             .padding(.horizontal, 12)
             .padding(.bottom, 10)

@@ -61,7 +61,7 @@ struct WaniSearchOverlay: View {
                         .font(.system(size: 15.5))
                         .focused($isFocused)
                         .onSubmit(openFirstResult)
-                    Text(query.isEmpty ? "⌘K" : "\(resultCount) found")
+                    Text(query.isEmpty ? "⌘F" : "\(resultCount) found")
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(palette.tertiaryText)
@@ -113,6 +113,12 @@ struct WaniSearchOverlay: View {
             .background(palette.card, in: RoundedRectangle(cornerRadius: 14))
             .shadow(color: .black.opacity(0.28), radius: 34, y: 18)
             .padding(.top, 84)
+
+            Button("Close Search", action: dismiss)
+                .keyboardShortcut(.cancelAction)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .accessibilityHidden(true)
         }
         .onAppear { isFocused = true }
         .onExitCommand(perform: dismiss)

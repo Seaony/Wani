@@ -6,6 +6,7 @@ struct WaniItemCommandActions {
     let canClose: Bool
     let canDuplicate: Bool
     let canRepeat: Bool
+    let canSaveAndClose: Bool
     let openWhen: () -> Void
     let openMove: () -> Void
     let openTags: () -> Void
@@ -14,6 +15,7 @@ struct WaniItemCommandActions {
     let copy: () -> Void
     let paste: () -> Void
     let duplicate: () -> Void
+    let saveAndClose: () -> Void
     let complete: () -> Void
     let cancel: () -> Void
 }
@@ -59,6 +61,14 @@ struct WaniItemCommands: Commands {
         }
 
         CommandMenu("Items") {
+            Button("Save and Close") {
+                actions?.saveAndClose()
+            }
+            .keyboardShortcut(.return, modifiers: .command)
+            .disabled(actions?.canSaveAndClose != true)
+
+            Divider()
+
             Button("When…") {
                 actions?.openWhen()
             }
@@ -86,10 +96,12 @@ struct WaniItemCommands: Commands {
                 Button("Mark as Completed") {
                     actions?.complete()
                 }
+                .keyboardShortcut("k", modifiers: .command)
 
                 Button("Mark as Canceled") {
                     actions?.cancel()
                 }
+                .keyboardShortcut("k", modifiers: [.command, .option])
             }
             .disabled(actions?.canClose != true)
 
