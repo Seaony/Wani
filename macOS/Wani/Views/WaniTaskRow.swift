@@ -328,6 +328,10 @@ struct WaniTaskRow: View {
     }
 
     private var dateLabel: String? {
+        if todo.status != .open,
+           let archivedAt = todo.completedAt ?? todo.canceledAt {
+            return archivedAt.formatted(.dateTime.month(.abbreviated).day())
+        }
         guard todo.schedule == .date, let startDate = todo.startDate else {
             return nil
         }

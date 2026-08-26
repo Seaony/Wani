@@ -17,6 +17,11 @@ struct WaniUpcomingDay {
     let todos: [WaniTodo]
 }
 
+struct WaniLogbookMonth {
+    let month: Date
+    let todos: [WaniTodo]
+}
+
 enum WaniTaskRules {
     static func contains(
         _ todo: WaniTodo,
@@ -144,6 +149,41 @@ enum WaniTaskRules {
                 todos: upcomingTodos.filter {
                     guard let startDate = $0.startDate else { return false }
                     return calendar.isDate(startDate, inSameDayAs: date)
+                }
+            )
+        }
+    }
+
+    static func logbookMonths(
+        _ todos: [WaniTodo],
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        deferCompletedUntilMidnight: Bool = false
+    ) -> [WaniLogbookMonth] {
+        let archivedTodos = tasks(
+            todos,
+            in: .logbook,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: deferCompletedUntilMidnight
+        )
+        let grouped = Dictionary(grouping: archivedTodos) { todo in
+            let archivedAt = todo.completedAt ?? todo.canceledAt ?? todo.updatedAt
+            return calendar.date(
+                from: calendar.dateComponents([.year, .month], from: archivedAt)
+            )!
+        }
+
+        return grouped.keys.sorted(by: >).map { month in
+            WaniLogbookMonth(
+                month: month,
+                todos: grouped[month, default: []].sorted { lhs, rhs in
+                    let leftDate = lhs.completedAt ?? lhs.canceledAt ?? lhs.updatedAt
+                    let rightDate = rhs.completedAt ?? rhs.canceledAt ?? rhs.updatedAt
+                    if leftDate == rightDate {
+                        return lhs.createdAt > rhs.createdAt
+                    }
+                    return leftDate > rightDate
                 }
             )
         }

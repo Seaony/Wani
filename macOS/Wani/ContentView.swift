@@ -252,6 +252,8 @@ struct ContentView: View {
                         todayTaskContent
                     } else if selection == .smart(.upcoming) {
                         upcomingTaskContent
+                    } else if selection == .smart(.logbook) {
+                        logbookTaskContent
                     } else if selection == .smart(.anytime) || selection == .smart(.someday) {
                         smartProjectTaskContent
                     } else if visibleTodos.isEmpty {
@@ -460,6 +462,35 @@ struct ContentView: View {
     }
 
     @ViewBuilder
+    private var logbookTaskContent: some View {
+        if visibleTodos.isEmpty {
+            emptyState
+        } else {
+            ForEach(logbookMonths, id: \.month) { group in
+                HStack(spacing: 10) {
+                    Text(group.month.formatted(.dateTime.month(.wide)))
+                        .font(.system(size: 13.5, weight: .semibold))
+                    Rectangle()
+                        .fill(palette.line)
+                        .frame(height: 1)
+                }
+                .foregroundStyle(palette.text)
+                .padding(.horizontal, 11)
+                .padding(.top, 8)
+                .padding(.bottom, 8)
+                taskRows(group.todos)
+            }
+        }
+    }
+
+    private var logbookMonths: [WaniLogbookMonth] {
+        WaniTaskRules.logbookMonths(
+            todos,
+            deferCompletedUntilMidnight: moveToLogbookAtMidnight
+        )
+    }
+
+    @ViewBuilder
     private var projectTaskContent: some View {
         if visibleTodos.isEmpty && projectHeadings.isEmpty {
             emptyState
@@ -557,6 +588,10 @@ struct ContentView: View {
     }
 
     private var displayedTodoIDs: [UUID] {
+        if selection == .smart(.logbook) {
+            return logbookMonths.flatMap { $0.todos.map(\.id) }
+        }
+
         if selection == .smart(.anytime) || selection == .smart(.someday) {
             var ids = visibleTodos.filter { $0.project == nil }.map(\.id)
             for project in projects {

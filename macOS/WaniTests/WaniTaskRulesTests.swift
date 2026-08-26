@@ -270,6 +270,31 @@ struct WaniTaskRulesTests {
         #expect(days.last?.todos.map(\.title) == ["Distant"])
     }
 
+    @Test("Logbook groups completed and canceled tasks by month in reverse order")
+    func logbookMonths() {
+        let july = WaniTodo(title: "July")
+        july.status = .completed
+        july.completedAt = date(2026, 7, 9, 10)
+        let augustCanceled = WaniTodo(title: "August canceled")
+        augustCanceled.status = .canceled
+        augustCanceled.canceledAt = date(2026, 8, 20, 12)
+        let augustCompleted = WaniTodo(title: "August completed")
+        augustCompleted.status = .completed
+        augustCompleted.completedAt = date(2026, 8, 25, 12)
+
+        let months = WaniTaskRules.logbookMonths(
+            [july, augustCanceled, augustCompleted],
+            now: date(2026, 8, 26, 12),
+            calendar: calendar
+        )
+
+        #expect(months.count == 2)
+        #expect(months[0].month == date(2026, 8, 1, 0))
+        #expect(months[0].todos.map(\.title) == ["August completed", "August canceled"])
+        #expect(months[1].month == date(2026, 7, 1, 0))
+        #expect(months[1].todos.map(\.title) == ["July"])
+    }
+
     @Test("Suggested reminders never start in the past")
     func suggestedReminder() {
         let now = date(2026, 8, 26, 12)
