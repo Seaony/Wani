@@ -42,6 +42,7 @@ struct ContentView: View {
     @State private var addingHeading = false
     @State private var newHeadingTitle = ""
     @State private var groupingSelectionInNewHeading = false
+    @State private var projectLogbookExpanded = false
     @State private var appliedLaunchDestination = false
     @State private var selectedTodoIDs: Set<UUID> = []
     @State private var selectionAnchorID: UUID?
@@ -201,6 +202,7 @@ struct ContentView: View {
         .onChange(of: selection) {
             clearTodoSelection()
             projectTagFilter = nil
+            projectLogbookExpanded = false
             closeHeadingComposer()
         }
         .onChange(of: quickEntryShortcutRaw) {
@@ -360,13 +362,21 @@ struct ContentView: View {
                         completeSelectedProject()
                     }
                     .keyboardShortcut("k", modifiers: .command)
-                    .disabled(!WaniTaskRules.canCompleteProject(project, todos: todos))
+                    .disabled(!WaniTaskRules.canCompleteProject(
+                        project,
+                        todos: todos,
+                        headings: headings
+                    ))
 
                     Button("Cancel Project", systemImage: "xmark.circle") {
                         cancelSelectedProject()
                     }
                     .keyboardShortcut("k", modifiers: [.command, .option])
-                    .disabled(!WaniTaskRules.canCompleteProject(project, todos: todos))
+                    .disabled(!WaniTaskRules.canCompleteProject(
+                        project,
+                        todos: todos,
+                        headings: headings
+                    ))
 
                     Menu("Move to Area", systemImage: "folder") {
                         Button("No Area") {
@@ -447,7 +457,37 @@ struct ContentView: View {
 
     private var projectHeadings: [WaniHeading] {
         guard case .project(let projectID) = selection else { return [] }
-        return headings.filter { $0.project?.id == projectID }
+        return headings.filter {
+            $0.project?.id == projectID && $0.archivedAt == nil
+        }
+    }
+
+    private var projectLoggedTodos: [WaniTodo] {
+        guard case .project(let projectID) = selection else { return [] }
+        let logged = WaniTaskRules.projectTasks(todos, projectID: projectID)
+            .filter {
+                $0.status != .open && !WaniTaskRules.isAwaitingMidnightArchive(
+                    $0,
+                    enabled: moveToLogbookAtMidnight
+                )
+            }
+        return WaniTaskRules.tasks(logged, matchingTag: activeProjectTagFilter)
+    }
+
+    private var projectLoggedHeadings: [WaniHeading] {
+        guard case .project(let projectID) = selection else { return [] }
+        let loggedHeadingIDs = Set(projectLoggedTodos.compactMap { $0.heading?.id })
+        return headings.filter {
+            $0.project?.id == projectID
+                && ($0.archivedAt != nil || loggedHeadingIDs.contains($0.id))
+        }
+    }
+
+    private var projectLoggedItemCount: Int {
+        let emptyArchivedHeadings = projectLoggedHeadings.filter { heading in
+            !projectLoggedTodos.contains { $0.heading?.id == heading.id }
+        }.count
+        return projectLoggedTodos.count + emptyArchivedHeadings
     }
 
     private var selectedProject: WaniProject? {
@@ -724,7 +764,7 @@ struct ContentView: View {
         let projectIDs = Set(activeProjects.map(\.id))
         return headings.filter { heading in
             guard let projectID = heading.project?.id else { return false }
-            return projectIDs.contains(projectID)
+            return projectIDs.contains(projectID) && heading.archivedAt == nil
         }
     }
 
@@ -825,7 +865,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var projectTaskContent: some View {
-        if visibleTodos.isEmpty && projectHeadings.isEmpty {
+        if visibleTodos.isEmpty && projectHeadings.isEmpty && projectLoggedItemCount == 0 {
             emptyState
         }
 
@@ -837,7 +877,9 @@ struct ContentView: View {
             WaniHeadingRow(
                 heading: heading,
                 palette: palette,
+                canArchive: WaniTaskRules.canArchiveHeading(heading, todos: todos),
                 save: saveChanges,
+                archive: { archive(heading) },
                 reorder: reorderHeading
             )
             taskRows(headingTodos)
@@ -857,6 +899,60 @@ struct ContentView: View {
             .background(palette.softAccent, in: RoundedRectangle(cornerRadius: 9))
             .onExitCommand(perform: closeHeadingComposer)
         }
+
+        if projectLoggedItemCount > 0 {
+            Button {
+                projectLogbookExpanded.toggle()
+            } label: {
+                HStack(spacing: 8) {
+                    Text(projectLogbookExpanded ? "Hide Logged Items" : "Show Logged Items")
+                    Text(projectLoggedItemCount.formatted())
+                        .foregroundStyle(palette.tertiaryText)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .rotationEffect(.degrees(projectLogbookExpanded ? 90 : 0))
+                }
+                .font(.system(size: 12.5))
+                .foregroundStyle(palette.secondaryText)
+                .padding(.horizontal, 11)
+                .frame(height: 40)
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if projectLogbookExpanded {
+                taskRows(projectLoggedTodos.filter { $0.heading == nil })
+
+                ForEach(projectLoggedHeadings) { heading in
+                    loggedHeadingRow(heading)
+                    taskRows(projectLoggedTodos.filter { $0.heading?.id == heading.id })
+                }
+            }
+        }
+    }
+
+    private func loggedHeadingRow(_ heading: WaniHeading) -> some View {
+        HStack(spacing: 8) {
+            Text(heading.title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .foregroundStyle(palette.tertiaryText)
+            if let archivedAt = heading.archivedAt {
+                Text(archivedAt.formatted(.dateTime.month(.abbreviated).day()))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(palette.accent)
+            }
+            Spacer()
+            if heading.archivedAt != nil {
+                Button("Reopen") {
+                    reopen(heading)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(palette.accent)
+            }
+        }
+        .padding(.horizontal, 11)
+        .frame(height: 40)
     }
 
     @ViewBuilder
@@ -1607,7 +1703,11 @@ struct ContentView: View {
     private func completeSelectedProject() {
         guard
             let project = selectedProject,
-            WaniTaskRules.completeProject(project, todos: todos)
+            WaniTaskRules.completeProject(
+                project,
+                todos: todos,
+                headings: headings
+            )
         else { return }
 
         saveChanges()
@@ -1617,7 +1717,11 @@ struct ContentView: View {
     private func cancelSelectedProject() {
         guard
             let project = selectedProject,
-            WaniTaskRules.cancelProject(project, todos: todos)
+            WaniTaskRules.cancelProject(
+                project,
+                todos: todos,
+                headings: headings
+            )
         else { return }
 
         saveChanges()
@@ -1628,6 +1732,17 @@ struct ContentView: View {
         WaniTaskRules.reopenProject(project)
         saveChanges()
         selection = .project(project.id)
+    }
+
+    private func archive(_ heading: WaniHeading) {
+        guard WaniTaskRules.archiveHeading(heading, todos: todos) else { return }
+        saveChanges()
+        projectLogbookExpanded = true
+    }
+
+    private func reopen(_ heading: WaniHeading) {
+        WaniTaskRules.reopenHeading(heading)
+        saveChanges()
     }
 
     private func restore(_ project: WaniProject) {

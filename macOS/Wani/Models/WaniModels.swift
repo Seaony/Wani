@@ -76,6 +76,7 @@ final class WaniHeading {
     var sortOrder: Double = 0
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
+    var archivedAt: Date?
     var project: WaniProject?
 
     @Relationship(deleteRule: .nullify, inverse: \WaniTodo.heading)

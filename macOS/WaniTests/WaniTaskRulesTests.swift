@@ -242,21 +242,42 @@ struct WaniTaskRulesTests {
     @Test("Projects complete only after child tasks close and can reopen")
     func projectCompletion() {
         let project = WaniProject(title: "Launch")
+        let heading = WaniHeading(title: "Polish", project: project)
         let open = WaniTodo(title: "Open", project: project)
+        open.heading = heading
         let completed = WaniTodo(title: "Completed", project: project)
+        completed.heading = heading
         completed.status = .completed
 
+        #expect(!WaniTaskRules.archiveHeading(
+            heading,
+            todos: [open, completed],
+            at: date(2026, 8, 26, 12)
+        ))
         #expect(!WaniTaskRules.completeProject(
             project,
             todos: [open, completed],
+            headings: [heading],
             at: date(2026, 8, 26, 12)
         ))
         #expect(project.completedAt == nil)
 
         open.status = .canceled
+        #expect(!WaniTaskRules.completeProject(
+            project,
+            todos: [open, completed],
+            headings: [heading],
+            at: date(2026, 8, 26, 12)
+        ))
+        #expect(WaniTaskRules.archiveHeading(
+            heading,
+            todos: [open, completed],
+            at: date(2026, 8, 26, 12)
+        ))
         #expect(WaniTaskRules.completeProject(
             project,
             todos: [open, completed],
+            headings: [heading],
             at: date(2026, 8, 26, 12)
         ))
         #expect(project.completedAt == date(2026, 8, 26, 12))
@@ -270,6 +291,11 @@ struct WaniTaskRulesTests {
         #expect(project.completedAt == nil)
         #expect(project.canceledAt == nil)
         #expect(project.updatedAt == date(2026, 8, 26, 13))
+
+        WaniTaskRules.reopen(completed, at: date(2026, 8, 26, 13))
+        #expect(completed.status == .open)
+        #expect(heading.archivedAt == nil)
+        #expect(heading.updatedAt == date(2026, 8, 26, 13))
     }
 
     @Test("Projects cancel only after child tasks close and can reopen")
@@ -278,11 +304,21 @@ struct WaniTaskRulesTests {
         let project = WaniProject(title: "Stopped launch")
         let open = WaniTodo(title: "Open", project: project)
 
-        #expect(!WaniTaskRules.cancelProject(project, todos: [open], at: canceledAt))
+        #expect(!WaniTaskRules.cancelProject(
+            project,
+            todos: [open],
+            headings: [],
+            at: canceledAt
+        ))
         #expect(project.canceledAt == nil)
 
         WaniTaskRules.cancel(open, at: canceledAt)
-        #expect(WaniTaskRules.cancelProject(project, todos: [open], at: canceledAt))
+        #expect(WaniTaskRules.cancelProject(
+            project,
+            todos: [open],
+            headings: [],
+            at: canceledAt
+        ))
         #expect(project.completedAt == nil)
         #expect(project.canceledAt == canceledAt)
         #expect(

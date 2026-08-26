@@ -282,18 +282,25 @@ enum WaniTaskRules {
 
     static func canCompleteProject(
         _ project: WaniProject,
-        todos: [WaniTodo]
+        todos: [WaniTodo],
+        headings: [WaniHeading]
     ) -> Bool {
         projectTasks(todos, projectID: project.id).allSatisfy { $0.status != .open }
+            && headings
+                .filter { $0.project?.id == project.id }
+                .allSatisfy { $0.archivedAt != nil }
     }
 
     @discardableResult
     static func completeProject(
         _ project: WaniProject,
         todos: [WaniTodo],
+        headings: [WaniHeading],
         at date: Date = Date()
     ) -> Bool {
-        guard canCompleteProject(project, todos: todos) else { return false }
+        guard canCompleteProject(project, todos: todos, headings: headings) else {
+            return false
+        }
         project.completedAt = date
         project.canceledAt = nil
         project.updatedAt = date
@@ -304,9 +311,12 @@ enum WaniTaskRules {
     static func cancelProject(
         _ project: WaniProject,
         todos: [WaniTodo],
+        headings: [WaniHeading],
         at date: Date = Date()
     ) -> Bool {
-        guard canCompleteProject(project, todos: todos) else { return false }
+        guard canCompleteProject(project, todos: todos, headings: headings) else {
+            return false
+        }
         project.completedAt = nil
         project.canceledAt = date
         project.updatedAt = date
@@ -317,6 +327,32 @@ enum WaniTaskRules {
         project.completedAt = nil
         project.canceledAt = nil
         project.updatedAt = date
+    }
+
+    static func canArchiveHeading(
+        _ heading: WaniHeading,
+        todos: [WaniTodo]
+    ) -> Bool {
+        todos
+            .filter { $0.heading?.id == heading.id && $0.deletedAt == nil }
+            .allSatisfy { $0.status != .open }
+    }
+
+    @discardableResult
+    static func archiveHeading(
+        _ heading: WaniHeading,
+        todos: [WaniTodo],
+        at date: Date = Date()
+    ) -> Bool {
+        guard canArchiveHeading(heading, todos: todos) else { return false }
+        heading.archivedAt = date
+        heading.updatedAt = date
+        return true
+    }
+
+    static func reopenHeading(_ heading: WaniHeading, at date: Date = Date()) {
+        heading.archivedAt = nil
+        heading.updatedAt = date
     }
 
     static func archivedProjectMonths(
@@ -525,6 +561,9 @@ enum WaniTaskRules {
         todo.completedAt = nil
         todo.canceledAt = nil
         todo.updatedAt = date
+        if let heading = todo.heading, heading.archivedAt != nil {
+            reopenHeading(heading, at: date)
+        }
     }
 
     static func moveToTrash(_ todo: WaniTodo, at date: Date = Date()) {

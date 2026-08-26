@@ -3,8 +3,11 @@ import SwiftUI
 struct WaniHeadingRow: View {
     @Bindable var heading: WaniHeading
     let palette: WaniPalette
+    let canArchive: Bool
     let save: () -> Void
+    let archive: () -> Void
     let reorder: (UUID, UUID) -> Bool
+    @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -13,6 +16,21 @@ struct WaniHeadingRow: View {
                 .font(.system(size: 13.5, weight: .semibold))
                 .foregroundStyle(palette.secondaryText)
                 .onSubmit(save)
+            Spacer(minLength: 8)
+            Menu {
+                Button("Archive", systemImage: "archivebox", action: archive)
+                    .disabled(!canArchive)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(palette.tertiaryText)
+                    .frame(width: 26, height: 26)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .opacity(isHovered ? 1 : 0)
+            .accessibilityLabel("Heading Actions")
         }
         .padding(.horizontal, 11)
         .frame(height: 40)
@@ -27,5 +45,6 @@ struct WaniHeadingRow: View {
             else { return false }
             return reorder(movingID, heading.id)
         }
+        .onHover { isHovered = $0 }
     }
 }
