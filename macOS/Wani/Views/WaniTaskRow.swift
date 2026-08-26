@@ -18,6 +18,7 @@ struct WaniTaskRow: View {
 
     @State private var checklistTitle = ""
     @State private var tagDraft = ""
+    @State private var dateEditorOpen = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -105,10 +106,22 @@ struct WaniTaskRow: View {
             checklistEditor
             tagEditor
 
+            if dateEditorOpen {
+                WaniTaskDateEditor(
+                    todo: todo,
+                    palette: palette,
+                    save: saveChanges
+                )
+            }
+
             HStack {
-                Label(scheduleLabel, systemImage: scheduleSymbol)
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(palette.secondaryText)
+                Button {
+                    dateEditorOpen.toggle()
+                } label: {
+                    Label(scheduleLabel, systemImage: scheduleSymbol)
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(palette.secondaryText)
+                }
                 Spacer()
                 if todo.deletedAt != nil {
                     Button("Restore", action: restore)
@@ -278,6 +291,15 @@ struct WaniTaskRow: View {
                     .padding(.vertical, 2)
                     .background(palette.hover, in: Capsule())
             }
+            if todo.deadline != nil {
+                Image(systemName: "flag")
+            }
+            if todo.reminderDate != nil {
+                Image(systemName: "bell")
+            }
+            if todo.repeatFrequency != .none {
+                Image(systemName: "repeat")
+            }
         }
         .font(.system(size: 11))
         .foregroundStyle(palette.tertiaryText)
@@ -301,6 +323,7 @@ struct WaniTaskRow: View {
     }
 
     private var scheduleSymbol: String {
-        todo.schedule == .date ? "calendar" : "tray"
+        if todo.isEvening { return "moon.fill" }
+        return todo.schedule == .date ? "calendar" : "tray"
     }
 }

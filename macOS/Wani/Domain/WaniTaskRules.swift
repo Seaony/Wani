@@ -146,6 +146,39 @@ enum WaniTaskRules {
         todo.updatedAt = date
     }
 
+    static func schedule(
+        _ todo: WaniTodo,
+        as schedule: WaniTaskSchedule,
+        startDate: Date? = nil,
+        isEvening: Bool = false,
+        at date: Date = Date()
+    ) {
+        todo.schedule = schedule
+        if schedule == .date {
+            todo.startDate = startDate ?? date
+            todo.isEvening = isEvening
+        } else {
+            todo.startDate = nil
+            todo.isEvening = false
+        }
+        todo.updatedAt = date
+    }
+
+    static func suggestedReminderDate(
+        for todo: WaniTodo,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Date {
+        let scheduledMorning = calendar.date(
+            bySettingHour: 9,
+            minute: 0,
+            second: 0,
+            of: todo.startDate ?? now
+        )!
+        let oneHourFromNow = calendar.date(byAdding: .hour, value: 1, to: now)!
+        return max(scheduledMorning, oneHourFromNow)
+    }
+
     static func tags(from input: String) -> [String] {
         var seen: Set<String> = []
         return input

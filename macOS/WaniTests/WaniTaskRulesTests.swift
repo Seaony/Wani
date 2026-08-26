@@ -170,6 +170,48 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Scheduling updates date and evening state consistently")
+    func scheduleTask() {
+        let now = date(2026, 8, 26, 12)
+        let tomorrow = date(2026, 8, 27, 9)
+        let todo = WaniTodo(title: "Schedule", schedule: .inbox)
+
+        WaniTaskRules.schedule(
+            todo,
+            as: .date,
+            startDate: tomorrow,
+            isEvening: true,
+            at: now
+        )
+        #expect(todo.schedule == .date)
+        #expect(todo.startDate == tomorrow)
+        #expect(todo.isEvening)
+        #expect(todo.updatedAt == now)
+
+        WaniTaskRules.schedule(todo, as: .someday, at: now)
+        #expect(todo.schedule == .someday)
+        #expect(todo.startDate == nil)
+        #expect(!todo.isEvening)
+    }
+
+    @Test("Suggested reminders never start in the past")
+    func suggestedReminder() {
+        let now = date(2026, 8, 26, 12)
+        let todo = WaniTodo(
+            title: "Reminder",
+            schedule: .date,
+            startDate: date(2026, 8, 26, 0)
+        )
+
+        #expect(
+            WaniTaskRules.suggestedReminderDate(
+                for: todo,
+                now: now,
+                calendar: calendar
+            ) == date(2026, 8, 26, 13)
+        )
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,
