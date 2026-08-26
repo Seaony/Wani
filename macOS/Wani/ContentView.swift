@@ -53,6 +53,7 @@ struct ContentView: View {
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
     @State private var emptyTrashConfirmationOpen = false
+    @State private var dateReference = Date.now
     @FocusState private var headerTitleFocused: Bool
     @FocusState private var headingTitleFocused: Bool
 
@@ -228,6 +229,7 @@ struct ContentView: View {
             quickEntryOpen = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            dateReference = .now
             generateDueRepeatingTodos()
         }
         .task {
@@ -1074,6 +1076,7 @@ struct ContentView: View {
             let listTodos = WaniTaskRules.tasks(
                 todos,
                 in: list,
+                now: dateReference,
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
             )
             let count = list == .logbook

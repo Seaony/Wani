@@ -1019,6 +1019,28 @@ struct WaniTaskRulesTests {
             deferCompletedUntilMidnight: true
         ))
 
+        let nextDay = date(2026, 8, 27, 12)
+        #expect(!WaniTaskRules.isAwaitingMidnightArchive(
+            today,
+            enabled: true,
+            now: nextDay,
+            calendar: calendar
+        ))
+        #expect(WaniTaskRules.contains(
+            today,
+            in: .logbook,
+            now: nextDay,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
+        ))
+        #expect(!WaniTaskRules.contains(
+            today,
+            in: .today,
+            now: nextDay,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
+        ))
+
         let loggedAt = date(2026, 8, 26, 13)
         #expect(WaniTaskRules.logNow(today, at: loggedAt))
         #expect(today.loggedAt == loggedAt)
