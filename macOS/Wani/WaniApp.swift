@@ -16,9 +16,10 @@ struct WaniApp: App {
 
     init() {
         do {
-            let isRunningTests = ProcessInfo.processInfo.environment[
-                "XCTestConfigurationFilePath"
-            ] != nil
+            let isRunningTests = WaniPersistence.usesEphemeralStore(
+                arguments: ProcessInfo.processInfo.arguments,
+                environment: ProcessInfo.processInfo.environment
+            )
             #if DEBUG
             let cloudSync = ProcessInfo.processInfo.arguments.contains("--cloud-sync")
                 && !isRunningTests

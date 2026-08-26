@@ -11,6 +11,14 @@ enum WaniPersistence {
         WaniChecklistItem.self,
     ])
 
+    static func usesEphemeralStore(
+        arguments: [String],
+        environment: [String: String]
+    ) -> Bool {
+        arguments.contains("--ui-testing")
+            || environment["XCTestConfigurationFilePath"] != nil
+    }
+
     static func makeContainer(
         inMemory: Bool = false,
         cloudSync: Bool = true

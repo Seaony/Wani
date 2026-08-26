@@ -10,6 +10,22 @@ struct WaniTaskRulesTests {
         return calendar
     }
 
+    @Test("UI and unit tests use an ephemeral store")
+    func ephemeralTestStoreSelection() {
+        #expect(WaniPersistence.usesEphemeralStore(
+            arguments: ["Wani", "--ui-testing"],
+            environment: [:]
+        ))
+        #expect(WaniPersistence.usesEphemeralStore(
+            arguments: ["Wani"],
+            environment: ["XCTestConfigurationFilePath": "/tmp/Wani.xctestconfiguration"]
+        ))
+        #expect(!WaniPersistence.usesEphemeralStore(
+            arguments: ["Wani"],
+            environment: [:]
+        ))
+    }
+
     @Test("Reordering moves an item to its drop target")
     func reorderedIDs() {
         let first = UUID()
