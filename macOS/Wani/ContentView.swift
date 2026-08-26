@@ -33,6 +33,7 @@ struct ContentView: View {
         WaniQuickEntryShortcut.controlSpace.rawValue
 
     @State private var selection: WaniNavigationTarget = .smart(.today)
+    @State private var sidebarVisible = true
     @State private var expandedTodoID: UUID?
     @State private var quickEntryOpen = false
     @State private var quickEntryTitle = ""
@@ -92,23 +93,25 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             HStack(spacing: 0) {
-                WaniSidebar(
-                    palette: palette,
-                    areas: areas,
-                    projects: activeProjects,
-                    todos: todos,
-                    counts: smartListCounts,
-                    showCounts: showSidebarCounts,
-                    showAreaLines: showAreaLines,
-                    selection: $selection,
-                    openSearch: { searchOpen = true },
-                    createArea: createArea,
-                    createProject: createProject,
-                    reorderArea: reorderArea,
-                    reorderProject: reorderProject,
-                    openSettings: { settingsOpen = true }
-                )
-                .frame(width: 258)
+                if sidebarVisible {
+                    WaniSidebar(
+                        palette: palette,
+                        areas: areas,
+                        projects: activeProjects,
+                        todos: todos,
+                        counts: smartListCounts,
+                        showCounts: showSidebarCounts,
+                        showAreaLines: showAreaLines,
+                        selection: $selection,
+                        openSearch: { searchOpen = true },
+                        createArea: createArea,
+                        createProject: createProject,
+                        reorderArea: reorderArea,
+                        reorderProject: reorderProject,
+                        openSettings: { settingsOpen = true }
+                    )
+                    .frame(width: 258)
+                }
 
                 mainContent
             }
@@ -228,9 +231,13 @@ struct ContentView: View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 Spacer()
-                Button { } label: {
+                Button {
+                    sidebarVisible.toggle()
+                } label: {
                     Image(systemName: "sidebar.left")
                 }
+                .keyboardShortcut("/", modifiers: .command)
+                .accessibilityLabel(sidebarVisible ? "Hide Sidebar" : "Show Sidebar")
             }
             .buttonStyle(.plain)
             .foregroundStyle(palette.tertiaryText)
