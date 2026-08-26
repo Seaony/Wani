@@ -18,3 +18,5 @@
 - 离线修改后恢复联网的自动合并与同步
 
 继续验收需要先在 Xcode 中选择支持 iCloud capability 的开发团队，并确保该团队能够为上述 Bundle ID 和 CloudKit 容器签发 provisioning profile。完成后重新执行签名 Release 构建，再进行双实例实测。
+
+同日再次使用 `-allowProvisioningUpdates` 执行签名 Release 构建，Xcode 还报告无法登录当前 Apple 账户 `seaony@outlook.com`（底层错误 `-1200`），并继续报告缺少 `com.seaony.wani.Wani` 的 Mac App Development provisioning profile。继续验收前还需要先在 Xcode 的 Accounts 设置中恢复该账户的有效登录状态。

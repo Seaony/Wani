@@ -113,6 +113,7 @@ struct WaniSidebar: View {
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(list.symbolColor)
                     .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
                 Text(list.title)
                     .font(.system(size: 13.5, weight: .medium))
                 Spacer()
@@ -132,6 +133,7 @@ struct WaniSidebar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(list.title)
+        .accessibilityValue(selection == .smart(list) ? "Selected" : "")
     }
 
     private func areaSection(_ area: WaniArea) -> some View {
@@ -159,6 +161,8 @@ struct WaniSidebar: View {
                         .tracking(1.2)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel(area.title)
+                .accessibilityValue(selection == .area(area.id) ? "Selected" : "")
 
                 if showAreaLines {
                     Rectangle()
@@ -254,6 +258,7 @@ struct WaniSidebar: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(project.title)
+        .accessibilityValue(selection == .project(project.id) ? "Selected" : "")
     }
 
     private func progressRing(for project: WaniProject) -> some View {
