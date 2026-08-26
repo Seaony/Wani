@@ -219,7 +219,14 @@ struct WaniTaskDateEditor: View {
     private var repeatAfterCompletionBinding: Binding<Bool> {
         Binding(
             get: { todo.repeatsAfterCompletion },
-            set: { todo.repeatsAfterCompletion = $0; touchAndSave() }
+            set: {
+                todo.repeatsAfterCompletion = $0
+                if $0 {
+                    todo.repeatWeekdays = []
+                    todo.repeatEndDate = nil
+                }
+                touchAndSave()
+            }
         )
     }
 

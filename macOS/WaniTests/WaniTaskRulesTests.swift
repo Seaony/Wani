@@ -75,7 +75,8 @@ struct WaniTaskRulesTests {
             todo.reminderDate = date(2026, 8, 28, 15, 30)
             todo.repeatFrequency = .weekly
             todo.repeatInterval = 2
-            todo.repeatsAfterCompletion = true
+            todo.repeatWeekdays = [2, 4]
+            todo.repeatEndDate = date(2026, 12, 31, 0)
             todo.tagNames = ["Work", "Review"]
             let checklistItem = WaniChecklistItem(
                 title: "Verify persistence",
@@ -115,7 +116,8 @@ struct WaniTaskRulesTests {
         #expect(todo.reminderDate == date(2026, 8, 28, 15, 30))
         #expect(todo.repeatFrequency == .weekly)
         #expect(todo.repeatInterval == 2)
-        #expect(todo.repeatsAfterCompletion)
+        #expect(todo.repeatWeekdays == [2, 4])
+        #expect(todo.repeatEndDate == date(2026, 12, 31, 0))
         #expect(todo.tagNames == ["Work", "Review"])
         #expect(todo.sortOrder == 4)
         #expect(todo.project?.title == "Launch")
@@ -473,6 +475,54 @@ struct WaniTaskRulesTests {
             calendar: calendar
         )
         #expect(nextDay.map(\.startDate) == [date(2026, 8, 27, 9)])
+    }
+
+    @Test("Weekly repeats support multiple weekdays and week intervals")
+    func weeklyRepeatWeekdays() {
+        let todo = WaniTodo(
+            title: "Monday and Wednesday",
+            schedule: .date,
+            startDate: date(2026, 8, 24, 9)
+        )
+        todo.repeatFrequency = .weekly
+        todo.repeatInterval = 2
+        todo.repeatWeekdays = [2, 4]
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: date(2026, 9, 9, 12),
+            calendar: calendar
+        )
+
+        #expect(generated.map(\.startDate) == [
+            date(2026, 8, 26, 9),
+            date(2026, 9, 7, 9),
+            date(2026, 9, 9, 9),
+        ])
+        #expect(generated.allSatisfy { $0.repeatWeekdays == [2, 4] })
+    }
+
+    @Test("Regular repeats stop after their end date")
+    func regularRepeatEndDate() {
+        let todo = WaniTodo(
+            title: "Short daily repeat",
+            schedule: .date,
+            startDate: date(2026, 8, 24, 9)
+        )
+        todo.repeatFrequency = .daily
+        todo.repeatEndDate = date(2026, 8, 26, 0)
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: date(2026, 8, 30, 12),
+            calendar: calendar
+        )
+
+        #expect(generated.map(\.startDate) == [
+            date(2026, 8, 25, 9),
+            date(2026, 8, 26, 9),
+        ])
+        #expect(generated.last?.repeatGeneratedNextStartDate == nil)
     }
 
     @Test("Trash restore and cancellation preserve state transitions")

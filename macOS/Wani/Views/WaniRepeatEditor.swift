@@ -1,13 +1,26 @@
 import SwiftUI
 
+struct WaniRepeatConfiguration {
+    let frequency: WaniRepeatFrequency
+    let interval: Int
+    let afterCompletion: Bool
+    let weekdays: [Int]
+    let endDate: Date?
+    let reminderTime: Date?
+    let deadline: Date?
+}
+
 struct WaniRepeatEditor: View {
     let palette: WaniPalette
-    let apply: (WaniRepeatFrequency, Int, Bool, Date?, Date?) -> Void
+    let apply: (WaniRepeatConfiguration) -> Void
     let dismiss: () -> Void
 
     @State private var frequency: WaniRepeatFrequency
     @State private var interval: Int
     @State private var afterCompletion: Bool
+    @State private var weekdays: Set<Int>
+    @State private var endDateEnabled: Bool
+    @State private var endDate: Date
     @State private var reminderEnabled: Bool
     @State private var reminderTime: Date
     @State private var deadlineEnabled: Bool
@@ -16,7 +29,7 @@ struct WaniRepeatEditor: View {
     init(
         todo: WaniTodo,
         palette: WaniPalette,
-        apply: @escaping (WaniRepeatFrequency, Int, Bool, Date?, Date?) -> Void,
+        apply: @escaping (WaniRepeatConfiguration) -> Void,
         dismiss: @escaping () -> Void
     ) {
         self.palette = palette
@@ -25,6 +38,15 @@ struct WaniRepeatEditor: View {
         _frequency = State(initialValue: todo.repeatFrequency == .none ? .weekly : todo.repeatFrequency)
         _interval = State(initialValue: max(todo.repeatInterval, 1))
         _afterCompletion = State(initialValue: todo.repeatFrequency == .none || todo.repeatsAfterCompletion)
+        let initialWeekdays = todo.repeatWeekdays.isEmpty
+            ? [Calendar.current.component(.weekday, from: todo.startDate ?? .now)]
+            : todo.repeatWeekdays
+        _weekdays = State(initialValue: Set(initialWeekdays))
+        _endDateEnabled = State(initialValue: todo.repeatEndDate != nil)
+        _endDate = State(
+            initialValue: todo.repeatEndDate
+                ?? Calendar.current.date(byAdding: .month, value: 3, to: todo.startDate ?? .now)!
+        )
         _reminderEnabled = State(initialValue: todo.reminderDate != nil)
         _reminderTime = State(
             initialValue: todo.reminderDate ?? WaniTaskRules.suggestedReminderDate(for: todo)
@@ -87,6 +109,26 @@ struct WaniRepeatEditor: View {
                     .padding(12)
                     .background(palette.hover, in: RoundedRectangle(cornerRadius: 8))
 
+                    if !afterCompletion && frequency == .weekly {
+                        weekdaySelector
+                    }
+
+                    if !afterCompletion {
+                        optionRow(
+                            title: "End Date",
+                            symbol: "calendar.badge.clock",
+                            enabled: $endDateEnabled
+                        ) {
+                            DatePicker(
+                                "Repeat End Date",
+                                selection: $endDate,
+                                displayedComponents: .date
+                            )
+                            .labelsHidden()
+                            .datePickerStyle(.field)
+                        }
+                    }
+
                     optionRow(
                         title: "Add Reminder",
                         symbol: "bell",
@@ -125,13 +167,17 @@ struct WaniRepeatEditor: View {
                         .buttonStyle(.plain)
                         .foregroundStyle(palette.secondaryText)
                     Button("Save") {
-                        apply(
-                            frequency,
-                            interval,
-                            afterCompletion,
-                            reminderEnabled ? reminderTime : nil,
-                            deadlineEnabled ? deadline : nil
-                        )
+                        apply(WaniRepeatConfiguration(
+                            frequency: frequency,
+                            interval: interval,
+                            afterCompletion: afterCompletion,
+                            weekdays: !afterCompletion && frequency == .weekly
+                                ? Array(weekdays)
+                                : [],
+                            endDate: !afterCompletion && endDateEnabled ? endDate : nil,
+                            reminderTime: reminderEnabled ? reminderTime : nil,
+                            deadline: deadlineEnabled ? deadline : nil
+                        ))
                     }
                     .buttonStyle(.borderedProminent)
                     .accessibilityLabel("Save Repeat")
@@ -150,6 +196,42 @@ struct WaniRepeatEditor: View {
 
     private var repeatFrequencies: [WaniRepeatFrequency] {
         WaniRepeatFrequency.allCases.filter { $0 != .none }
+    }
+
+    private var weekdaySelector: some View {
+        HStack(spacing: 7) {
+            Text("On")
+                .font(.system(size: 12.5))
+                .foregroundStyle(palette.secondaryText)
+            ForEach(orderedWeekdays, id: \.self) { weekday in
+                let selected = weekdays.contains(weekday)
+                Button {
+                    if selected && weekdays.count == 1 { return }
+                    if selected {
+                        weekdays.remove(weekday)
+                    } else {
+                        weekdays.insert(weekday)
+                    }
+                } label: {
+                    Text(Calendar.current.veryShortWeekdaySymbols[weekday - 1])
+                        .font(.system(size: 11.5, weight: .semibold))
+                        .foregroundStyle(selected ? Color.white : palette.secondaryText)
+                        .frame(width: 28, height: 26)
+                        .background(
+                            selected ? palette.accent : palette.hover,
+                            in: RoundedRectangle(cornerRadius: 6)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Repeat on \(Calendar.current.weekdaySymbols[weekday - 1])")
+            }
+            Spacer()
+        }
+    }
+
+    private var orderedWeekdays: [Int] {
+        let first = Calendar.current.firstWeekday
+        return (0..<7).map { (first - 1 + $0) % 7 + 1 }
     }
 
     private func optionRow<Content: View>(

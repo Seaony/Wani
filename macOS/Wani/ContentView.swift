@@ -1807,19 +1807,17 @@ struct ContentView: View {
     }
 
     private func applyRepeatConfiguration(
-        _ frequency: WaniRepeatFrequency,
-        interval: Int,
-        afterCompletion: Bool,
-        reminderTime: Date?,
-        deadline: Date?
+        _ configuration: WaniRepeatConfiguration
     ) {
         guard let todo = repeatEditorTodo else { return }
         let updatedAt = Date.now
-        WaniTaskRules.setRepeatFrequency(frequency, for: todo, at: updatedAt)
-        todo.repeatInterval = max(interval, 1)
-        todo.repeatsAfterCompletion = afterCompletion
-        WaniTaskRules.setReminder(todo, to: reminderTime, at: updatedAt)
-        WaniTaskRules.setDeadline(todo, to: deadline, at: updatedAt)
+        WaniTaskRules.setRepeatFrequency(configuration.frequency, for: todo, at: updatedAt)
+        todo.repeatInterval = max(configuration.interval, 1)
+        todo.repeatsAfterCompletion = configuration.afterCompletion
+        todo.repeatWeekdays = configuration.afterCompletion ? [] : configuration.weekdays
+        todo.repeatEndDate = configuration.afterCompletion ? nil : configuration.endDate
+        WaniTaskRules.setReminder(todo, to: configuration.reminderTime, at: updatedAt)
+        WaniTaskRules.setDeadline(todo, to: configuration.deadline, at: updatedAt)
         syncReminder(for: todo, requestAuthorization: false)
         saveChanges()
         closeRepeatEditor()

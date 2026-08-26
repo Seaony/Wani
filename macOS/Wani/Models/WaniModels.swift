@@ -104,6 +104,8 @@ final class WaniTodo {
     var repeatInterval: Int = 1
     var repeatsAfterCompletion: Bool = false
     var repeatGeneratedNextStartDate: Date?
+    var repeatWeekdaysData: Data?
+    var repeatEndDate: Date?
     var tagNamesData: Data?
     var sortOrder: Double = 0
     var createdAt: Date = Date()
@@ -141,6 +143,17 @@ final class WaniTodo {
         }
         set {
             tagNamesData = try? JSONEncoder().encode(newValue)
+        }
+    }
+
+    var repeatWeekdays: [Int] {
+        get {
+            guard let repeatWeekdaysData else { return [] }
+            return (try? JSONDecoder().decode([Int].self, from: repeatWeekdaysData)) ?? []
+        }
+        set {
+            let weekdays = Array(Set(newValue.filter { (1...7).contains($0) })).sorted()
+            repeatWeekdaysData = try? JSONEncoder().encode(weekdays)
         }
     }
 

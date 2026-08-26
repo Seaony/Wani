@@ -586,6 +586,12 @@ enum WaniTaskRules {
             )
         }
         todo.repeatFrequency = frequency
+        if frequency != .weekly {
+            todo.repeatWeekdays = []
+        }
+        if frequency == .none {
+            todo.repeatEndDate = nil
+        }
         todo.updatedAt = date
     }
 
@@ -910,8 +916,14 @@ enum WaniTaskRules {
             after: baseDate,
             frequency: todo.repeatFrequency,
             interval: todo.repeatInterval,
+            weekdays: todo.repeatsAfterCompletion ? [] : todo.repeatWeekdays,
             calendar: calendar
         ) else {
+            return nil
+        }
+        if !todo.repeatsAfterCompletion,
+           let repeatEndDate = todo.repeatEndDate,
+           calendar.startOfDay(for: nextDate) > calendar.startOfDay(for: repeatEndDate) {
             return nil
         }
 
@@ -929,6 +941,8 @@ enum WaniTaskRules {
         next.repeatFrequency = todo.repeatFrequency
         next.repeatInterval = max(todo.repeatInterval, 1)
         next.repeatsAfterCompletion = todo.repeatsAfterCompletion
+        next.repeatWeekdays = todo.repeatWeekdays
+        next.repeatEndDate = todo.repeatEndDate
         next.tagNames = todo.tagNames
 
         if let originalStartDate = todo.startDate {
@@ -974,6 +988,7 @@ enum WaniTaskRules {
         after date: Date,
         frequency: WaniRepeatFrequency,
         interval: Int,
+        weekdays: [Int],
         calendar: Calendar
     ) -> Date? {
         let interval = max(interval, 1)
@@ -985,6 +1000,14 @@ enum WaniTaskRules {
         case .daily:
             component = .day
         case .weekly:
+            if !weekdays.isEmpty {
+                return nextWeeklyDate(
+                    after: date,
+                    interval: interval,
+                    weekdays: weekdays,
+                    calendar: calendar
+                )
+            }
             component = .weekOfYear
         case .monthly:
             component = .month
@@ -993,5 +1016,69 @@ enum WaniTaskRules {
         }
 
         return calendar.date(byAdding: component, value: interval, to: date)
+    }
+
+    private static func nextWeeklyDate(
+        after date: Date,
+        interval: Int,
+        weekdays: [Int],
+        calendar: Calendar
+    ) -> Date? {
+        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: date)?.start else {
+            return nil
+        }
+        let time = calendar.dateComponents([.hour, .minute, .second], from: date)
+        let orderedWeekdays = weekdays.sorted {
+            weekdayOffset($0, calendar: calendar) < weekdayOffset($1, calendar: calendar)
+        }
+
+        for weekday in orderedWeekdays {
+            guard let occurrence = weeklyOccurrence(
+                in: weekStart,
+                weekday: weekday,
+                time: time,
+                calendar: calendar
+            ) else { continue }
+            if occurrence > date {
+                return occurrence
+            }
+        }
+
+        guard let nextWeek = calendar.date(
+            byAdding: .weekOfYear,
+            value: interval,
+            to: weekStart
+        ), let firstWeekday = orderedWeekdays.first else {
+            return nil
+        }
+        return weeklyOccurrence(
+            in: nextWeek,
+            weekday: firstWeekday,
+            time: time,
+            calendar: calendar
+        )
+    }
+
+    private static func weeklyOccurrence(
+        in weekStart: Date,
+        weekday: Int,
+        time: DateComponents,
+        calendar: Calendar
+    ) -> Date? {
+        guard let day = calendar.date(
+            byAdding: .day,
+            value: weekdayOffset(weekday, calendar: calendar),
+            to: weekStart
+        ) else { return nil }
+        return calendar.date(
+            bySettingHour: time.hour ?? 0,
+            minute: time.minute ?? 0,
+            second: time.second ?? 0,
+            of: day
+        )
+    }
+
+    private static func weekdayOffset(_ weekday: Int, calendar: Calendar) -> Int {
+        (weekday - calendar.firstWeekday + 7) % 7
     }
 }
