@@ -729,6 +729,26 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Reminder time stays attached to the scheduled day")
+    func reminderTime() {
+        let now = date(2026, 8, 26, 12)
+        let todo = WaniTodo(
+            title: "Reminder",
+            schedule: .date,
+            startDate: date(2026, 8, 28, 0)
+        )
+
+        WaniTaskRules.setReminderTime(
+            todo,
+            to: date(2026, 9, 5, 15, 30),
+            at: now,
+            calendar: calendar
+        )
+
+        #expect(todo.reminderDate == date(2026, 8, 28, 15, 30))
+        #expect(todo.updatedAt == now)
+    }
+
     @Test("Reminder requests include stable identity and future date")
     func reminderRequest() {
         let now = date(2026, 8, 26, 12)
@@ -928,13 +948,20 @@ struct WaniTaskRulesTests {
         ) == Set([ids[2]]))
     }
 
-    private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
+    private func date(
+        _ year: Int,
+        _ month: Int,
+        _ day: Int,
+        _ hour: Int,
+        _ minute: Int = 0
+    ) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,
             year: year,
             month: month,
             day: day,
-            hour: hour
+            hour: hour,
+            minute: minute
         ))!
     }
 }

@@ -4,7 +4,7 @@
 
 本轮仅执行后台构建、静态分析和单元测试，没有运行 UI 自动化或启动 Wani 前台窗口。
 
-- `WaniTests` 的 31 项单元测试全部通过。
+- `WaniTests` 的 32 项单元测试全部通过。
 - `build-for-testing` 成功，Wani、WaniTests 和 WaniUITests 均编译通过；UI 测试没有执行，不能视为运行通过。
 - 无签名静态分析成功，没有产生诊断。
 - 无签名 Release 构建成功。

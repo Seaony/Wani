@@ -583,6 +583,23 @@ enum WaniTaskRules {
         return max(scheduledMorning, oneHourFromNow)
     }
 
+    static func setReminderTime(
+        _ todo: WaniTodo,
+        to time: Date,
+        at date: Date = Date(),
+        calendar: Calendar = .current
+    ) {
+        guard let startDate = todo.startDate else { return }
+        let reminderTime = calendar.dateComponents([.hour, .minute], from: time)
+        todo.reminderDate = calendar.date(
+            bySettingHour: reminderTime.hour ?? 0,
+            minute: reminderTime.minute ?? 0,
+            second: 0,
+            of: startDate
+        )
+        todo.updatedAt = date
+    }
+
     static func tags(from input: String) -> [String] {
         var seen: Set<String> = []
         return input

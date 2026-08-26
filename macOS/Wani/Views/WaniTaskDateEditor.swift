@@ -59,7 +59,7 @@ struct WaniTaskDateEditor: View {
                 DatePicker(
                     "",
                     selection: reminderBinding,
-                    displayedComponents: [.date, .hourAndMinute]
+                    displayedComponents: .hourAndMinute
                 )
                 .labelsHidden()
                 .datePickerStyle(.field)
@@ -198,8 +198,8 @@ struct WaniTaskDateEditor: View {
         Binding(
             get: { todo.reminderDate ?? .now },
             set: {
-                todo.reminderDate = $0
-                touchAndSave()
+                WaniTaskRules.setReminderTime(todo, to: $0)
+                save()
                 reminderChanged()
             }
         )
