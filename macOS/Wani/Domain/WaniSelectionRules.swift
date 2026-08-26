@@ -1,6 +1,10 @@
 import Foundation
 
 enum WaniSelectionRules {
+    static func orderedIDs(in sections: [[UUID]]) -> [UUID] {
+        sections.flatMap { $0 }
+    }
+
     static func range(
         from anchorID: UUID?,
         through targetID: UUID,

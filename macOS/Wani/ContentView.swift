@@ -1108,27 +1108,63 @@ struct ContentView: View {
     }
 
     private var displayedTodoIDs: [UUID] {
-        if selection == .smart(.logbook) {
-            return logbookMonths.flatMap { $0.todos.map(\.id) }
-        }
-
-        if selection == .smart(.anytime) || selection == .smart(.someday) {
-            var ids = visibleTodos.filter { $0.project == nil }.map(\.id)
-            for project in activeProjects {
-                ids.append(contentsOf: visibleTodos.filter { $0.project?.id == project.id }.map(\.id))
+        let sections: [[WaniTodo]]
+        switch selection {
+        case .smart(.today):
+            sections = [
+                WaniTaskRules.todayTasks(
+                    todos,
+                    evening: false,
+                    deferCompletedUntilMidnight: moveToLogbookAtMidnight
+                ),
+                WaniTaskRules.todayTasks(
+                    todos,
+                    evening: true,
+                    deferCompletedUntilMidnight: moveToLogbookAtMidnight
+                ),
+            ]
+        case .smart(.upcoming):
+            sections = WaniTaskRules.upcomingDays(
+                todos,
+                deferCompletedUntilMidnight: moveToLogbookAtMidnight
+            ).map(\.todos)
+        case .smart(.anytime), .smart(.someday):
+            let ungrouped = visibleTodos.filter { $0.project == nil && $0.area == nil }
+            let areaSections = areas.map { area in
+                visibleTodos.filter { $0.project == nil && $0.area?.id == area.id }
             }
-            return ids
+            let projectSections = activeProjects.map { project in
+                visibleTodos.filter { $0.project?.id == project.id }
+            }
+            sections = [ungrouped] + areaSections + projectSections
+        case .smart(.logbook):
+            sections = logbookMonths.map(\.todos)
+        case .smart(.trash):
+            sections = [standaloneTrashedTodos]
+        case .smart(.inbox):
+            sections = [visibleTodos]
+        case .area(let areaID):
+            let areaTodos = visibleTodos.filter { $0.area?.id == areaID }
+            let areaProjects = activeProjects.filter { $0.area?.id == areaID }
+            let projectSections = areaProjects.map { project in
+                visibleTodos.filter { $0.project?.id == project.id }
+            }
+            sections = [areaTodos] + projectSections
+        case .project:
+            let ungrouped = filteredProjectTodos.filter { $0.heading == nil }
+            let headingSections = projectHeadings.map { heading in
+                filteredProjectTodos.filter { $0.heading?.id == heading.id }
+            }
+            var projectSections = [ungrouped] + headingSections
+            if projectLogbookExpanded {
+                projectSections.append(projectLoggedTodos.filter { $0.heading == nil })
+                projectSections.append(contentsOf: projectLoggedHeadings.map { heading in
+                    projectLoggedTodos.filter { $0.heading?.id == heading.id }
+                })
+            }
+            sections = projectSections
         }
-
-        guard case .project = selection else {
-            return visibleTodos.map(\.id)
-        }
-
-        var ids = filteredProjectTodos.filter { $0.heading == nil }.map(\.id)
-        for heading in projectHeadings {
-            ids.append(contentsOf: filteredProjectTodos.filter { $0.heading?.id == heading.id }.map(\.id))
-        }
-        return ids
+        return WaniSelectionRules.orderedIDs(in: sections.map { $0.map(\.id) })
     }
 
     private var pageTitle: String {

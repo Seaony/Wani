@@ -66,6 +66,26 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Section ordering keeps range selection aligned with the screen")
+    func sectionSelectionOrder() {
+        let ungrouped = UUID()
+        let firstArea = UUID()
+        let secondArea = UUID()
+        let project = UUID()
+        let ordered = WaniSelectionRules.orderedIDs(in: [
+            [ungrouped],
+            [firstArea, secondArea],
+            [project],
+        ])
+
+        #expect(ordered == [ungrouped, firstArea, secondArea, project])
+        #expect(WaniSelectionRules.range(
+            from: firstArea,
+            through: project,
+            in: ordered
+        ) == [firstArea, secondArea, project])
+    }
+
     @Test("Reordering to-dos preserves the group's sort slots")
     func reorderTodos() {
         let first = WaniTodo(title: "First", sortOrder: 4)
