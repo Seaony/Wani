@@ -252,6 +252,8 @@ struct ContentView: View {
                         todayTaskContent
                     } else if selection == .smart(.upcoming) {
                         upcomingTaskContent
+                    } else if selection == .smart(.anytime) || selection == .smart(.someday) {
+                        smartProjectTaskContent
                     } else if visibleTodos.isEmpty {
                         emptyState
                     } else {
@@ -420,6 +422,44 @@ struct ContentView: View {
     }
 
     @ViewBuilder
+    private var smartProjectTaskContent: some View {
+        if visibleTodos.isEmpty {
+            emptyState
+        } else {
+            let ungrouped = visibleTodos.filter { $0.project == nil }
+            taskRows(ungrouped)
+
+            ForEach(projects) { project in
+                let projectTodos = visibleTodos.filter { $0.project?.id == project.id }
+                if !projectTodos.isEmpty {
+                    smartProjectHeader(project)
+                    taskRows(projectTodos)
+                }
+            }
+        }
+    }
+
+    private func smartProjectHeader(_ project: WaniProject) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Text(project.title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .tracking(-0.1)
+            if let areaTitle = project.area?.title {
+                Text(areaTitle)
+                    .font(.system(size: 12))
+                    .foregroundStyle(palette.tertiaryText)
+            }
+            Rectangle()
+                .fill(palette.line)
+                .frame(height: 1)
+        }
+        .foregroundStyle(palette.text)
+        .padding(.horizontal, 11)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
     private var projectTaskContent: some View {
         if visibleTodos.isEmpty && projectHeadings.isEmpty {
             emptyState
@@ -517,6 +557,14 @@ struct ContentView: View {
     }
 
     private var displayedTodoIDs: [UUID] {
+        if selection == .smart(.anytime) || selection == .smart(.someday) {
+            var ids = visibleTodos.filter { $0.project == nil }.map(\.id)
+            for project in projects {
+                ids.append(contentsOf: visibleTodos.filter { $0.project?.id == project.id }.map(\.id))
+            }
+            return ids
+        }
+
         guard case .project = selection else {
             return visibleTodos.map(\.id)
         }
