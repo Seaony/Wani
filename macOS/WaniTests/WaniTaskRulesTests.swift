@@ -260,14 +260,39 @@ struct WaniTaskRulesTests {
             at: date(2026, 8, 26, 12)
         ))
         #expect(project.completedAt == date(2026, 8, 26, 12))
+        #expect(project.canceledAt == nil)
         #expect(
-            WaniTaskRules.completedProjectMonths([project], calendar: calendar)
+            WaniTaskRules.archivedProjectMonths([project], calendar: calendar)
                 .first?.projects.map(\.title) == ["Launch"]
         )
 
         WaniTaskRules.reopenProject(project, at: date(2026, 8, 26, 13))
         #expect(project.completedAt == nil)
+        #expect(project.canceledAt == nil)
         #expect(project.updatedAt == date(2026, 8, 26, 13))
+    }
+
+    @Test("Projects cancel only after child tasks close and can reopen")
+    func projectCancellation() {
+        let canceledAt = date(2026, 8, 26, 12)
+        let project = WaniProject(title: "Stopped launch")
+        let open = WaniTodo(title: "Open", project: project)
+
+        #expect(!WaniTaskRules.cancelProject(project, todos: [open], at: canceledAt))
+        #expect(project.canceledAt == nil)
+
+        WaniTaskRules.cancel(open, at: canceledAt)
+        #expect(WaniTaskRules.cancelProject(project, todos: [open], at: canceledAt))
+        #expect(project.completedAt == nil)
+        #expect(project.canceledAt == canceledAt)
+        #expect(
+            WaniTaskRules.archivedProjectMonths([project], calendar: calendar)
+                .first?.projects.map(\.title) == ["Stopped launch"]
+        )
+
+        WaniTaskRules.reopenProject(project, at: canceledAt.addingTimeInterval(60))
+        #expect(project.completedAt == nil)
+        #expect(project.canceledAt == nil)
     }
 
     @Test("Project trash and restore preserve separately deleted tasks")
@@ -304,7 +329,7 @@ struct WaniTaskRulesTests {
 
         project.completedAt = restoredAt
         project.deletedAt = projectDeletedAt
-        #expect(WaniTaskRules.completedProjectMonths([project], calendar: calendar).isEmpty)
+        #expect(WaniTaskRules.archivedProjectMonths([project], calendar: calendar).isEmpty)
     }
 
     @Test("Deleting an area trashes its active projects and detaches every child project")

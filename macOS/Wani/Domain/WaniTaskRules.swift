@@ -22,7 +22,7 @@ struct WaniLogbookMonth {
     let todos: [WaniTodo]
 }
 
-struct WaniCompletedProjectMonth {
+struct WaniArchivedProjectMonth {
     let month: Date
     let projects: [WaniProject]
 }
@@ -295,33 +295,52 @@ enum WaniTaskRules {
     ) -> Bool {
         guard canCompleteProject(project, todos: todos) else { return false }
         project.completedAt = date
+        project.canceledAt = nil
+        project.updatedAt = date
+        return true
+    }
+
+    @discardableResult
+    static func cancelProject(
+        _ project: WaniProject,
+        todos: [WaniTodo],
+        at date: Date = Date()
+    ) -> Bool {
+        guard canCompleteProject(project, todos: todos) else { return false }
+        project.completedAt = nil
+        project.canceledAt = date
         project.updatedAt = date
         return true
     }
 
     static func reopenProject(_ project: WaniProject, at date: Date = Date()) {
         project.completedAt = nil
+        project.canceledAt = nil
         project.updatedAt = date
     }
 
-    static func completedProjectMonths(
+    static func archivedProjectMonths(
         _ projects: [WaniProject],
         calendar: Calendar = .current
-    ) -> [WaniCompletedProjectMonth] {
-        let completedProjects = projects.filter {
-            $0.completedAt != nil && $0.deletedAt == nil
+    ) -> [WaniArchivedProjectMonth] {
+        let archivedProjects = projects.filter {
+            ($0.completedAt != nil || $0.canceledAt != nil) && $0.deletedAt == nil
         }
-        let grouped = Dictionary(grouping: completedProjects) { project in
+        let grouped = Dictionary(grouping: archivedProjects) { project in
             calendar.date(
-                from: calendar.dateComponents([.year, .month], from: project.completedAt!)
+                from: calendar.dateComponents(
+                    [.year, .month],
+                    from: project.completedAt ?? project.canceledAt ?? project.updatedAt
+                )
             )!
         }
 
         return grouped.keys.sorted(by: >).map { month in
-            WaniCompletedProjectMonth(
+            WaniArchivedProjectMonth(
                 month: month,
                 projects: grouped[month, default: []].sorted {
-                    ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast)
+                    ($0.completedAt ?? $0.canceledAt ?? .distantPast)
+                        > ($1.completedAt ?? $1.canceledAt ?? .distantPast)
                 }
             )
         }

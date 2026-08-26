@@ -348,18 +348,31 @@ struct ContentView: View {
     private var pageActions: some View {
         if let project = selectedProject {
             Menu {
-                Button("Complete Project", systemImage: "checkmark.circle") {
-                    completeSelectedProject()
-                }
-                .disabled(!WaniTaskRules.canCompleteProject(project, todos: todos))
-
-                Menu("Move to Area", systemImage: "folder") {
-                    Button("No Area") {
-                        moveSelectedProject(to: nil)
+                if project.completedAt != nil || project.canceledAt != nil {
+                    Button("Reopen Project", systemImage: "arrow.uturn.backward.circle") {
+                        reopen(project)
                     }
-                    ForEach(areas) { area in
-                        Button(area.title) {
-                            moveSelectedProject(to: area)
+                } else {
+                    Button("Complete Project", systemImage: "checkmark.circle") {
+                        completeSelectedProject()
+                    }
+                    .keyboardShortcut("k", modifiers: .command)
+                    .disabled(!WaniTaskRules.canCompleteProject(project, todos: todos))
+
+                    Button("Cancel Project", systemImage: "xmark.circle") {
+                        cancelSelectedProject()
+                    }
+                    .keyboardShortcut("k", modifiers: [.command, .option])
+                    .disabled(!WaniTaskRules.canCompleteProject(project, todos: todos))
+
+                    Menu("Move to Area", systemImage: "folder") {
+                        Button("No Area") {
+                            moveSelectedProject(to: nil)
+                        }
+                        ForEach(areas) { area in
+                            Button(area.title) {
+                                moveSelectedProject(to: area)
+                            }
                         }
                     }
                 }
@@ -658,7 +671,7 @@ struct ContentView: View {
 
     @ViewBuilder
     private var logbookTaskContent: some View {
-        if visibleTodos.isEmpty && completedProjects.isEmpty {
+        if visibleTodos.isEmpty && archivedProjects.isEmpty {
             emptyState
         } else {
             ForEach(logbookMonthDates, id: \.self) { month in
@@ -674,7 +687,7 @@ struct ContentView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 8)
                 ForEach(
-                    completedProjectMonths.first { $0.month == month }?.projects ?? []
+                    archivedProjectMonths.first { $0.month == month }?.projects ?? []
                 ) { project in
                     loggedProjectRow(project)
                 }
@@ -692,12 +705,16 @@ struct ContentView: View {
         )
     }
 
-    private var completedProjects: [WaniProject] {
-        projects.filter { $0.completedAt != nil && $0.deletedAt == nil }
+    private var archivedProjects: [WaniProject] {
+        projects.filter {
+            ($0.completedAt != nil || $0.canceledAt != nil) && $0.deletedAt == nil
+        }
     }
 
     private var activeProjects: [WaniProject] {
-        projects.filter { $0.completedAt == nil && $0.deletedAt == nil }
+        projects.filter {
+            $0.completedAt == nil && $0.canceledAt == nil && $0.deletedAt == nil
+        }
     }
 
     private var activeHeadings: [WaniHeading] {
@@ -708,12 +725,12 @@ struct ContentView: View {
         }
     }
 
-    private var completedProjectMonths: [WaniCompletedProjectMonth] {
-        WaniTaskRules.completedProjectMonths(projects)
+    private var archivedProjectMonths: [WaniArchivedProjectMonth] {
+        WaniTaskRules.archivedProjectMonths(projects)
     }
 
     private var logbookMonthDates: [Date] {
-        Set(logbookMonths.map(\.month) + completedProjectMonths.map(\.month)).sorted(by: >)
+        Set(logbookMonths.map(\.month) + archivedProjectMonths.map(\.month)).sorted(by: >)
     }
 
     private var trashedProjects: [WaniProject] {
@@ -736,7 +753,9 @@ struct ContentView: View {
             Button {
                 reopen(project)
             } label: {
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: project.canceledAt == nil
+                    ? "checkmark.circle.fill"
+                    : "xmark.circle.fill")
                     .font(.system(size: 17))
                     .foregroundStyle(palette.accent)
             }
@@ -747,8 +766,8 @@ struct ContentView: View {
                 .font(.system(size: 13.5))
                 .foregroundStyle(palette.tertiaryText)
                 .strikethrough()
-            if let completedAt = project.completedAt {
-                Text(completedAt.formatted(.dateTime.month(.abbreviated).day()))
+            if let archivedAt = project.completedAt ?? project.canceledAt {
+                Text(archivedAt.formatted(.dateTime.month(.abbreviated).day()))
                     .font(.system(size: 11.5))
                     .foregroundStyle(palette.accent)
             }
@@ -895,7 +914,7 @@ struct ContentView: View {
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
             ).count)
         })
-        counts[.logbook, default: 0] += completedProjects.count
+        counts[.logbook, default: 0] += archivedProjects.count
         counts[.trash] = trashItemCount
         return counts
     }
@@ -987,7 +1006,7 @@ struct ContentView: View {
             return visibleTodos.isEmpty ? "Everything is filed" : "\(visibleTodos.count) unsorted"
         case .smart(.anytime): return "Everything you could pick up now"
         case .smart(.someday): return "Kept warm for later"
-        case .smart(.logbook): return "\(visibleTodos.count + completedProjects.count) completed"
+        case .smart(.logbook): return "\(visibleTodos.count + archivedProjects.count) logged"
         case .smart(.trash): return trashItemCount == 0 ? "Empty" : "\(trashItemCount) deleted"
         case .area(let id):
             let projectCount = activeProjects.filter { $0.area?.id == id }.count
@@ -1589,6 +1608,16 @@ struct ContentView: View {
         selection = .smart(.logbook)
     }
 
+    private func cancelSelectedProject() {
+        guard
+            let project = selectedProject,
+            WaniTaskRules.cancelProject(project, todos: todos)
+        else { return }
+
+        saveChanges()
+        selection = .smart(.logbook)
+    }
+
     private func reopen(_ project: WaniProject) {
         WaniTaskRules.reopenProject(project)
         saveChanges()
@@ -1607,7 +1636,9 @@ struct ContentView: View {
                 )
             }
         }
-        selection = .project(project.id)
+        selection = project.completedAt == nil && project.canceledAt == nil
+            ? .project(project.id)
+            : .smart(.logbook)
     }
 
     private func deletePermanently(_ project: WaniProject) {
