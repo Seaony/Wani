@@ -69,7 +69,7 @@ final class WaniGlobalHotKey {
             }
         }
 
-        var identifier = EventHotKeyID(signature: 0x57414E49, id: 1)
+        let identifier = EventHotKeyID(signature: 0x57414E49, id: 1)
         let status = RegisterEventHotKey(
             UInt32(kVK_Space),
             shortcut.carbonModifiers,
