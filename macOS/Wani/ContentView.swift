@@ -183,6 +183,8 @@ struct ContentView: View {
                 )
             }
 
+            navigationShortcuts
+
         }
         .frame(minWidth: 760, minHeight: 520)
         .background(palette.background)
@@ -1317,6 +1319,31 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+
+    private var navigationShortcuts: some View {
+        VStack {
+            navigationShortcut("Go to Inbox", key: "1", list: .inbox)
+            navigationShortcut("Go to Today", key: "2", list: .today)
+            navigationShortcut("Go to Upcoming", key: "3", list: .upcoming)
+            navigationShortcut("Go to Anytime", key: "4", list: .anytime)
+            navigationShortcut("Go to Someday", key: "5", list: .someday)
+            navigationShortcut("Go to Logbook", key: "6", list: .logbook)
+        }
+        .frame(width: 0, height: 0)
+        .opacity(0)
+        .accessibilityHidden(true)
+    }
+
+    private func navigationShortcut(
+        _ title: String,
+        key: KeyEquivalent,
+        list: WaniSmartList
+    ) -> some View {
+        Button(title) {
+            selection = .smart(list)
+        }
+        .keyboardShortcut(key, modifiers: .command)
     }
 
     private var standardToolbar: some View {
