@@ -142,6 +142,26 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.projectProgress(todos, projectID: project.id) == 0.5)
     }
 
+    @Test("Moving tasks updates project heading and Inbox scheduling")
+    func moveTask() {
+        let now = date(2026, 8, 26, 12)
+        let project = WaniProject(title: "Launch")
+        let heading = WaniHeading(title: "Polish", project: project)
+        let todo = WaniTodo(title: "Move me", schedule: .inbox)
+
+        WaniTaskRules.move(todo, to: project, heading: heading, at: now)
+        #expect(todo.project?.id == project.id)
+        #expect(todo.heading?.id == heading.id)
+        #expect(todo.schedule == .anytime)
+        #expect(todo.updatedAt == now)
+
+        WaniTaskRules.moveToInbox(todo, at: now.addingTimeInterval(60))
+        #expect(todo.project == nil)
+        #expect(todo.heading == nil)
+        #expect(todo.schedule == .inbox)
+        #expect(todo.startDate == nil)
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,

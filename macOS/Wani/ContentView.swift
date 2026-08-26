@@ -13,6 +13,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WaniArea.sortOrder) private var areas: [WaniArea]
     @Query(sort: \WaniProject.sortOrder) private var projects: [WaniProject]
+    @Query(sort: \WaniHeading.sortOrder) private var headings: [WaniHeading]
     @Query(sort: \WaniTodo.sortOrder) private var todos: [WaniTodo]
 
     @State private var selection: WaniNavigationTarget = .smart(.today)
@@ -22,6 +23,8 @@ struct ContentView: View {
     @State private var searchOpen = false
     @State private var searchQuery = ""
     @State private var newListOpen = false
+    @State private var addingHeading = false
+    @State private var newHeadingTitle = ""
 
     private var palette: WaniPalette { WaniPalette(colorScheme: colorScheme) }
 
@@ -122,23 +125,12 @@ struct ContentView: View {
 
             ScrollView {
                 LazyVStack(spacing: 1) {
-                    if visibleTodos.isEmpty {
+                    if case .project = selection {
+                        projectTaskContent
+                    } else if visibleTodos.isEmpty {
                         emptyState
                     } else {
-                        ForEach(visibleTodos) { todo in
-                            WaniTaskRow(
-                                todo: todo,
-                                palette: palette,
-                                isExpanded: expandedTodoID == todo.id,
-                                toggleExpanded: {
-                                    expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
-                                },
-                                toggleCompleted: { toggleCompleted(todo) },
-                                moveToTrash: { moveToTrash(todo) },
-                                restore: { restore(todo) },
-                                deletePermanently: { deletePermanently(todo) }
-                            )
-                        }
+                        taskRows(visibleTodos)
                     }
                 }
                 .padding(.horizontal, 52)
@@ -176,6 +168,84 @@ struct ContentView: View {
         case .project(let projectID):
             WaniTaskRules.projectTasks(todos, projectID: projectID)
                 .filter { $0.status == .open }
+        }
+    }
+
+    private var projectHeadings: [WaniHeading] {
+        guard case .project(let projectID) = selection else { return [] }
+        return headings.filter { $0.project?.id == projectID }
+    }
+
+    @ViewBuilder
+    private var projectTaskContent: some View {
+        if visibleTodos.isEmpty && projectHeadings.isEmpty {
+            emptyState
+        }
+
+        let ungrouped = visibleTodos.filter { $0.heading == nil }
+        taskRows(ungrouped)
+
+        ForEach(projectHeadings) { heading in
+            let headingTodos = visibleTodos.filter { $0.heading?.id == heading.id }
+            WaniHeadingRow(
+                heading: heading,
+                palette: palette,
+                count: headingTodos.count,
+                save: saveChanges
+            )
+            taskRows(headingTodos)
+        }
+
+        if addingHeading {
+            HStack(spacing: 8) {
+                TextField("New heading", text: $newHeadingTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12, weight: .semibold))
+                    .onSubmit(saveHeading)
+                Button("Cancel", action: closeHeadingComposer)
+                    .buttonStyle(.plain)
+                Button("Add", action: saveHeading)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(palette.accent)
+                    .disabled(newHeadingTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(.horizontal, 11)
+            .frame(height: 38)
+        } else {
+            Button {
+                addingHeading = true
+            } label: {
+                Label("New Heading", systemImage: "plus")
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(palette.tertiaryText)
+                    .padding(.horizontal, 11)
+                    .frame(height: 38)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private func taskRows(_ rows: [WaniTodo]) -> some View {
+        ForEach(rows) { todo in
+            WaniTaskRow(
+                todo: todo,
+                palette: palette,
+                projects: projects,
+                headings: headings,
+                isExpanded: expandedTodoID == todo.id,
+                toggleExpanded: {
+                    expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
+                },
+                toggleCompleted: { toggleCompleted(todo) },
+                moveToTrash: { moveToTrash(todo) },
+                restore: { restore(todo) },
+                deletePermanently: { deletePermanently(todo) },
+                moveToInbox: { moveToInbox(todo) },
+                moveToProject: { project, heading in
+                    move(todo, to: project, heading: heading)
+                }
+            )
         }
     }
 
@@ -418,6 +488,47 @@ struct ContentView: View {
         selection = .project(project.id)
         expandedTodoID = nil
         newListOpen = false
+    }
+
+    private func saveHeading() {
+        let title = newHeadingTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard
+            !title.isEmpty,
+            case .project(let projectID) = selection,
+            let project = projects.first(where: { $0.id == projectID })
+        else { return }
+
+        let heading = WaniHeading(
+            title: title,
+            project: project,
+            sortOrder: (projectHeadings.map(\.sortOrder).max() ?? 0) + 1
+        )
+        modelContext.insert(heading)
+        saveChanges()
+        closeHeadingComposer()
+    }
+
+    private func closeHeadingComposer() {
+        addingHeading = false
+        newHeadingTitle = ""
+    }
+
+    private func moveToInbox(_ todo: WaniTodo) {
+        WaniTaskRules.moveToInbox(todo)
+        saveChanges()
+    }
+
+    private func move(
+        _ todo: WaniTodo,
+        to project: WaniProject,
+        heading: WaniHeading?
+    ) {
+        WaniTaskRules.move(todo, to: project, heading: heading)
+        saveChanges()
+    }
+
+    private func saveChanges() {
+        try? modelContext.save()
     }
 
     private func closeQuickEntry() {

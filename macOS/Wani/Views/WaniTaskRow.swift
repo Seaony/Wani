@@ -3,12 +3,16 @@ import SwiftUI
 struct WaniTaskRow: View {
     @Bindable var todo: WaniTodo
     let palette: WaniPalette
+    let projects: [WaniProject]
+    let headings: [WaniHeading]
     let isExpanded: Bool
     let toggleExpanded: () -> Void
     let toggleCompleted: () -> Void
     let moveToTrash: () -> Void
     let restore: () -> Void
     let deletePermanently: () -> Void
+    let moveToInbox: () -> Void
+    let moveToProject: (WaniProject, WaniHeading?) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -102,6 +106,7 @@ struct WaniTaskRow: View {
                     Button("Restore", action: restore)
                     Button("Delete", action: deletePermanently)
                 } else {
+                    moveMenu
                     Button(action: moveToTrash) {
                         Image(systemName: "trash")
                     }
@@ -111,6 +116,35 @@ struct WaniTaskRow: View {
             .buttonStyle(.plain)
             .foregroundStyle(palette.tertiaryText)
         }
+    }
+
+    private var moveMenu: some View {
+        Menu {
+            Button("Inbox", systemImage: "tray") {
+                moveToInbox()
+            }
+
+            if !projects.isEmpty {
+                Divider()
+                ForEach(projects) { project in
+                    Menu(project.title) {
+                        Button("No Heading") {
+                            moveToProject(project, nil)
+                        }
+                        ForEach(headings.filter { $0.project?.id == project.id }) { heading in
+                            Button(heading.title) {
+                                moveToProject(project, heading)
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "arrow.right")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .accessibilityLabel("Move")
     }
 
     @ViewBuilder

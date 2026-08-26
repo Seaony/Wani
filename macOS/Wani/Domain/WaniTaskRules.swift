@@ -123,6 +123,29 @@ enum WaniTaskRules {
         return Double(completed) / Double(projectTodos.count)
     }
 
+    static func move(
+        _ todo: WaniTodo,
+        to project: WaniProject,
+        heading: WaniHeading? = nil,
+        at date: Date = Date()
+    ) {
+        todo.project = project
+        todo.heading = heading
+        if todo.schedule == .inbox {
+            todo.schedule = .anytime
+        }
+        todo.updatedAt = date
+    }
+
+    static func moveToInbox(_ todo: WaniTodo, at date: Date = Date()) {
+        todo.project = nil
+        todo.heading = nil
+        todo.schedule = .inbox
+        todo.startDate = nil
+        todo.isEvening = false
+        todo.updatedAt = date
+    }
+
     static func matches(_ todo: WaniTodo, query: String) -> Bool {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }
