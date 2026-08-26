@@ -1,5 +1,6 @@
 import CloudKit
 import Foundation
+import SwiftData
 import Testing
 @testable import Wani
 
@@ -35,6 +36,102 @@ struct WaniTaskRulesTests {
             arguments: ["Wani"],
             environment: [:]
         ))
+    }
+
+    @Test("The complete task model survives reopening its disk store")
+    func persistenceRoundTrip() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+            "WaniPersistence-\(UUID().uuidString)",
+            isDirectory: true
+        )
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let storeURL = directory.appendingPathComponent("Wani.store")
+        let todoID: UUID
+        let archivedTodoID: UUID
+        do {
+            let container = try diskContainer(at: storeURL)
+            let context = ModelContext(container)
+            let area = WaniArea(title: "Personal", sortOrder: 1)
+            area.notes = "Home and family"
+            let project = WaniProject(title: "Launch", area: area, sortOrder: 2)
+            project.notes = "Ship Wani"
+            let heading = WaniHeading(title: "Polish", project: project, sortOrder: 3)
+            let todo = WaniTodo(
+                title: "Review",
+                notes: "Check every field",
+                schedule: .date,
+                startDate: date(2026, 8, 28, 0),
+                project: project,
+                heading: heading,
+                sortOrder: 4
+            )
+            todo.isEvening = true
+            todo.deadline = date(2026, 8, 30, 0)
+            todo.reminderDate = date(2026, 8, 28, 15, 30)
+            todo.repeatFrequency = .weekly
+            todo.repeatInterval = 2
+            todo.repeatsAfterCompletion = true
+            todo.tagNames = ["Work", "Review"]
+            let checklistItem = WaniChecklistItem(
+                title: "Verify persistence",
+                todo: todo,
+                sortOrder: 5
+            )
+            checklistItem.isCompleted = true
+            todo.checklistItems = [checklistItem]
+
+            let archivedTodo = WaniTodo(title: "Archived", project: project)
+            archivedTodo.status = .completed
+            archivedTodo.completedAt = date(2026, 8, 26, 12)
+            archivedTodo.loggedAt = date(2026, 8, 26, 13)
+            archivedTodo.deletedAt = date(2026, 8, 27, 12)
+
+            todoID = todo.id
+            archivedTodoID = archivedTodo.id
+            context.insert(area)
+            context.insert(project)
+            context.insert(heading)
+            context.insert(todo)
+            context.insert(checklistItem)
+            context.insert(archivedTodo)
+            try context.save()
+        }
+
+        let container = try diskContainer(at: storeURL)
+        let context = ModelContext(container)
+        let persistedTodos = try context.fetch(FetchDescriptor<WaniTodo>())
+        let todo = try #require(persistedTodos.first { $0.id == todoID })
+        #expect(todo.title == "Review")
+        #expect(todo.notes == "Check every field")
+        #expect(todo.schedule == .date)
+        #expect(todo.startDate == date(2026, 8, 28, 0))
+        #expect(todo.isEvening)
+        #expect(todo.deadline == date(2026, 8, 30, 0))
+        #expect(todo.reminderDate == date(2026, 8, 28, 15, 30))
+        #expect(todo.repeatFrequency == .weekly)
+        #expect(todo.repeatInterval == 2)
+        #expect(todo.repeatsAfterCompletion)
+        #expect(todo.tagNames == ["Work", "Review"])
+        #expect(todo.sortOrder == 4)
+        #expect(todo.project?.title == "Launch")
+        #expect(todo.project?.notes == "Ship Wani")
+        #expect(todo.project?.area?.title == "Personal")
+        #expect(todo.project?.area?.notes == "Home and family")
+        #expect(todo.heading?.title == "Polish")
+        #expect(todo.checklistItems?.first?.title == "Verify persistence")
+        #expect(todo.checklistItems?.first?.isCompleted == true)
+        #expect(todo.checklistItems?.first?.sortOrder == 5)
+
+        let archivedTodo = try #require(persistedTodos.first { $0.id == archivedTodoID })
+        #expect(archivedTodo.status == .completed)
+        #expect(archivedTodo.completedAt == date(2026, 8, 26, 12))
+        #expect(archivedTodo.loggedAt == date(2026, 8, 26, 13))
+        #expect(archivedTodo.deletedAt == date(2026, 8, 27, 12))
     }
 
     @Test("Reordering moves an item to its drop target")
@@ -963,5 +1060,18 @@ struct WaniTaskRulesTests {
             hour: hour,
             minute: minute
         ))!
+    }
+
+    private func diskContainer(at url: URL) throws -> ModelContainer {
+        let configuration = ModelConfiguration(
+            "WaniPersistenceRoundTrip",
+            schema: WaniPersistence.schema,
+            url: url,
+            cloudKitDatabase: .none
+        )
+        return try ModelContainer(
+            for: WaniPersistence.schema,
+            configurations: [configuration]
+        )
     }
 }
