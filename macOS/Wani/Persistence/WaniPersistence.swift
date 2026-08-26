@@ -1,7 +1,7 @@
 import SwiftData
 
 enum WaniPersistence {
-    static let cloudKitContainerIdentifier = "iCloud.com.seaony.wani.Wani"
+    nonisolated static let cloudKitContainerIdentifier = "iCloud.com.seaony.wani.Wani"
 
     static let schema = Schema([
         WaniArea.self,

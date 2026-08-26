@@ -12,6 +12,7 @@ import SwiftData
 @main
 struct WaniApp: App {
     private let modelContainer: ModelContainer
+    private let cloudSyncEnabled: Bool
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
 
     init() {
@@ -21,14 +22,15 @@ struct WaniApp: App {
                 environment: ProcessInfo.processInfo.environment
             )
             #if DEBUG
-            let cloudSync = ProcessInfo.processInfo.arguments.contains("--cloud-sync")
+            let enablesCloudSync = ProcessInfo.processInfo.arguments.contains("--cloud-sync")
                 && !isRunningTests
             #else
-            let cloudSync = true
+            let enablesCloudSync = true
             #endif
+            cloudSyncEnabled = enablesCloudSync
             modelContainer = try WaniPersistence.makeContainer(
                 inMemory: isRunningTests,
-                cloudSync: cloudSync
+                cloudSync: enablesCloudSync
             )
         } catch {
             fatalError("Unable to initialize Wani storage: \(error)")
@@ -37,7 +39,7 @@ struct WaniApp: App {
 
     var body: some Scene {
         WindowGroup("Wani", id: "main") {
-            ContentView()
+            ContentView(cloudSyncEnabled: cloudSyncEnabled)
         }
         .modelContainer(modelContainer)
         .windowStyle(.hiddenTitleBar)

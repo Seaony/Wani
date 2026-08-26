@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import Testing
 @testable import Wani
@@ -8,6 +9,16 @@ struct WaniTaskRulesTests {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         return calendar
+    }
+
+    @Test("CloudKit account states map to visible sync states")
+    func cloudAccountStates() {
+        #expect(WaniCloudAccountState(.available) == .available)
+        #expect(WaniCloudAccountState(.noAccount) == .noAccount)
+        #expect(WaniCloudAccountState(.restricted) == .restricted)
+        #expect(WaniCloudAccountState(.temporarilyUnavailable) == .temporarilyUnavailable)
+        #expect(WaniCloudAccountState(.couldNotDetermine) == .couldNotDetermine)
+        #expect(WaniCloudAccountState.localOnly.title == "Local development mode")
     }
 
     @Test("UI and unit tests use an ephemeral store")

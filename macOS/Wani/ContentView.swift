@@ -16,6 +16,7 @@ struct ContentView: View {
     @Query(sort: \WaniProject.sortOrder) private var projects: [WaniProject]
     @Query(sort: \WaniHeading.sortOrder) private var headings: [WaniHeading]
     @Query(sort: \WaniTodo.sortOrder) private var todos: [WaniTodo]
+    @StateObject private var cloudSyncMonitor: WaniCloudSyncMonitor
 
     @AppStorage("appearance") private var appearanceRaw = WaniAppearance.light.rawValue
     @AppStorage("accent") private var accentRaw = WaniAccent.terracotta.rawValue
@@ -48,6 +49,12 @@ struct ContentView: View {
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
     @FocusState private var headerTitleFocused: Bool
+
+    init(cloudSyncEnabled: Bool = true) {
+        _cloudSyncMonitor = StateObject(
+            wrappedValue: WaniCloudSyncMonitor(enabled: cloudSyncEnabled)
+        )
+    }
 
     private var appearance: WaniAppearance {
         get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
@@ -148,6 +155,7 @@ struct ContentView: View {
                     showDockBadge: $showDockBadge,
                     deadlineNotificationsEnabled: $deadlineNotificationsEnabled,
                     moveToLogbookAtMidnight: $moveToLogbookAtMidnight,
+                    cloudSyncMonitor: cloudSyncMonitor,
                     dismiss: { settingsOpen = false }
                 )
             }
@@ -1696,6 +1704,6 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    ContentView(cloudSyncEnabled: false)
         .modelContainer(try! WaniPersistence.makeContainer(inMemory: true, cloudSync: false))
 }

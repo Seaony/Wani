@@ -5,6 +5,7 @@ struct WaniSettingsOverlay: View {
         case general = "General"
         case appearance = "Appearance"
         case quickEntry = "Quick Entry"
+        case sync = "Sync"
 
         var id: Self { self }
 
@@ -13,6 +14,7 @@ struct WaniSettingsOverlay: View {
             case .general: "gearshape"
             case .appearance: "circle.lefthalf.filled"
             case .quickEntry: "keyboard"
+            case .sync: "icloud"
             }
         }
     }
@@ -31,6 +33,7 @@ struct WaniSettingsOverlay: View {
     @Binding var showDockBadge: Bool
     @Binding var deadlineNotificationsEnabled: Bool
     @Binding var moveToLogbookAtMidnight: Bool
+    @ObservedObject var cloudSyncMonitor: WaniCloudSyncMonitor
     let dismiss: () -> Void
 
     @State private var tab: Tab = .appearance
@@ -57,6 +60,8 @@ struct WaniSettingsOverlay: View {
                         appearanceContent
                     case .quickEntry:
                         quickEntryContent
+                    case .sync:
+                        syncContent
                     }
                 }
                 .frame(minHeight: 258, alignment: .top)
@@ -297,6 +302,73 @@ struct WaniSettingsOverlay: View {
         }
         .padding(.horizontal, 26)
         .padding(.vertical, 22)
+    }
+
+    private var syncContent: some View {
+        VStack(spacing: 13) {
+            settingRow("iCloud", alignment: .top) {
+                HStack(alignment: .top, spacing: 9) {
+                    Circle()
+                        .fill(syncStatusColor)
+                        .frame(width: 8, height: 8)
+                        .padding(.top, 5)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(cloudSyncMonitor.accountState.title)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(palette.text)
+                        Text(cloudSyncMonitor.accountState.detail)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(palette.tertiaryText)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            divider
+
+            settingRow("Recent activity", alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(cloudSyncMonitor.lastActivity ?? "No CloudKit activity recorded this launch")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(palette.secondaryText)
+                    if let date = cloudSyncMonitor.lastActivityDate {
+                        Text(date.formatted(date: .abbreviated, time: .standard))
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(palette.tertiaryText)
+                    }
+                    if !cloudSyncMonitor.lastError.isEmpty {
+                        Text(cloudSyncMonitor.lastError)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            settingRow("Status") {
+                Button("Check Again") {
+                    cloudSyncMonitor.refreshAccountStatus()
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(palette.accent)
+            }
+        }
+        .padding(.horizontal, 26)
+        .padding(.vertical, 22)
+    }
+
+    private var syncStatusColor: Color {
+        switch cloudSyncMonitor.accountState {
+        case .available:
+            Color(red: 0.36, green: 0.55, blue: 0.42)
+        case .checking:
+            palette.accent
+        case .localOnly:
+            palette.tertiaryText
+        case .noAccount, .restricted, .temporarilyUnavailable, .couldNotDetermine:
+            Color(red: 0.76, green: 0.34, blue: 0.30)
+        }
     }
 
     private func themeCard(_ item: WaniAppearance) -> some View {
