@@ -5,6 +5,7 @@
 //  Created by seaony on 2026/8/26.
 //
 
+import Foundation
 import SwiftUI
 import SwiftData
 
@@ -14,7 +15,13 @@ struct WaniApp: App {
 
     init() {
         do {
-            modelContainer = try WaniPersistence.makeContainer()
+            let isRunningTests = ProcessInfo.processInfo.environment[
+                "XCTestConfigurationFilePath"
+            ] != nil
+            modelContainer = try WaniPersistence.makeContainer(
+                inMemory: isRunningTests,
+                cloudSync: !isRunningTests
+            )
         } catch {
             fatalError("Unable to initialize Wani storage: \(error)")
         }
