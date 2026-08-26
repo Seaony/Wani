@@ -212,6 +212,31 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Reminder requests include stable identity and future date")
+    func reminderRequest() {
+        let now = date(2026, 8, 26, 12)
+        let project = WaniProject(title: "Launch")
+        let todo = WaniTodo(title: "Review", project: project)
+        todo.reminderDate = date(2026, 8, 27, 9)
+
+        let request = WaniReminderScheduler.makeRequest(
+            for: todo,
+            now: now,
+            calendar: calendar
+        )
+
+        #expect(request?.identifier == "wani.todo.\(todo.id.uuidString)")
+        #expect(request?.title == "Review")
+        #expect(request?.body == "Launch")
+        #expect(request?.dateComponents.day == 27)
+        #expect(request?.dateComponents.hour == 9)
+
+        todo.status = .completed
+        #expect(
+            WaniReminderScheduler.makeRequest(for: todo, now: now, calendar: calendar) == nil
+        )
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,

@@ -4,6 +4,7 @@ struct WaniTaskDateEditor: View {
     @Bindable var todo: WaniTodo
     let palette: WaniPalette
     let save: () -> Void
+    let reminderChanged: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
@@ -174,6 +175,7 @@ struct WaniTaskDateEditor: View {
                     todo.reminderDate = nil
                 }
                 touchAndSave()
+                reminderChanged()
             }
         )
     }
@@ -181,7 +183,11 @@ struct WaniTaskDateEditor: View {
     private var reminderBinding: Binding<Date> {
         Binding(
             get: { todo.reminderDate ?? .now },
-            set: { todo.reminderDate = $0; touchAndSave() }
+            set: {
+                todo.reminderDate = $0
+                touchAndSave()
+                reminderChanged()
+            }
         )
     }
 

@@ -110,7 +110,8 @@ struct WaniTaskRow: View {
                 WaniTaskDateEditor(
                     todo: todo,
                     palette: palette,
-                    save: saveChanges
+                    save: saveChanges,
+                    reminderChanged: syncReminder
                 )
             }
 
@@ -274,6 +275,12 @@ struct WaniTaskRow: View {
 
     private func saveChanges() {
         try? modelContext.save()
+    }
+
+    private func syncReminder() {
+        Task {
+            await WaniReminderScheduler.sync(todo, requestAuthorization: true)
+        }
     }
 
     @ViewBuilder

@@ -79,6 +79,11 @@ struct ContentView: View {
         .frame(minWidth: 760, minHeight: 520)
         .background(palette.background)
         .tint(palette.accent)
+        .task {
+            for todo in todos where todo.reminderDate != nil {
+                await WaniReminderScheduler.sync(todo, requestAuthorization: false)
+            }
+        }
     }
 
     private var mainContent: some View {
@@ -430,15 +435,23 @@ struct ContentView: View {
         if todo.status == .open {
             if let next = WaniTaskRules.complete(todo) {
                 modelContext.insert(next)
+                Task {
+                    await WaniReminderScheduler.sync(next, requestAuthorization: false)
+                }
             }
+            WaniReminderScheduler.cancel(todo)
         } else {
             WaniTaskRules.reopen(todo)
+            Task {
+                await WaniReminderScheduler.sync(todo, requestAuthorization: false)
+            }
         }
         try? modelContext.save()
     }
 
     private func moveToTrash(_ todo: WaniTodo) {
         WaniTaskRules.moveToTrash(todo)
+        WaniReminderScheduler.cancel(todo)
         expandedTodoID = nil
         try? modelContext.save()
     }
@@ -447,10 +460,14 @@ struct ContentView: View {
         WaniTaskRules.restore(todo)
         expandedTodoID = nil
         try? modelContext.save()
+        Task {
+            await WaniReminderScheduler.sync(todo, requestAuthorization: false)
+        }
     }
 
     private func deletePermanently(_ todo: WaniTodo) {
         expandedTodoID = nil
+        WaniReminderScheduler.cancel(todo)
         modelContext.delete(todo)
         try? modelContext.save()
     }
