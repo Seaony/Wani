@@ -147,7 +147,7 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.contains(future, in: .upcoming, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(anytime, in: .anytime, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(today, in: .anytime, now: now, calendar: calendar))
-        #expect(WaniTaskRules.contains(future, in: .anytime, now: now, calendar: calendar))
+        #expect(!WaniTaskRules.contains(future, in: .anytime, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(someday, in: .someday, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(completed, in: .logbook, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(deleted, in: .trash, now: now, calendar: calendar))

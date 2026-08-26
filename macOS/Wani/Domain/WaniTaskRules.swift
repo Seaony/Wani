@@ -148,7 +148,18 @@ enum WaniTaskRules {
             )!
             return startDate >= tomorrow
         case .anytime:
-            return todo.schedule == .anytime || todo.schedule == .date
+            if todo.schedule == .anytime {
+                return true
+            }
+            guard todo.schedule == .date, let startDate = todo.startDate else {
+                return false
+            }
+            let tomorrow = calendar.date(
+                byAdding: .day,
+                value: 1,
+                to: calendar.startOfDay(for: now)
+            )!
+            return startDate < tomorrow
         case .someday:
             return todo.schedule == .someday
         case .logbook, .trash:
