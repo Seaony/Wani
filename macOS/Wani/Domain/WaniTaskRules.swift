@@ -315,6 +315,20 @@ enum WaniTaskRules {
             }
     }
 
+    static func tags(in todos: [WaniTodo]) -> [String] {
+        var seen: Set<String> = []
+        return todos.flatMap(\.tagNames).filter { tag in
+            seen.insert(tag.lowercased()).inserted
+        }
+    }
+
+    static func tasks(_ todos: [WaniTodo], matchingTag tag: String?) -> [WaniTodo] {
+        guard let tag else { return todos }
+        return todos.filter { todo in
+            todo.tagNames.contains { $0.caseInsensitiveCompare(tag) == .orderedSame }
+        }
+    }
+
     static func matches(_ todo: WaniTodo, query: String) -> Bool {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }

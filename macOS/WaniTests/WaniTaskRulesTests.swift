@@ -170,6 +170,21 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Project tag filters preserve tag order and match without case sensitivity")
+    func projectTagFiltering() {
+        let first = WaniTodo(title: "First")
+        first.tagNames = ["Work", "Urgent"]
+        let second = WaniTodo(title: "Second")
+        second.tagNames = ["work", "Home"]
+
+        #expect(WaniTaskRules.tags(in: [first, second]) == ["Work", "Urgent", "Home"])
+        #expect(
+            WaniTaskRules.tasks([first, second], matchingTag: "WORK").map(\.title)
+                == ["First", "Second"]
+        )
+        #expect(WaniTaskRules.tasks([first, second], matchingTag: nil).count == 2)
+    }
+
     @Test("Scheduling updates date and evening state consistently")
     func scheduleTask() {
         let now = date(2026, 8, 26, 12)

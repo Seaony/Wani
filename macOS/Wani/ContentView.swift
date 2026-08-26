@@ -45,6 +45,7 @@ struct ContentView: View {
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
     @State private var projectEditorOpen = false
+    @State private var projectTagFilter: String?
 
     private var appearance: WaniAppearance {
         get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
@@ -187,6 +188,7 @@ struct ContentView: View {
         .onChange(of: selection) {
             clearTodoSelection()
             projectEditorOpen = false
+            projectTagFilter = nil
         }
         .task {
             await syncNotifications()
@@ -234,6 +236,18 @@ struct ContentView: View {
                             .font(.system(size: 13))
                             .foregroundStyle(palette.tertiaryText)
                     }
+                }
+
+                if selectedProject != nil, !projectTagNames.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 4) {
+                            projectTagButton("All", tag: nil)
+                            ForEach(projectTagNames, id: \.self) { tag in
+                                projectTagButton(tag, tag: tag)
+                            }
+                        }
+                    }
+                    .padding(.top, 18)
                 }
 
                 Rectangle()
@@ -308,6 +322,43 @@ struct ContentView: View {
     private var selectedProject: WaniProject? {
         guard case .project(let projectID) = selection else { return nil }
         return projects.first { $0.id == projectID }
+    }
+
+    private var projectTagNames: [String] {
+        guard selectedProject != nil else { return [] }
+        return WaniTaskRules.tags(in: visibleTodos)
+    }
+
+    private var activeProjectTagFilter: String? {
+        guard let projectTagFilter,
+              projectTagNames.contains(where: {
+                  $0.caseInsensitiveCompare(projectTagFilter) == .orderedSame
+              }) else {
+            return nil
+        }
+        return projectTagFilter
+    }
+
+    private var filteredProjectTodos: [WaniTodo] {
+        WaniTaskRules.tasks(visibleTodos, matchingTag: activeProjectTagFilter)
+    }
+
+    private func projectTagButton(_ title: String, tag: String?) -> some View {
+        let isSelected = activeProjectTagFilter == tag
+        return Button {
+            projectTagFilter = tag
+            expandedTodoID = nil
+            clearTodoSelection()
+        } label: {
+            Text(title)
+                .font(.system(size: 12, weight: isSelected ? .medium : .regular))
+                .foregroundStyle(isSelected ? palette.accent : palette.secondaryText)
+                .padding(.horizontal, 11)
+                .padding(.vertical, 4)
+                .background(isSelected ? palette.softAccent : Color.clear, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Filter by \(title)")
     }
 
     @ViewBuilder
@@ -496,11 +547,11 @@ struct ContentView: View {
             emptyState
         }
 
-        let ungrouped = visibleTodos.filter { $0.heading == nil }
+        let ungrouped = filteredProjectTodos.filter { $0.heading == nil }
         taskRows(ungrouped)
 
         ForEach(projectHeadings) { heading in
-            let headingTodos = visibleTodos.filter { $0.heading?.id == heading.id }
+            let headingTodos = filteredProjectTodos.filter { $0.heading?.id == heading.id }
             WaniHeadingRow(
                 heading: heading,
                 palette: palette,
@@ -604,9 +655,9 @@ struct ContentView: View {
             return visibleTodos.map(\.id)
         }
 
-        var ids = visibleTodos.filter { $0.heading == nil }.map(\.id)
+        var ids = filteredProjectTodos.filter { $0.heading == nil }.map(\.id)
         for heading in projectHeadings {
-            ids.append(contentsOf: visibleTodos.filter { $0.heading?.id == heading.id }.map(\.id))
+            ids.append(contentsOf: filteredProjectTodos.filter { $0.heading?.id == heading.id }.map(\.id))
         }
         return ids
     }
