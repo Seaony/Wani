@@ -5,6 +5,7 @@
 //  Created by seaony on 2026/8/26.
 //
 
+import AppKit
 import SwiftData
 import SwiftUI
 
@@ -39,6 +40,10 @@ struct ContentView: View {
     @State private var addingHeading = false
     @State private var newHeadingTitle = ""
     @State private var appliedLaunchDestination = false
+    @State private var selectedTodoIDs: Set<UUID> = []
+    @State private var selectionAnchorID: UUID?
+    @State private var batchMoveOpen = false
+    @State private var batchMoveQuery = ""
 
     private var appearance: WaniAppearance {
         get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
@@ -135,6 +140,18 @@ struct ContentView: View {
                     dismiss: { settingsOpen = false }
                 )
             }
+
+            if batchMoveOpen {
+                WaniBatchMoveOverlay(
+                    palette: palette,
+                    projects: projects,
+                    headings: headings,
+                    query: $batchMoveQuery,
+                    moveToInbox: moveSelectedToInbox,
+                    moveToProject: moveSelectedTodos,
+                    dismiss: closeBatchMove
+                )
+            }
         }
         .frame(minWidth: 760, minHeight: 520)
         .background(palette.background)
@@ -155,6 +172,9 @@ struct ContentView: View {
         }
         .onChange(of: deadlineNotificationsEnabled) {
             syncAllNotifications()
+        }
+        .onChange(of: selection) {
+            clearTodoSelection()
         }
         .task {
             await syncNotifications()
@@ -220,20 +240,11 @@ struct ContentView: View {
 
             Rectangle().fill(palette.faintLine).frame(height: 1)
 
-            HStack(spacing: 4) {
-                toolbarButton("plus", label: "New To-Do") {
-                    quickEntryOpen = true
-                }
-                .keyboardShortcut("n", modifiers: [])
-                toolbarButton("plus.app", label: "Quick Entry") {
-                    quickEntryOpen = true
-                }
-                toolbarButton("calendar", label: "When") {
-                    selection = .smart(.upcoming)
-                }
-                toolbarButton("arrow.right", label: "Move") { }
-                toolbarButton("magnifyingglass", label: "Search") {
-                    searchOpen = true
+            Group {
+                if selectedTodoIDs.isEmpty {
+                    standardToolbar
+                } else {
+                    batchToolbar
                 }
             }
             .frame(height: 52)
@@ -324,9 +335,10 @@ struct ContentView: View {
                 headings: headings,
                 density: density,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled,
+                isSelected: selectedTodoIDs.contains(todo.id),
                 isExpanded: expandedTodoID == todo.id,
                 toggleExpanded: {
-                    expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
+                    activate(todo)
                 },
                 toggleCompleted: { toggleCompleted(todo) },
                 moveToTrash: { moveToTrash(todo) },
@@ -352,6 +364,24 @@ struct ContentView: View {
 
     private var todayCount: Int {
         smartListCounts[.today] ?? 0
+    }
+
+    private var selectedTodos: [WaniTodo] {
+        displayedTodoIDs.compactMap { id in
+            todos.first { $0.id == id && selectedTodoIDs.contains(id) }
+        }
+    }
+
+    private var displayedTodoIDs: [UUID] {
+        guard case .project = selection else {
+            return visibleTodos.map(\.id)
+        }
+
+        var ids = visibleTodos.filter { $0.heading == nil }.map(\.id)
+        for heading in projectHeadings {
+            ids.append(contentsOf: visibleTodos.filter { $0.heading?.id == heading.id }.map(\.id))
+        }
+        return ids
     }
 
     private var pageTitle: String {
@@ -494,6 +524,153 @@ struct ContentView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+    }
+
+    private var standardToolbar: some View {
+        HStack(spacing: 4) {
+            toolbarButton("plus", label: "New To-Do") {
+                quickEntryOpen = true
+            }
+            .keyboardShortcut("n", modifiers: [])
+            toolbarButton("plus.app", label: "Quick Entry") {
+                quickEntryOpen = true
+            }
+            toolbarButton("calendar", label: "When") {
+                selection = .smart(.upcoming)
+            }
+            toolbarButton("arrow.right", label: "Move") { }
+            toolbarButton("magnifyingglass", label: "Search") {
+                searchOpen = true
+            }
+
+            Button("Select All", action: selectAllTodos)
+                .buttonStyle(.plain)
+                .keyboardShortcut("a", modifiers: .command)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var batchToolbar: some View {
+        HStack(spacing: 8) {
+            Text("\(selectedTodoIDs.count) selected")
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(palette.secondaryText)
+                .padding(.trailing, 8)
+
+            Button("Copy", systemImage: "doc.on.doc", action: copySelectedTodos)
+                .keyboardShortcut("c", modifiers: .command)
+
+            Button("Complete", systemImage: "checkmark", action: completeSelectedTodos)
+                .keyboardShortcut("k", modifiers: .command)
+                .disabled(!selectedTodos.contains { $0.status == .open })
+
+            Button {
+                batchMoveOpen = true
+            } label: {
+                Label("Move", systemImage: "arrow.right")
+            }
+            .keyboardShortcut("m", modifiers: [.command, .shift])
+
+            Button("Trash", systemImage: "trash", action: trashSelectedTodos)
+
+            Spacer()
+
+            Button("Deselect", action: clearTodoSelection)
+                .keyboardShortcut("a", modifiers: [.command, .option])
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 12.5))
+        .foregroundStyle(palette.secondaryText)
+        .padding(.horizontal, 18)
+    }
+
+    private func activate(_ todo: WaniTodo) {
+        let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
+
+        if modifiers.contains(.shift) {
+            selectedTodoIDs.formUnion(WaniSelectionRules.range(
+                from: selectionAnchorID,
+                through: todo.id,
+                in: displayedTodoIDs
+            ))
+            expandedTodoID = nil
+            return
+        }
+
+        if modifiers.contains(.command) {
+            if selectedTodoIDs.contains(todo.id) {
+                selectedTodoIDs.remove(todo.id)
+            } else {
+                selectedTodoIDs.insert(todo.id)
+            }
+            selectionAnchorID = todo.id
+            expandedTodoID = nil
+            return
+        }
+
+        clearTodoSelection()
+        expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
+    }
+
+    private func selectAllTodos() {
+        let ids = displayedTodoIDs
+        guard !ids.isEmpty else { return }
+        selectedTodoIDs = Set(ids)
+        selectionAnchorID = ids.first
+        expandedTodoID = nil
+    }
+
+    private func clearTodoSelection() {
+        selectedTodoIDs.removeAll()
+        selectionAnchorID = nil
+        closeBatchMove()
+    }
+
+    private func copySelectedTodos() {
+        let text = selectedTodos.map(\.title).joined(separator: "\n")
+        guard !text.isEmpty else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func completeSelectedTodos() {
+        for todo in selectedTodos where todo.status == .open {
+            toggleCompleted(todo)
+        }
+        clearTodoSelection()
+    }
+
+    private func trashSelectedTodos() {
+        for todo in selectedTodos {
+            WaniTaskRules.moveToTrash(todo)
+            WaniReminderScheduler.cancel(todo)
+        }
+        saveChanges()
+        expandedTodoID = nil
+        clearTodoSelection()
+    }
+
+    private func moveSelectedToInbox() {
+        for todo in selectedTodos {
+            WaniTaskRules.moveToInbox(todo)
+        }
+        saveChanges()
+        clearTodoSelection()
+    }
+
+    private func moveSelectedTodos(to project: WaniProject, heading: WaniHeading?) {
+        for todo in selectedTodos {
+            WaniTaskRules.move(todo, to: project, heading: heading)
+        }
+        saveChanges()
+        clearTodoSelection()
+    }
+
+    private func closeBatchMove() {
+        batchMoveOpen = false
+        batchMoveQuery = ""
     }
 
     private func saveQuickEntry() {

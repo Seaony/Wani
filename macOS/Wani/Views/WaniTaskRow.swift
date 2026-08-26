@@ -9,6 +9,7 @@ struct WaniTaskRow: View {
     let headings: [WaniHeading]
     let density: WaniListDensity
     let deadlineNotificationsEnabled: Bool
+    let isSelected: Bool
     let isExpanded: Bool
     let toggleExpanded: () -> Void
     let toggleCompleted: () -> Void
@@ -82,15 +83,16 @@ struct WaniTaskRow: View {
         .padding(.horizontal, isExpanded ? 16 : 11)
         .padding(.vertical, isExpanded ? 14 : density.rowPadding)
         .background(
-            isExpanded ? palette.card : Color.clear,
+            isExpanded ? palette.card : (isSelected ? palette.softAccent : Color.clear),
             in: RoundedRectangle(cornerRadius: 10)
         )
         .overlay {
-            if isExpanded {
+            if isExpanded || isSelected {
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(palette.line, lineWidth: 0.5)
+                    .stroke(isSelected ? palette.accent.opacity(0.45) : palette.line, lineWidth: 0.5)
             }
         }
+        .accessibilityValue(isSelected ? "Selected" : "")
     }
 
     private var expandedEditor: some View {

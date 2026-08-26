@@ -297,6 +297,22 @@ struct WaniTaskRulesTests {
         ))
     }
 
+    @Test("Range selection includes both endpoints in display order")
+    func rangeSelection() {
+        let ids = [UUID(), UUID(), UUID(), UUID()]
+
+        #expect(WaniSelectionRules.range(
+            from: ids[3],
+            through: ids[1],
+            in: ids
+        ) == Set([ids[1], ids[2], ids[3]]))
+        #expect(WaniSelectionRules.range(
+            from: nil,
+            through: ids[2],
+            in: ids
+        ) == Set([ids[2]]))
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,
