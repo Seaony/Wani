@@ -720,6 +720,39 @@ struct WaniTaskRulesTests {
         #expect(duplicate.checklistItems?.first?.todo?.id == duplicate.id)
     }
 
+    @Test("Creating below a to-do preserves its visible destination and position")
+    func createTodoBelow() {
+        let area = WaniArea(title: "Personal")
+        let project = WaniProject(title: "Launch", area: area)
+        let heading = WaniHeading(title: "QA", project: project)
+        let anchor = WaniTodo(
+            title: "Review",
+            schedule: .date,
+            startDate: date(2026, 8, 28, 0),
+            project: project,
+            heading: heading,
+            sortOrder: 4
+        )
+        anchor.isEvening = true
+        anchor.deadline = date(2026, 8, 30, 0)
+        anchor.tagNames = ["release"]
+        let next = WaniTodo(title: "Ship", project: project, heading: heading, sortOrder: 8)
+
+        let todo = WaniTaskRules.todoBelow(anchor, title: "Fix issue", nextTodo: next)
+
+        #expect(todo.title == "Fix issue")
+        #expect(todo.schedule == .date)
+        #expect(todo.startDate == anchor.startDate)
+        #expect(todo.isEvening)
+        #expect(todo.area == nil)
+        #expect(todo.project?.id == project.id)
+        #expect(todo.heading?.id == heading.id)
+        #expect(todo.sortOrder == 6)
+        #expect(todo.status == .open)
+        #expect(todo.deadline == nil)
+        #expect(todo.tagNames.isEmpty)
+    }
+
     @Test("Trash restore and cancellation preserve state transitions")
     func lifecycleTransitions() {
         let now = date(2026, 8, 26, 12)

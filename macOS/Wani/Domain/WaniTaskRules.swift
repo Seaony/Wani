@@ -893,6 +893,27 @@ enum WaniTaskRules {
         return duplicate
     }
 
+    static func todoBelow(
+        _ anchor: WaniTodo,
+        title: String,
+        nextTodo: WaniTodo?
+    ) -> WaniTodo {
+        let sortOrder = nextTodo.map {
+            (anchor.sortOrder + $0.sortOrder) / 2
+        } ?? (anchor.sortOrder + 1)
+        let todo = WaniTodo(
+            title: title,
+            schedule: anchor.schedule,
+            startDate: anchor.startDate,
+            area: anchor.area,
+            project: anchor.project,
+            heading: anchor.heading,
+            sortOrder: sortOrder
+        )
+        todo.isEvening = anchor.isEvening
+        return todo
+    }
+
     static func cancel(_ todo: WaniTodo, at date: Date = Date()) {
         todo.status = .canceled
         todo.completedAt = nil

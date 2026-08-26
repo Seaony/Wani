@@ -37,6 +37,7 @@ struct ContentView: View {
     @State private var expandedTodoID: UUID?
     @State private var quickEntryOpen = false
     @State private var quickEntryTitle = ""
+    @State private var quickEntryInsertionAfterTodoID: UUID?
     @State private var searchOpen = false
     @State private var searchQuery = ""
     @State private var settingsOpen = false
@@ -1340,11 +1341,29 @@ struct ContentView: View {
     }
 
     private var destinationTitle: String {
-        switch quickEntryDestination {
+        if let todo = quickEntryInsertionTodo {
+            if let project = todo.project {
+                return project.title
+            }
+            if let area = todo.area {
+                return area.title
+            }
+            return WaniTaskRules.primaryList(
+                for: todo,
+                deferCompletedUntilMidnight: moveToLogbookAtMidnight
+            ).title
+        }
+
+        return switch quickEntryDestination {
         case .smart(let list): list.title
         case .area(let id): areas.first { $0.id == id }?.title ?? "Inbox"
         case .project(let id): projects.first { $0.id == id }?.title ?? "Inbox"
         }
+    }
+
+    private var quickEntryInsertionTodo: WaniTodo? {
+        guard let quickEntryInsertionAfterTodoID else { return nil }
+        return todos.first { $0.id == quickEntryInsertionAfterTodoID }
     }
 
     private var emptyState: some View {
@@ -1781,6 +1800,10 @@ struct ContentView: View {
         else { return false }
 
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if modifiers.isEmpty, event.charactersIgnoringModifiers == " " {
+            return openQuickEntryBelowSelection()
+        }
+
         if modifiers.contains(.command),
            !modifiers.contains(.control),
            !modifiers.contains(.shift) {
@@ -1844,6 +1867,18 @@ struct ContentView: View {
             selectionAnchorID = targetID
         }
         expandedTodoID = nil
+        return true
+    }
+
+    private func openQuickEntryBelowSelection() -> Bool {
+        guard
+            canAddToCurrentList,
+            selectedTodos.count == 1,
+            displayedTodoIDs.contains(selectedTodos[0].id)
+        else { return false }
+
+        quickEntryInsertionAfterTodoID = selectedTodos[0].id
+        quickEntryOpen = true
         return true
     }
 
@@ -2239,16 +2274,31 @@ struct ContentView: View {
         let title = quickEntryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
 
-        let todo = quickEntryDestination.makeTodo(
-            title: title,
-            areas: areas,
-            projects: projects
-        )
+        let todo: WaniTodo
+        if let anchor = quickEntryInsertionTodo,
+           let section = displayedTodoSections.first(where: {
+               $0.contains { $0.id == anchor.id }
+           }),
+           let anchorIndex = section.firstIndex(where: { $0.id == anchor.id }) {
+            let nextTodo = section.indices.contains(anchorIndex + 1)
+                ? section[anchorIndex + 1]
+                : nil
+            todo = WaniTaskRules.todoBelow(anchor, title: title, nextTodo: nextTodo)
+        } else {
+            todo = quickEntryDestination.makeTodo(
+                title: title,
+                areas: areas,
+                projects: projects
+            )
+            todo.sortOrder = (todos.map(\.sortOrder).max() ?? 0) + 1
+        }
 
-        todo.sortOrder = (todos.map(\.sortOrder).max() ?? 0) + 1
         modelContext.insert(todo)
         try? modelContext.save()
         closeQuickEntry()
+        expandedTodoID = nil
+        selectedTodoIDs = [todo.id]
+        selectionAnchorID = todo.id
     }
 
     private func toggleCompleted(_ todo: WaniTodo) {
@@ -2696,6 +2746,7 @@ struct ContentView: View {
     private func closeQuickEntry() {
         quickEntryOpen = false
         quickEntryTitle = ""
+        quickEntryInsertionAfterTodoID = nil
     }
 
     private func registerGlobalQuickEntry() {
