@@ -3,7 +3,9 @@ import SwiftUI
 struct WaniProjectEditor: View {
     let palette: WaniPalette
     let areas: [WaniArea]
+    let canComplete: Bool
     let save: (String, String, UUID?) -> Void
+    let complete: () -> Void
     let dismiss: () -> Void
 
     @State private var title: String
@@ -15,12 +17,16 @@ struct WaniProjectEditor: View {
         palette: WaniPalette,
         project: WaniProject,
         areas: [WaniArea],
+        canComplete: Bool,
         save: @escaping (String, String, UUID?) -> Void,
+        complete: @escaping () -> Void,
         dismiss: @escaping () -> Void
     ) {
         self.palette = palette
         self.areas = areas
+        self.canComplete = canComplete
         self.save = save
+        self.complete = complete
         self.dismiss = dismiss
         _title = State(initialValue: project.title)
         _notes = State(initialValue: project.notes)
@@ -74,6 +80,22 @@ struct WaniProjectEditor: View {
                 }
                 .labelsHidden()
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 8) {
+                    Button(action: complete) {
+                        Label("Complete Project", systemImage: "checkmark.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(canComplete ? palette.accent : palette.tertiaryText)
+                    .disabled(!canComplete)
+
+                    if !canComplete {
+                        Text("Complete or cancel every open to-do first.")
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(palette.tertiaryText)
+                    }
+                }
 
                 HStack {
                     Spacer()

@@ -85,7 +85,7 @@ struct ContentView: View {
                 WaniSidebar(
                     palette: palette,
                     areas: areas,
-                    projects: projects,
+                    projects: activeProjects,
                     todos: todos,
                     counts: smartListCounts,
                     showCounts: showSidebarCounts,
@@ -159,8 +159,8 @@ struct ContentView: View {
             if batchMoveOpen {
                 WaniBatchMoveOverlay(
                     palette: palette,
-                    projects: projects,
-                    headings: headings,
+                    projects: activeProjects,
+                    headings: activeHeadings,
                     query: $batchMoveQuery,
                     moveToInbox: moveSelectedToInbox,
                     moveToProject: moveSelectedTodos,
@@ -173,7 +173,9 @@ struct ContentView: View {
                     palette: palette,
                     project: project,
                     areas: areas,
+                    canComplete: WaniTaskRules.canCompleteProject(project, todos: todos),
                     save: saveProjectDetails,
+                    complete: completeSelectedProject,
                     dismiss: { projectEditorOpen = false }
                 )
             }
@@ -506,7 +508,7 @@ struct ContentView: View {
             let ungrouped = visibleTodos.filter { $0.project == nil }
             taskRows(ungrouped)
 
-            ForEach(projects) { project in
+            ForEach(activeProjects) { project in
                 let projectTodos = visibleTodos.filter { $0.project?.id == project.id }
                 if !projectTodos.isEmpty {
                     smartProjectHeader(project)
@@ -538,12 +540,12 @@ struct ContentView: View {
 
     @ViewBuilder
     private var logbookTaskContent: some View {
-        if visibleTodos.isEmpty {
+        if visibleTodos.isEmpty && completedProjects.isEmpty {
             emptyState
         } else {
-            ForEach(logbookMonths, id: \.month) { group in
+            ForEach(logbookMonthDates, id: \.self) { month in
                 HStack(spacing: 10) {
-                    Text(group.month.formatted(.dateTime.month(.wide)))
+                    Text(month.formatted(.dateTime.month(.wide)))
                         .font(.system(size: 13.5, weight: .semibold))
                     Rectangle()
                         .fill(palette.line)
@@ -553,7 +555,14 @@ struct ContentView: View {
                 .padding(.horizontal, 11)
                 .padding(.top, 8)
                 .padding(.bottom, 8)
-                taskRows(group.todos)
+                ForEach(
+                    completedProjectMonths.first { $0.month == month }?.projects ?? []
+                ) { project in
+                    loggedProjectRow(project)
+                }
+                if let todoGroup = logbookMonths.first(where: { $0.month == month }) {
+                    taskRows(todoGroup.todos)
+                }
             }
         }
     }
@@ -563,6 +572,63 @@ struct ContentView: View {
             todos,
             deferCompletedUntilMidnight: moveToLogbookAtMidnight
         )
+    }
+
+    private var completedProjects: [WaniProject] {
+        projects.filter { $0.completedAt != nil }
+    }
+
+    private var activeProjects: [WaniProject] {
+        projects.filter { $0.completedAt == nil }
+    }
+
+    private var activeHeadings: [WaniHeading] {
+        let projectIDs = Set(activeProjects.map(\.id))
+        return headings.filter { heading in
+            guard let projectID = heading.project?.id else { return false }
+            return projectIDs.contains(projectID)
+        }
+    }
+
+    private var completedProjectMonths: [WaniCompletedProjectMonth] {
+        WaniTaskRules.completedProjectMonths(projects)
+    }
+
+    private var logbookMonthDates: [Date] {
+        Set(logbookMonths.map(\.month) + completedProjectMonths.map(\.month)).sorted(by: >)
+    }
+
+    private func loggedProjectRow(_ project: WaniProject) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 11) {
+            Button {
+                reopen(project)
+            } label: {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 17))
+                    .foregroundStyle(palette.accent)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Reopen Project")
+
+            Text(project.title)
+                .font(.system(size: 13.5))
+                .foregroundStyle(palette.tertiaryText)
+                .strikethrough()
+            if let completedAt = project.completedAt {
+                Text(completedAt.formatted(.dateTime.month(.abbreviated).day()))
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(palette.accent)
+            }
+            Spacer()
+            Text(project.area?.title ?? "Project")
+                .font(.system(size: 11))
+                .foregroundStyle(palette.tertiaryText)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 2)
+                .background(palette.hover, in: Capsule())
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, density.rowPadding)
     }
 
     @ViewBuilder
@@ -620,8 +686,8 @@ struct ContentView: View {
             WaniTaskRow(
                 todo: todo,
                 palette: palette,
-                projects: projects,
-                headings: headings,
+                projects: activeProjects,
+                headings: activeHeadings,
                 density: density,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled,
                 isSelected: selectedTodoIDs.contains(todo.id),
@@ -643,13 +709,15 @@ struct ContentView: View {
     }
 
     private var smartListCounts: [WaniSmartList: Int] {
-        Dictionary(uniqueKeysWithValues: WaniSmartList.allCases.map { list in
+        var counts = Dictionary(uniqueKeysWithValues: WaniSmartList.allCases.map { list in
             (list, WaniTaskRules.tasks(
                 todos,
                 in: list,
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
             ).count)
         })
+        counts[.logbook, default: 0] += completedProjects.count
+        return counts
     }
 
     private var todayCount: Int {
@@ -669,7 +737,7 @@ struct ContentView: View {
 
         if selection == .smart(.anytime) || selection == .smart(.someday) {
             var ids = visibleTodos.filter { $0.project == nil }.map(\.id)
-            for project in projects {
+            for project in activeProjects {
                 ids.append(contentsOf: visibleTodos.filter { $0.project?.id == project.id }.map(\.id))
             }
             return ids
@@ -703,7 +771,7 @@ struct ContentView: View {
             return visibleTodos.isEmpty ? "Everything is filed" : "\(visibleTodos.count) unsorted"
         case .smart(.anytime): return "Everything you could pick up now"
         case .smart(.someday): return "Kept warm for later"
-        case .smart(.logbook): return "\(visibleTodos.count) completed"
+        case .smart(.logbook): return "\(visibleTodos.count + completedProjects.count) completed"
         case .smart(.trash): return visibleTodos.isEmpty ? "Empty" : "\(visibleTodos.count) deleted"
         case .project(let id):
             let project = projects.first { $0.id == id }
@@ -1138,6 +1206,23 @@ struct ContentView: View {
         project.updatedAt = .now
         saveChanges()
         projectEditorOpen = false
+    }
+
+    private func completeSelectedProject() {
+        guard
+            let project = selectedProject,
+            WaniTaskRules.completeProject(project, todos: todos)
+        else { return }
+
+        saveChanges()
+        projectEditorOpen = false
+        selection = .smart(.logbook)
+    }
+
+    private func reopen(_ project: WaniProject) {
+        WaniTaskRules.reopenProject(project)
+        saveChanges()
+        selection = .project(project.id)
     }
 
     private func saveHeading() {

@@ -150,6 +150,37 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.projectProgress(todos, projectID: project.id) == 0.5)
     }
 
+    @Test("Projects complete only after child tasks close and can reopen")
+    func projectCompletion() {
+        let project = WaniProject(title: "Launch")
+        let open = WaniTodo(title: "Open", project: project)
+        let completed = WaniTodo(title: "Completed", project: project)
+        completed.status = .completed
+
+        #expect(!WaniTaskRules.completeProject(
+            project,
+            todos: [open, completed],
+            at: date(2026, 8, 26, 12)
+        ))
+        #expect(project.completedAt == nil)
+
+        open.status = .canceled
+        #expect(WaniTaskRules.completeProject(
+            project,
+            todos: [open, completed],
+            at: date(2026, 8, 26, 12)
+        ))
+        #expect(project.completedAt == date(2026, 8, 26, 12))
+        #expect(
+            WaniTaskRules.completedProjectMonths([project], calendar: calendar)
+                .first?.projects.map(\.title) == ["Launch"]
+        )
+
+        WaniTaskRules.reopenProject(project, at: date(2026, 8, 26, 13))
+        #expect(project.completedAt == nil)
+        #expect(project.updatedAt == date(2026, 8, 26, 13))
+    }
+
     @Test("Moving tasks updates project heading and Inbox scheduling")
     func moveTask() {
         let now = date(2026, 8, 26, 12)

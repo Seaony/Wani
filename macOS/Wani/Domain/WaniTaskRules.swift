@@ -22,6 +22,11 @@ struct WaniLogbookMonth {
     let todos: [WaniTodo]
 }
 
+struct WaniCompletedProjectMonth {
+    let month: Date
+    let projects: [WaniProject]
+}
+
 enum WaniTaskRules {
     static func contains(
         _ todo: WaniTodo,
@@ -231,6 +236,51 @@ enum WaniTaskRules {
         guard !projectTodos.isEmpty else { return 0 }
         let completed = projectTodos.filter { $0.status == .completed }.count
         return Double(completed) / Double(projectTodos.count)
+    }
+
+    static func canCompleteProject(
+        _ project: WaniProject,
+        todos: [WaniTodo]
+    ) -> Bool {
+        projectTasks(todos, projectID: project.id).allSatisfy { $0.status != .open }
+    }
+
+    @discardableResult
+    static func completeProject(
+        _ project: WaniProject,
+        todos: [WaniTodo],
+        at date: Date = Date()
+    ) -> Bool {
+        guard canCompleteProject(project, todos: todos) else { return false }
+        project.completedAt = date
+        project.updatedAt = date
+        return true
+    }
+
+    static func reopenProject(_ project: WaniProject, at date: Date = Date()) {
+        project.completedAt = nil
+        project.updatedAt = date
+    }
+
+    static func completedProjectMonths(
+        _ projects: [WaniProject],
+        calendar: Calendar = .current
+    ) -> [WaniCompletedProjectMonth] {
+        let completedProjects = projects.filter { $0.completedAt != nil }
+        let grouped = Dictionary(grouping: completedProjects) { project in
+            calendar.date(
+                from: calendar.dateComponents([.year, .month], from: project.completedAt!)
+            )!
+        }
+
+        return grouped.keys.sorted(by: >).map { month in
+            WaniCompletedProjectMonth(
+                month: month,
+                projects: grouped[month, default: []].sorted {
+                    ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast)
+                }
+            )
+        }
     }
 
     static func isAwaitingMidnightArchive(
