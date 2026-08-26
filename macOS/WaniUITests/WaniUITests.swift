@@ -37,7 +37,8 @@ final class WaniUITests: XCTestCase {
         searchField.click()
         app.typeText("Edited UI")
         XCTAssertTrue(app.staticTexts["1 found"].waitForExistence(timeout: 2))
-        app.typeKey(.escape, modifierFlags: [])
+        app.typeKey(.return, modifierFlags: [])
+        XCTAssertFalse(searchField.waitForExistence(timeout: 1))
 
         app.buttons["Complete"].firstMatch.click()
         app.buttons["Logbook"].click()

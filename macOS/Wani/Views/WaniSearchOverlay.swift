@@ -60,6 +60,7 @@ struct WaniSearchOverlay: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 15.5))
                         .focused($isFocused)
+                        .onSubmit(openFirstResult)
                     Text(query.isEmpty ? "⌘K" : "\(resultCount) found")
                         .font(.system(size: 11))
                 }
@@ -142,6 +143,16 @@ struct WaniSearchOverlay: View {
             .frame(height: 38)
         }
         .buttonStyle(.plain)
+    }
+
+    private func openFirstResult() {
+        if let area = areaResults.first {
+            openArea(area)
+        } else if let project = projectResults.first {
+            openProject(project)
+        } else if let todo = todoResults.first {
+            openTodo(todo)
+        }
     }
 
     private func locationTitle(for todo: WaniTodo) -> String {
