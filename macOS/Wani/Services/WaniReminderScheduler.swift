@@ -18,6 +18,8 @@ enum WaniReminderScheduler {
         guard
             todo.status == .open,
             todo.deletedAt == nil,
+            todo.schedule == .date,
+            todo.startDate != nil,
             let reminderDate = todo.reminderDate,
             reminderDate > now
         else { return nil }

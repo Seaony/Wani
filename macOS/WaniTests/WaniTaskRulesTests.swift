@@ -717,7 +717,12 @@ struct WaniTaskRulesTests {
     func reminderRequest() {
         let now = date(2026, 8, 26, 12)
         let project = WaniProject(title: "Launch")
-        let todo = WaniTodo(title: "Review", project: project)
+        let todo = WaniTodo(
+            title: "Review",
+            schedule: .date,
+            startDate: date(2026, 8, 27, 0),
+            project: project
+        )
         todo.reminderDate = date(2026, 8, 27, 9)
 
         let request = WaniReminderScheduler.makeRequest(
@@ -732,6 +737,14 @@ struct WaniTaskRulesTests {
         #expect(request?.dateComponents.day == 27)
         #expect(request?.dateComponents.hour == 9)
 
+        todo.schedule = .anytime
+        todo.startDate = nil
+        #expect(
+            WaniReminderScheduler.makeRequest(for: todo, now: now, calendar: calendar) == nil
+        )
+
+        todo.schedule = .date
+        todo.startDate = date(2026, 8, 27, 0)
         todo.status = .completed
         #expect(
             WaniReminderScheduler.makeRequest(for: todo, now: now, calendar: calendar) == nil
