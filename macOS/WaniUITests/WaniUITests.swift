@@ -130,6 +130,19 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["2 found"].waitForExistence(timeout: 2))
     }
 
+    func testDuplicateSelectedTodo() throws {
+        createTodo(named: "Duplicate UI Test Task")
+
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey("d", modifierFlags: .command)
+
+        let matchingTodos = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH %@", "Duplicate UI Test Task")
+        )
+        XCTAssertEqual(matchingTodos.count, 2)
+        XCTAssertTrue(app.staticTexts["1 selected"].exists)
+    }
+
     func testBatchDateMetadataEditorsAreAvailable() throws {
         createTodo(named: "First Dated Task")
         createTodo(named: "Second Dated Task")

@@ -842,6 +842,57 @@ enum WaniTaskRules {
         return dates
     }
 
+    static func duplicate(
+        _ todo: WaniTodo,
+        sortOrder: Double,
+        at date: Date = .now
+    ) -> WaniTodo {
+        let duplicate = WaniTodo(
+            title: todo.title,
+            notes: todo.notes,
+            schedule: todo.schedule,
+            startDate: todo.startDate,
+            area: todo.area,
+            project: todo.project,
+            heading: todo.heading,
+            sortOrder: sortOrder
+        )
+        duplicate.status = todo.status
+        duplicate.isEvening = todo.isEvening
+        duplicate.deadline = todo.deadline
+        duplicate.reminderDate = todo.reminderDate
+        duplicate.repeatFrequency = todo.repeatFrequency
+        duplicate.repeatInterval = todo.repeatInterval
+        duplicate.repeatsAfterCompletion = todo.repeatsAfterCompletion
+        duplicate.repeatGeneratedNextStartDate = todo.repeatGeneratedNextStartDate
+        duplicate.repeatWeekdays = todo.repeatWeekdays
+        duplicate.repeatDateRules = todo.repeatDateRules
+        duplicate.repeatEndDate = todo.repeatEndDate
+        duplicate.repeatEndAfterCount = todo.repeatEndAfterCount
+        duplicate.repeatOccurrenceIndex = todo.repeatOccurrenceIndex
+        duplicate.tagNames = todo.tagNames
+        duplicate.createdAt = date
+        duplicate.updatedAt = date
+        duplicate.completedAt = todo.completedAt
+        duplicate.canceledAt = todo.canceledAt
+        duplicate.loggedAt = todo.loggedAt
+        duplicate.deletedAt = todo.deletedAt
+        duplicate.checklistItems = (todo.checklistItems ?? [])
+            .sorted { $0.sortOrder < $1.sortOrder }
+            .map { item in
+                let duplicateItem = WaniChecklistItem(
+                    title: item.title,
+                    todo: duplicate,
+                    sortOrder: item.sortOrder
+                )
+                duplicateItem.isCompleted = item.isCompleted
+                duplicateItem.createdAt = date
+                duplicateItem.updatedAt = date
+                return duplicateItem
+            }
+        return duplicate
+    }
+
     static func cancel(_ todo: WaniTodo, at date: Date = Date()) {
         todo.status = .canceled
         todo.completedAt = nil

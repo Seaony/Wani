@@ -207,12 +207,14 @@ struct ContentView: View {
                 canEdit: !selectedTodos.isEmpty || focusedToolbarTodo != nil,
                 canClose: selectedTodos.contains { $0.status == .open }
                     || focusedToolbarTodo != nil,
+                canDuplicate: !duplicateCommandTodos.isEmpty,
                 canRepeat: repeatCommandTodo != nil,
                 openWhen: openWhenCommand,
                 openMove: openMoveCommand,
                 openTags: openTagsCommand,
                 openDeadline: openDeadlineCommand,
                 openRepeat: openRepeatCommand,
+                duplicate: duplicateItemCommand,
                 complete: completeItemCommand,
                 cancel: cancelItemCommand
             )
@@ -1150,6 +1152,15 @@ struct ContentView: View {
         return todo
     }
 
+    private var duplicateCommandTodos: [WaniTodo] {
+        if !selectedTodos.isEmpty { return selectedTodos }
+        guard
+            let expandedTodoID,
+            let todo = todos.first(where: { $0.id == expandedTodoID })
+        else { return [] }
+        return [todo]
+    }
+
     private var displayedTodoIDs: [UUID] {
         let sections: [[WaniTodo]]
         switch selection {
@@ -1517,6 +1528,13 @@ struct ContentView: View {
                 .keyboardShortcut("c", modifiers: .command)
 
             batchToolbarButton(
+                "Duplicate",
+                systemImage: "plus.square.on.square",
+                showsTitle: showsTitles,
+                action: duplicateItemCommand
+            )
+
+            batchToolbarButton(
                 "Complete",
                 systemImage: "checkmark",
                 showsTitle: showsTitles,
@@ -1705,6 +1723,40 @@ struct ContentView: View {
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func duplicateItemCommand() {
+        let sourceTodos = duplicateCommandTodos
+        guard !sourceTodos.isEmpty else { return }
+
+        let now = Date.now
+        let orderedTodos = todos.sorted { lhs, rhs in
+            if lhs.sortOrder == rhs.sortOrder {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        let duplicates = sourceTodos.map { todo in
+            let nextSortOrder = orderedTodos.first {
+                $0.sortOrder > todo.sortOrder
+            }?.sortOrder
+            let sortOrder = nextSortOrder.map {
+                (todo.sortOrder + $0) / 2
+            } ?? (todo.sortOrder + 1)
+            return WaniTaskRules.duplicate(todo, sortOrder: sortOrder, at: now)
+        }
+
+        for duplicate in duplicates {
+            modelContext.insert(duplicate)
+        }
+        saveChanges()
+
+        for duplicate in duplicates {
+            syncReminder(for: duplicate, requestAuthorization: false)
+        }
+        expandedTodoID = nil
+        selectedTodoIDs = Set(duplicates.map(\.id))
+        selectionAnchorID = duplicates.first?.id
     }
 
     private func completeSelectedTodos() {

@@ -3,12 +3,14 @@ import SwiftUI
 struct WaniItemCommandActions {
     let canEdit: Bool
     let canClose: Bool
+    let canDuplicate: Bool
     let canRepeat: Bool
     let openWhen: () -> Void
     let openMove: () -> Void
     let openTags: () -> Void
     let openDeadline: () -> Void
     let openRepeat: () -> Void
+    let duplicate: () -> Void
     let complete: () -> Void
     let cancel: () -> Void
 }
@@ -28,6 +30,14 @@ struct WaniItemCommands: Commands {
     @FocusedValue(\.waniItemCommandActions) private var actions
 
     var body: some Commands {
+        CommandGroup(after: .pasteboard) {
+            Button("Duplicate To-Do") {
+                actions?.duplicate()
+            }
+            .keyboardShortcut("d", modifiers: .command)
+            .disabled(actions?.canDuplicate != true)
+        }
+
         CommandMenu("Items") {
             Button("When…") {
                 actions?.openWhen()

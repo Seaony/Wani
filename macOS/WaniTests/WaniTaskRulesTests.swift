@@ -656,6 +656,70 @@ struct WaniTaskRulesTests {
         ).isEmpty)
     }
 
+    @Test("Duplicating a to-do preserves its content with independent identities")
+    func duplicateTodo() {
+        let area = WaniArea(title: "Personal")
+        let project = WaniProject(title: "Launch", area: area)
+        let heading = WaniHeading(title: "QA", project: project)
+        let completedAt = date(2026, 8, 20, 12)
+        let copiedAt = date(2026, 8, 26, 15)
+        let todo = WaniTodo(
+            title: "Verify release",
+            notes: "Keep every field",
+            schedule: .date,
+            startDate: date(2026, 8, 28, 9),
+            area: area,
+            project: project,
+            heading: heading,
+            sortOrder: 4
+        )
+        todo.status = .completed
+        todo.isEvening = true
+        todo.deadline = date(2026, 8, 30, 0)
+        todo.reminderDate = date(2026, 8, 28, 8)
+        todo.repeatFrequency = .monthly
+        todo.repeatInterval = 2
+        todo.repeatDateRules = [WaniRepeatDateRule(ordinal: 28)]
+        todo.repeatEndAfterCount = 4
+        todo.repeatOccurrenceIndex = 2
+        todo.tagNames = ["release", "macOS"]
+        todo.completedAt = completedAt
+        todo.loggedAt = completedAt
+        let checklistItem = WaniChecklistItem(title: "Run tests", todo: todo, sortOrder: 3)
+        checklistItem.isCompleted = true
+        todo.checklistItems = [checklistItem]
+
+        let duplicate = WaniTaskRules.duplicate(todo, sortOrder: 4.5, at: copiedAt)
+
+        #expect(duplicate.id != todo.id)
+        #expect(duplicate.title == todo.title)
+        #expect(duplicate.notes == todo.notes)
+        #expect(duplicate.schedule == todo.schedule)
+        #expect(duplicate.startDate == todo.startDate)
+        #expect(duplicate.area?.id == area.id)
+        #expect(duplicate.project?.id == project.id)
+        #expect(duplicate.heading?.id == heading.id)
+        #expect(duplicate.sortOrder == 4.5)
+        #expect(duplicate.status == .completed)
+        #expect(duplicate.isEvening)
+        #expect(duplicate.deadline == todo.deadline)
+        #expect(duplicate.reminderDate == todo.reminderDate)
+        #expect(duplicate.repeatFrequency == .monthly)
+        #expect(duplicate.repeatInterval == 2)
+        #expect(duplicate.repeatDateRules == todo.repeatDateRules)
+        #expect(duplicate.repeatEndAfterCount == 4)
+        #expect(duplicate.repeatOccurrenceIndex == 2)
+        #expect(duplicate.tagNames == todo.tagNames)
+        #expect(duplicate.createdAt == copiedAt)
+        #expect(duplicate.updatedAt == copiedAt)
+        #expect(duplicate.completedAt == completedAt)
+        #expect(duplicate.loggedAt == completedAt)
+        #expect(duplicate.checklistItems?.first?.id != checklistItem.id)
+        #expect(duplicate.checklistItems?.first?.title == checklistItem.title)
+        #expect(duplicate.checklistItems?.first?.isCompleted == true)
+        #expect(duplicate.checklistItems?.first?.todo?.id == duplicate.id)
+    }
+
     @Test("Trash restore and cancellation preserve state transitions")
     func lifecycleTransitions() {
         let now = date(2026, 8, 26, 12)
