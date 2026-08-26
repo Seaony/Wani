@@ -160,6 +160,9 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(app.radioButtons["After Completion"].exists)
         app.radioButtons["Regularly"].click()
         XCTAssertTrue(app.popUpButtons["Repeat End"].exists)
+        app.popUpButtons["Frequency"].click()
+        app.menuItems["Month"].click()
+        XCTAssertTrue(app.buttons["Add Repeat Date"].exists)
         XCTAssertTrue(app.checkBoxes["Add Reminder"].exists)
         XCTAssertTrue(app.checkBoxes["Add Deadline"].exists)
     }

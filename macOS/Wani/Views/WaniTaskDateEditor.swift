@@ -223,6 +223,7 @@ struct WaniTaskDateEditor: View {
                 todo.repeatsAfterCompletion = $0
                 if $0 {
                     todo.repeatWeekdays = []
+                    todo.repeatDateRules = []
                     todo.repeatEndDate = nil
                     todo.repeatEndAfterCount = nil
                 }

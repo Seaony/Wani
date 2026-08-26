@@ -1815,6 +1815,7 @@ struct ContentView: View {
         todo.repeatInterval = max(configuration.interval, 1)
         todo.repeatsAfterCompletion = configuration.afterCompletion
         todo.repeatWeekdays = configuration.afterCompletion ? [] : configuration.weekdays
+        todo.repeatDateRules = configuration.afterCompletion ? [] : configuration.dateRules
         todo.repeatEndDate = configuration.afterCompletion ? nil : configuration.endDate
         todo.repeatEndAfterCount = configuration.afterCompletion
             ? nil

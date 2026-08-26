@@ -589,6 +589,9 @@ enum WaniTaskRules {
         if frequency != .weekly {
             todo.repeatWeekdays = []
         }
+        if frequency != .monthly && frequency != .yearly {
+            todo.repeatDateRules = []
+        }
         if frequency == .none {
             todo.repeatEndDate = nil
             todo.repeatEndAfterCount = nil
@@ -924,6 +927,7 @@ enum WaniTaskRules {
             frequency: todo.repeatFrequency,
             interval: todo.repeatInterval,
             weekdays: todo.repeatsAfterCompletion ? [] : todo.repeatWeekdays,
+            dateRules: todo.repeatsAfterCompletion ? [] : todo.repeatDateRules,
             calendar: calendar
         ) else {
             return nil
@@ -949,6 +953,7 @@ enum WaniTaskRules {
         next.repeatInterval = max(todo.repeatInterval, 1)
         next.repeatsAfterCompletion = todo.repeatsAfterCompletion
         next.repeatWeekdays = todo.repeatWeekdays
+        next.repeatDateRules = todo.repeatDateRules
         next.repeatEndDate = todo.repeatEndDate
         next.repeatEndAfterCount = todo.repeatEndAfterCount
         next.repeatOccurrenceIndex = max(todo.repeatOccurrenceIndex, 1) + 1
@@ -998,6 +1003,7 @@ enum WaniTaskRules {
         frequency: WaniRepeatFrequency,
         interval: Int,
         weekdays: [Int],
+        dateRules: [WaniRepeatDateRule],
         calendar: Calendar
     ) -> Date? {
         let interval = max(interval, 1)
@@ -1019,8 +1025,24 @@ enum WaniTaskRules {
             }
             component = .weekOfYear
         case .monthly:
+            if !dateRules.isEmpty {
+                return nextMonthlyDate(
+                    after: date,
+                    interval: interval,
+                    rules: dateRules,
+                    calendar: calendar
+                )
+            }
             component = .month
         case .yearly:
+            if !dateRules.isEmpty {
+                return nextYearlyDate(
+                    after: date,
+                    interval: interval,
+                    rules: dateRules,
+                    calendar: calendar
+                )
+            }
             component = .year
         }
 
@@ -1089,5 +1111,148 @@ enum WaniTaskRules {
 
     private static func weekdayOffset(_ weekday: Int, calendar: Calendar) -> Int {
         (weekday - calendar.firstWeekday + 7) % 7
+    }
+
+    private static func nextMonthlyDate(
+        after date: Date,
+        interval: Int,
+        rules: [WaniRepeatDateRule],
+        calendar: Calendar
+    ) -> Date? {
+        let components = calendar.dateComponents([.year, .month], from: date)
+        guard let monthStart = calendar.date(from: components) else { return nil }
+        let time = calendar.dateComponents([.hour, .minute, .second], from: date)
+
+        if let occurrence = ruleOccurrences(
+            rules,
+            year: components.year!,
+            defaultMonth: components.month!,
+            usesRuleMonth: false,
+            time: time,
+            calendar: calendar
+        ).first(where: { $0 > date }) {
+            return occurrence
+        }
+
+        var candidateMonth = monthStart
+        for _ in 0..<4_800 {
+            guard let nextMonth = calendar.date(
+                byAdding: .month,
+                value: interval,
+                to: candidateMonth
+            ) else { return nil }
+            candidateMonth = nextMonth
+            let candidate = calendar.dateComponents([.year, .month], from: candidateMonth)
+            if let occurrence = ruleOccurrences(
+                rules,
+                year: candidate.year!,
+                defaultMonth: candidate.month!,
+                usesRuleMonth: false,
+                time: time,
+                calendar: calendar
+            ).first {
+                return occurrence
+            }
+        }
+        return nil
+    }
+
+    private static func nextYearlyDate(
+        after date: Date,
+        interval: Int,
+        rules: [WaniRepeatDateRule],
+        calendar: Calendar
+    ) -> Date? {
+        let components = calendar.dateComponents([.year, .month], from: date)
+        let time = calendar.dateComponents([.hour, .minute, .second], from: date)
+        guard let year = components.year else { return nil }
+
+        if let occurrence = ruleOccurrences(
+            rules,
+            year: year,
+            defaultMonth: components.month!,
+            usesRuleMonth: true,
+            time: time,
+            calendar: calendar
+        ).first(where: { $0 > date }) {
+            return occurrence
+        }
+
+        var candidateYear = year
+        for _ in 0..<400 {
+            candidateYear += interval
+            if let occurrence = ruleOccurrences(
+                rules,
+                year: candidateYear,
+                defaultMonth: components.month!,
+                usesRuleMonth: true,
+                time: time,
+                calendar: calendar
+            ).first {
+                return occurrence
+            }
+        }
+        return nil
+    }
+
+    private static func ruleOccurrences(
+        _ rules: [WaniRepeatDateRule],
+        year: Int,
+        defaultMonth: Int,
+        usesRuleMonth: Bool,
+        time: DateComponents,
+        calendar: Calendar
+    ) -> [Date] {
+        Array(Set(rules.compactMap { rule in
+            repeatDate(
+                year: year,
+                month: usesRuleMonth ? (rule.month ?? defaultMonth) : defaultMonth,
+                rule: rule,
+                time: time,
+                calendar: calendar
+            )
+        })).sorted()
+    }
+
+    private static func repeatDate(
+        year: Int,
+        month: Int,
+        rule: WaniRepeatDateRule,
+        time: DateComponents,
+        calendar: Calendar
+    ) -> Date? {
+        guard let monthStart = calendar.date(from: DateComponents(year: year, month: month)) else {
+            return nil
+        }
+        guard let dayRange = calendar.range(of: .day, in: .month, for: monthStart) else {
+            return nil
+        }
+
+        let day: Int
+        if let weekday = rule.weekday {
+            if rule.ordinal == -1 {
+                guard let monthEnd = calendar.date(
+                    byAdding: DateComponents(month: 1, day: -1),
+                    to: monthStart
+                ) else { return nil }
+                let endWeekday = calendar.component(.weekday, from: monthEnd)
+                day = dayRange.count - (endWeekday - weekday + 7) % 7
+            } else {
+                let firstWeekday = calendar.component(.weekday, from: monthStart)
+                day = 1 + (weekday - firstWeekday + 7) % 7 + (rule.ordinal - 1) * 7
+            }
+        } else {
+            day = rule.ordinal == -1 ? dayRange.count : rule.ordinal
+        }
+        guard dayRange.contains(day) else { return nil }
+
+        return calendar.date(from: DateComponents(
+            year: year,
+            month: month,
+            day: day,
+            hour: time.hour ?? 0,
+            minute: time.minute ?? 0,
+            second: time.second ?? 0
+        ))
     }
 }

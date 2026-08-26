@@ -22,6 +22,19 @@ enum WaniRepeatFrequency: String, Codable, CaseIterable {
     case yearly
 }
 
+struct WaniRepeatDateRule: Codable, Hashable, Identifiable {
+    var id: UUID = UUID()
+    var ordinal: Int
+    var weekday: Int?
+    var month: Int?
+
+    init(ordinal: Int, weekday: Int? = nil, month: Int? = nil) {
+        self.ordinal = ordinal
+        self.weekday = weekday
+        self.month = month
+    }
+}
+
 @Model
 final class WaniArea {
     var id: UUID = UUID()
@@ -105,6 +118,7 @@ final class WaniTodo {
     var repeatsAfterCompletion: Bool = false
     var repeatGeneratedNextStartDate: Date?
     var repeatWeekdaysData: Data?
+    var repeatDateRulesData: Data?
     var repeatEndDate: Date?
     var repeatEndAfterCount: Int?
     var repeatOccurrenceIndex: Int = 1
@@ -156,6 +170,21 @@ final class WaniTodo {
         set {
             let weekdays = Array(Set(newValue.filter { (1...7).contains($0) })).sorted()
             repeatWeekdaysData = try? JSONEncoder().encode(weekdays)
+        }
+    }
+
+    var repeatDateRules: [WaniRepeatDateRule] {
+        get {
+            guard let repeatDateRulesData else { return [] }
+            return (try? JSONDecoder().decode([WaniRepeatDateRule].self, from: repeatDateRulesData)) ?? []
+        }
+        set {
+            let rules = newValue.filter { rule in
+                (rule.ordinal == -1 || (1...31).contains(rule.ordinal))
+                    && rule.weekday.map { (1...7).contains($0) } != false
+                    && rule.month.map { (1...12).contains($0) } != false
+            }
+            repeatDateRulesData = try? JSONEncoder().encode(rules)
         }
     }
 

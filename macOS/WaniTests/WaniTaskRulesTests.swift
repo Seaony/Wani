@@ -76,6 +76,9 @@ struct WaniTaskRulesTests {
             todo.repeatFrequency = .weekly
             todo.repeatInterval = 2
             todo.repeatWeekdays = [2, 4]
+            todo.repeatDateRules = [
+                WaniRepeatDateRule(ordinal: 1, weekday: 2, month: 9),
+            ]
             todo.repeatEndDate = date(2026, 12, 31, 0)
             todo.repeatEndAfterCount = 6
             todo.repeatOccurrenceIndex = 2
@@ -119,6 +122,9 @@ struct WaniTaskRulesTests {
         #expect(todo.repeatFrequency == .weekly)
         #expect(todo.repeatInterval == 2)
         #expect(todo.repeatWeekdays == [2, 4])
+        #expect(todo.repeatDateRules.map(\.ordinal) == [1])
+        #expect(todo.repeatDateRules.map(\.weekday) == [2])
+        #expect(todo.repeatDateRules.map(\.month) == [9])
         #expect(todo.repeatEndDate == date(2026, 12, 31, 0))
         #expect(todo.repeatEndAfterCount == 6)
         #expect(todo.repeatOccurrenceIndex == 2)
@@ -551,6 +557,76 @@ struct WaniTaskRulesTests {
         ])
         #expect(generated.map(\.repeatOccurrenceIndex) == [2, 3])
         #expect(generated.last?.repeatGeneratedNextStartDate == nil)
+    }
+
+    @Test("Monthly repeats preserve their calendar day instead of drifting")
+    func monthlyRepeatDay() {
+        let todo = WaniTodo(
+            title: "Month end review",
+            schedule: .date,
+            startDate: date(2026, 1, 31, 9)
+        )
+        todo.repeatFrequency = .monthly
+        todo.repeatDateRules = [WaniRepeatDateRule(ordinal: 31)]
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: date(2026, 5, 31, 12),
+            calendar: calendar
+        )
+
+        #expect(generated.map(\.startDate) == [
+            date(2026, 3, 31, 9),
+            date(2026, 5, 31, 9),
+        ])
+    }
+
+    @Test("Monthly repeats support multiple ordinal date rules")
+    func monthlyRepeatMultipleRules() {
+        let todo = WaniTodo(
+            title: "Monthly checkpoints",
+            schedule: .date,
+            startDate: date(2026, 1, 1, 9)
+        )
+        todo.repeatFrequency = .monthly
+        todo.repeatDateRules = [
+            WaniRepeatDateRule(ordinal: 1),
+            WaniRepeatDateRule(ordinal: -1, weekday: 6),
+        ]
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: date(2026, 2, 28, 12),
+            calendar: calendar
+        )
+
+        #expect(generated.map(\.startDate) == [
+            date(2026, 1, 30, 9),
+            date(2026, 2, 1, 9),
+            date(2026, 2, 27, 9),
+        ])
+    }
+
+    @Test("Yearly repeats support leap-day rules")
+    func yearlyRepeatLeapDay() {
+        let todo = WaniTodo(
+            title: "Leap day",
+            schedule: .date,
+            startDate: date(2024, 2, 29, 9)
+        )
+        todo.repeatFrequency = .yearly
+        todo.repeatDateRules = [WaniRepeatDateRule(ordinal: 29, month: 2)]
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: date(2032, 3, 1, 12),
+            calendar: calendar
+        )
+
+        #expect(generated.map(\.startDate) == [
+            date(2028, 2, 29, 9),
+            date(2032, 2, 29, 9),
+        ])
     }
 
     @Test("Trash restore and cancellation preserve state transitions")

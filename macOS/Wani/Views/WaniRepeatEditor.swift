@@ -5,6 +5,7 @@ struct WaniRepeatConfiguration {
     let interval: Int
     let afterCompletion: Bool
     let weekdays: [Int]
+    let dateRules: [WaniRepeatDateRule]
     let endDate: Date?
     let endAfterCount: Int?
     let reminderTime: Date?
@@ -21,11 +22,13 @@ struct WaniRepeatEditor: View {
     let palette: WaniPalette
     let apply: (WaniRepeatConfiguration) -> Void
     let dismiss: () -> Void
+    private let defaultMonth: Int
 
     @State private var frequency: WaniRepeatFrequency
     @State private var interval: Int
     @State private var afterCompletion: Bool
     @State private var weekdays: Set<Int>
+    @State private var dateRules: [WaniRepeatDateRule]
     @State private var endCondition: WaniRepeatEndCondition
     @State private var endAfterCount: Int
     @State private var endDate: Date
@@ -43,6 +46,7 @@ struct WaniRepeatEditor: View {
         self.palette = palette
         self.apply = apply
         self.dismiss = dismiss
+        self.defaultMonth = Calendar.current.component(.month, from: todo.startDate ?? .now)
         _frequency = State(initialValue: todo.repeatFrequency == .none ? .weekly : todo.repeatFrequency)
         _interval = State(initialValue: max(todo.repeatInterval, 1))
         _afterCompletion = State(initialValue: todo.repeatFrequency == .none || todo.repeatsAfterCompletion)
@@ -50,6 +54,14 @@ struct WaniRepeatEditor: View {
             ? [Calendar.current.component(.weekday, from: todo.startDate ?? .now)]
             : todo.repeatWeekdays
         _weekdays = State(initialValue: Set(initialWeekdays))
+        let startDate = todo.startDate ?? .now
+        _dateRules = State(initialValue: todo.repeatDateRules.isEmpty
+            ? [WaniRepeatDateRule(
+                ordinal: Calendar.current.component(.day, from: startDate),
+                month: Calendar.current.component(.month, from: startDate)
+            )]
+            : todo.repeatDateRules
+        )
         _endCondition = State(initialValue: {
             if todo.repeatEndAfterCount != nil { return .afterOccurrences }
             if todo.repeatEndDate != nil { return .onDate }
@@ -126,6 +138,10 @@ struct WaniRepeatEditor: View {
                         weekdaySelector
                     }
 
+                    if !afterCompletion && (frequency == .monthly || frequency == .yearly) {
+                        dateRuleEditor
+                    }
+
                     if !afterCompletion {
                         repeatEndSelector
                     }
@@ -174,6 +190,10 @@ struct WaniRepeatEditor: View {
                             afterCompletion: afterCompletion,
                             weekdays: !afterCompletion && frequency == .weekly
                                 ? Array(weekdays)
+                                : [],
+                            dateRules: !afterCompletion
+                                && (frequency == .monthly || frequency == .yearly)
+                                ? dateRulesForSave
                                 : [],
                             endDate: !afterCompletion && endCondition == .onDate ? endDate : nil,
                             endAfterCount: !afterCompletion && endCondition == .afterOccurrences
@@ -238,6 +258,14 @@ struct WaniRepeatEditor: View {
         return (0..<7).map { (first - 1 + $0) % 7 + 1 }
     }
 
+    private var dateRulesForSave: [WaniRepeatDateRule] {
+        dateRules.map { rule in
+            var rule = rule
+            rule.month = frequency == .yearly ? (rule.month ?? defaultMonth) : nil
+            return rule
+        }
+    }
+
     private var repeatEndSelector: some View {
         HStack(spacing: 10) {
             Label("End", systemImage: "calendar.badge.clock")
@@ -271,6 +299,118 @@ struct WaniRepeatEditor: View {
                 .datePickerStyle(.field)
             }
         }
+    }
+
+    private var dateRuleEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("On")
+                .font(.system(size: 12.5))
+                .foregroundStyle(palette.secondaryText)
+
+            ForEach($dateRules) { $rule in
+                HStack(spacing: 8) {
+                    if frequency == .yearly {
+                        Picker("Month", selection: monthBinding($rule)) {
+                            ForEach(1...12, id: \.self) { month in
+                                Text(Calendar.current.monthSymbols[month - 1]).tag(month)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 108)
+                    }
+
+                    Picker("Ordinal", selection: $rule.ordinal) {
+                        ForEach(ordinals(for: rule), id: \.self) { ordinal in
+                            Text(ordinalTitle(ordinal)).tag(ordinal)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 82)
+
+                    Picker("Day Type", selection: weekdayBinding($rule)) {
+                        Text("Day").tag(Int?.none)
+                        ForEach(orderedWeekdays, id: \.self) { weekday in
+                            Text(Calendar.current.weekdaySymbols[weekday - 1]).tag(Int?.some(weekday))
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 112)
+
+                    Spacer()
+
+                    if dateRules.count > 1 {
+                        Button {
+                            dateRules.removeAll { $0.id == rule.id }
+                        } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(palette.tertiaryText)
+                        .accessibilityLabel("Remove Repeat Date")
+                    }
+
+                    if rule.id == dateRules.last?.id {
+                        Button(action: addDateRule) {
+                            Image(systemName: "plus.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(palette.accent)
+                        .accessibilityLabel("Add Repeat Date")
+                    }
+                }
+            }
+        }
+        .padding(10)
+        .background(palette.hover, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func ordinals(for rule: WaniRepeatDateRule) -> [Int] {
+        [-1] + Array(1...(rule.weekday == nil ? 31 : 5))
+    }
+
+    private func ordinalTitle(_ ordinal: Int) -> String {
+        guard ordinal != -1 else { return "Last" }
+        let remainder = ordinal % 100
+        let suffix: String
+        if (11...13).contains(remainder) {
+            suffix = "th"
+        } else {
+            switch ordinal % 10 {
+            case 1: suffix = "st"
+            case 2: suffix = "nd"
+            case 3: suffix = "rd"
+            default: suffix = "th"
+            }
+        }
+        return "\(ordinal)\(suffix)"
+    }
+
+    private func monthBinding(_ rule: Binding<WaniRepeatDateRule>) -> Binding<Int> {
+        Binding(
+            get: { rule.wrappedValue.month ?? defaultMonth },
+            set: { rule.wrappedValue.month = $0 }
+        )
+    }
+
+    private func weekdayBinding(_ rule: Binding<WaniRepeatDateRule>) -> Binding<Int?> {
+        Binding(
+            get: { rule.wrappedValue.weekday },
+            set: { weekday in
+                rule.wrappedValue.weekday = weekday
+                if weekday != nil && rule.wrappedValue.ordinal > 5 {
+                    rule.wrappedValue.ordinal = 1
+                }
+            }
+        )
+    }
+
+    private func addDateRule() {
+        dateRules.append(WaniRepeatDateRule(
+            ordinal: 1,
+            month: frequency == .yearly
+                ? defaultMonth
+                : nil
+        ))
     }
 
     private func optionRow<Content: View>(
