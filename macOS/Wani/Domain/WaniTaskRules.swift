@@ -12,6 +12,11 @@ enum WaniSmartList: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+struct WaniUpcomingDay {
+    let date: Date
+    let todos: [WaniTodo]
+}
+
 enum WaniTaskRules {
     static func contains(
         _ todo: WaniTodo,
@@ -110,6 +115,38 @@ enum WaniTaskRules {
             deferCompletedUntilMidnight: deferCompletedUntilMidnight
         )
         .filter { $0.isEvening == evening }
+    }
+
+    static func upcomingDays(
+        _ todos: [WaniTodo],
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        previewDayCount: Int = 8
+    ) -> [WaniUpcomingDay] {
+        let tomorrow = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: calendar.startOfDay(for: now)
+        )!
+        let upcomingTodos = tasks(todos, in: .upcoming, now: now, calendar: calendar)
+        var dates = Set((0..<max(previewDayCount, 0)).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: tomorrow)
+        })
+
+        for todo in upcomingTodos {
+            guard let startDate = todo.startDate else { continue }
+            dates.insert(calendar.startOfDay(for: startDate))
+        }
+
+        return dates.sorted().map { date in
+            WaniUpcomingDay(
+                date: date,
+                todos: upcomingTodos.filter {
+                    guard let startDate = $0.startDate else { return false }
+                    return calendar.isDate(startDate, inSameDayAs: date)
+                }
+            )
+        }
     }
 
     static func primaryList(

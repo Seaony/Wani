@@ -234,6 +234,42 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Upcoming includes empty preview days, month boundaries, and distant tasks")
+    func upcomingDays() {
+        let now = date(2026, 8, 26, 12)
+        let tomorrow = WaniTodo(
+            title: "Tomorrow",
+            schedule: .date,
+            startDate: date(2026, 8, 27, 9)
+        )
+        let september = WaniTodo(
+            title: "September",
+            schedule: .date,
+            startDate: date(2026, 9, 1, 9)
+        )
+        let distant = WaniTodo(
+            title: "Distant",
+            schedule: .date,
+            startDate: date(2026, 9, 9, 9)
+        )
+
+        let days = WaniTaskRules.upcomingDays(
+            [tomorrow, september, distant],
+            now: now,
+            calendar: calendar
+        )
+
+        #expect(days.count == 9)
+        #expect(days.first?.date == date(2026, 8, 27, 0))
+        #expect(days.first?.todos.map(\.title) == ["Tomorrow"])
+        #expect(days[1].date == date(2026, 8, 28, 0))
+        #expect(days[1].todos.isEmpty)
+        #expect(days[5].date == date(2026, 9, 1, 0))
+        #expect(days[5].todos.map(\.title) == ["September"])
+        #expect(days.last?.date == date(2026, 9, 9, 0))
+        #expect(days.last?.todos.map(\.title) == ["Distant"])
+    }
+
     @Test("Suggested reminders never start in the past")
     func suggestedReminder() {
         let now = date(2026, 8, 26, 12)

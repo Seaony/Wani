@@ -250,6 +250,8 @@ struct ContentView: View {
                         projectTaskContent
                     } else if selection == .smart(.today) {
                         todayTaskContent
+                    } else if selection == .smart(.upcoming) {
+                        upcomingTaskContent
                     } else if visibleTodos.isEmpty {
                         emptyState
                     } else {
@@ -354,6 +356,67 @@ struct ContentView: View {
         .padding(.horizontal, 11)
         .padding(.top, 17)
         .padding(.bottom, 5)
+    }
+
+    @ViewBuilder
+    private var upcomingTaskContent: some View {
+        if visibleTodos.isEmpty {
+            emptyState
+        } else {
+            let days = WaniTaskRules.upcomingDays(todos)
+            ForEach(Array(days.enumerated()), id: \.element.date) { index, day in
+                if index > 0, !Calendar.current.isDate(
+                    days[index - 1].date,
+                    equalTo: day.date,
+                    toGranularity: .month
+                ) {
+                    Text(day.date.formatted(.dateTime.month(.wide)))
+                        .font(.system(size: 13))
+                        .foregroundStyle(palette.tertiaryText)
+                        .padding(.horizontal, 11)
+                        .padding(.top, 10)
+                        .padding(.bottom, 14)
+                }
+
+                upcomingDayHeader(day)
+                if day.todos.isEmpty {
+                    Color.clear.frame(height: 14)
+                } else {
+                    taskRows(day.todos)
+                }
+            }
+        }
+    }
+
+    private func upcomingDayHeader(_ day: WaniUpcomingDay) -> some View {
+        let tomorrow = Calendar.current.date(
+            byAdding: .day,
+            value: 1,
+            to: Calendar.current.startOfDay(for: .now)
+        )!
+        let label = Calendar.current.isDate(day.date, inSameDayAs: tomorrow)
+            ? "Tomorrow"
+            : day.date.formatted(.dateTime.weekday(.wide))
+
+        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text(day.date.formatted(.dateTime.day()))
+                .font(.system(size: 25, weight: .semibold))
+                .tracking(-0.3)
+            Text(label)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(palette.secondaryText)
+            Rectangle()
+                .fill(palette.line)
+                .frame(height: 1)
+            if !day.todos.isEmpty {
+                Text("\(day.todos.count) \(day.todos.count == 1 ? "item" : "items")")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(palette.tertiaryText)
+            }
+        }
+        .foregroundStyle(palette.text)
+        .padding(.horizontal, 11)
+        .padding(.bottom, 9)
     }
 
     @ViewBuilder
