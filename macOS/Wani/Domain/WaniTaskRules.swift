@@ -591,6 +591,8 @@ enum WaniTaskRules {
         }
         if frequency == .none {
             todo.repeatEndDate = nil
+            todo.repeatEndAfterCount = nil
+            todo.repeatOccurrenceIndex = 1
         }
         todo.updatedAt = date
     }
@@ -908,6 +910,11 @@ enum WaniTaskRules {
         calendar: Calendar
     ) -> WaniTodo? {
         guard todo.repeatFrequency != .none else { return nil }
+        if !todo.repeatsAfterCompletion,
+           let repeatEndAfterCount = todo.repeatEndAfterCount,
+           max(todo.repeatOccurrenceIndex, 1) >= max(repeatEndAfterCount, 1) {
+            return nil
+        }
 
         let baseDate = todo.repeatsAfterCompletion
             ? calendar.startOfDay(for: completedAt)
@@ -943,6 +950,8 @@ enum WaniTaskRules {
         next.repeatsAfterCompletion = todo.repeatsAfterCompletion
         next.repeatWeekdays = todo.repeatWeekdays
         next.repeatEndDate = todo.repeatEndDate
+        next.repeatEndAfterCount = todo.repeatEndAfterCount
+        next.repeatOccurrenceIndex = max(todo.repeatOccurrenceIndex, 1) + 1
         next.tagNames = todo.tagNames
 
         if let originalStartDate = todo.startDate {

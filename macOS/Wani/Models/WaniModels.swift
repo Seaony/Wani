@@ -106,6 +106,8 @@ final class WaniTodo {
     var repeatGeneratedNextStartDate: Date?
     var repeatWeekdaysData: Data?
     var repeatEndDate: Date?
+    var repeatEndAfterCount: Int?
+    var repeatOccurrenceIndex: Int = 1
     var tagNamesData: Data?
     var sortOrder: Double = 0
     var createdAt: Date = Date()

@@ -6,8 +6,15 @@ struct WaniRepeatConfiguration {
     let afterCompletion: Bool
     let weekdays: [Int]
     let endDate: Date?
+    let endAfterCount: Int?
     let reminderTime: Date?
     let deadline: Date?
+}
+
+private enum WaniRepeatEndCondition: Hashable {
+    case never
+    case afterOccurrences
+    case onDate
 }
 
 struct WaniRepeatEditor: View {
@@ -19,7 +26,8 @@ struct WaniRepeatEditor: View {
     @State private var interval: Int
     @State private var afterCompletion: Bool
     @State private var weekdays: Set<Int>
-    @State private var endDateEnabled: Bool
+    @State private var endCondition: WaniRepeatEndCondition
+    @State private var endAfterCount: Int
     @State private var endDate: Date
     @State private var reminderEnabled: Bool
     @State private var reminderTime: Date
@@ -42,7 +50,12 @@ struct WaniRepeatEditor: View {
             ? [Calendar.current.component(.weekday, from: todo.startDate ?? .now)]
             : todo.repeatWeekdays
         _weekdays = State(initialValue: Set(initialWeekdays))
-        _endDateEnabled = State(initialValue: todo.repeatEndDate != nil)
+        _endCondition = State(initialValue: {
+            if todo.repeatEndAfterCount != nil { return .afterOccurrences }
+            if todo.repeatEndDate != nil { return .onDate }
+            return .never
+        }())
+        _endAfterCount = State(initialValue: max(todo.repeatEndAfterCount ?? 1, 1))
         _endDate = State(
             initialValue: todo.repeatEndDate
                 ?? Calendar.current.date(byAdding: .month, value: 3, to: todo.startDate ?? .now)!
@@ -114,19 +127,7 @@ struct WaniRepeatEditor: View {
                     }
 
                     if !afterCompletion {
-                        optionRow(
-                            title: "End Date",
-                            symbol: "calendar.badge.clock",
-                            enabled: $endDateEnabled
-                        ) {
-                            DatePicker(
-                                "Repeat End Date",
-                                selection: $endDate,
-                                displayedComponents: .date
-                            )
-                            .labelsHidden()
-                            .datePickerStyle(.field)
-                        }
+                        repeatEndSelector
                     }
 
                     optionRow(
@@ -174,7 +175,10 @@ struct WaniRepeatEditor: View {
                             weekdays: !afterCompletion && frequency == .weekly
                                 ? Array(weekdays)
                                 : [],
-                            endDate: !afterCompletion && endDateEnabled ? endDate : nil,
+                            endDate: !afterCompletion && endCondition == .onDate ? endDate : nil,
+                            endAfterCount: !afterCompletion && endCondition == .afterOccurrences
+                                ? endAfterCount
+                                : nil,
                             reminderTime: reminderEnabled ? reminderTime : nil,
                             deadline: deadlineEnabled ? deadline : nil
                         ))
@@ -232,6 +236,41 @@ struct WaniRepeatEditor: View {
     private var orderedWeekdays: [Int] {
         let first = Calendar.current.firstWeekday
         return (0..<7).map { (first - 1 + $0) % 7 + 1 }
+    }
+
+    private var repeatEndSelector: some View {
+        HStack(spacing: 10) {
+            Label("End", systemImage: "calendar.badge.clock")
+                .font(.system(size: 12.5))
+                .foregroundStyle(palette.secondaryText)
+            Spacer()
+            Picker("Repeat End", selection: $endCondition) {
+                Text("Never").tag(WaniRepeatEndCondition.never)
+                Text("After").tag(WaniRepeatEndCondition.afterOccurrences)
+                Text("On Date").tag(WaniRepeatEndCondition.onDate)
+            }
+            .labelsHidden()
+            .frame(width: 100)
+
+            switch endCondition {
+            case .never:
+                EmptyView()
+            case .afterOccurrences:
+                Stepper(value: $endAfterCount, in: 1...999) {
+                    Text("\(endAfterCount) \(endAfterCount == 1 ? "occurrence" : "occurrences")")
+                        .font(.system(size: 12))
+                        .foregroundStyle(palette.secondaryText)
+                }
+            case .onDate:
+                DatePicker(
+                    "Repeat End Date",
+                    selection: $endDate,
+                    displayedComponents: .date
+                )
+                .labelsHidden()
+                .datePickerStyle(.field)
+            }
+        }
     }
 
     private func optionRow<Content: View>(

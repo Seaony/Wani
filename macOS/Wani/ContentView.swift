@@ -1816,6 +1816,10 @@ struct ContentView: View {
         todo.repeatsAfterCompletion = configuration.afterCompletion
         todo.repeatWeekdays = configuration.afterCompletion ? [] : configuration.weekdays
         todo.repeatEndDate = configuration.afterCompletion ? nil : configuration.endDate
+        todo.repeatEndAfterCount = configuration.afterCompletion
+            ? nil
+            : configuration.endAfterCount
+        todo.repeatOccurrenceIndex = 1
         WaniTaskRules.setReminder(todo, to: configuration.reminderTime, at: updatedAt)
         WaniTaskRules.setDeadline(todo, to: configuration.deadline, at: updatedAt)
         syncReminder(for: todo, requestAuthorization: false)

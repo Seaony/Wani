@@ -77,6 +77,8 @@ struct WaniTaskRulesTests {
             todo.repeatInterval = 2
             todo.repeatWeekdays = [2, 4]
             todo.repeatEndDate = date(2026, 12, 31, 0)
+            todo.repeatEndAfterCount = 6
+            todo.repeatOccurrenceIndex = 2
             todo.tagNames = ["Work", "Review"]
             let checklistItem = WaniChecklistItem(
                 title: "Verify persistence",
@@ -118,6 +120,8 @@ struct WaniTaskRulesTests {
         #expect(todo.repeatInterval == 2)
         #expect(todo.repeatWeekdays == [2, 4])
         #expect(todo.repeatEndDate == date(2026, 12, 31, 0))
+        #expect(todo.repeatEndAfterCount == 6)
+        #expect(todo.repeatOccurrenceIndex == 2)
         #expect(todo.tagNames == ["Work", "Review"])
         #expect(todo.sortOrder == 4)
         #expect(todo.project?.title == "Launch")
@@ -522,6 +526,30 @@ struct WaniTaskRulesTests {
             date(2026, 8, 25, 9),
             date(2026, 8, 26, 9),
         ])
+        #expect(generated.last?.repeatGeneratedNextStartDate == nil)
+    }
+
+    @Test("Regular repeats stop after their occurrence count")
+    func regularRepeatEndCount() {
+        let todo = WaniTodo(
+            title: "Three daily occurrences",
+            schedule: .date,
+            startDate: date(2026, 8, 24, 9)
+        )
+        todo.repeatFrequency = .daily
+        todo.repeatEndAfterCount = 3
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: date(2026, 8, 30, 12),
+            calendar: calendar
+        )
+
+        #expect(generated.map(\.startDate) == [
+            date(2026, 8, 25, 9),
+            date(2026, 8, 26, 9),
+        ])
+        #expect(generated.map(\.repeatOccurrenceIndex) == [2, 3])
         #expect(generated.last?.repeatGeneratedNextStartDate == nil)
     }
 

@@ -224,6 +224,7 @@ struct WaniTaskDateEditor: View {
                 if $0 {
                     todo.repeatWeekdays = []
                     todo.repeatEndDate = nil
+                    todo.repeatEndAfterCount = nil
                 }
                 touchAndSave()
             }
