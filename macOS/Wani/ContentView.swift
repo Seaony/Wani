@@ -343,7 +343,7 @@ struct ContentView: View {
                             .font(.system(size: 29, weight: .semibold))
                             .tracking(-0.3)
                             .foregroundStyle(palette.text)
-                            .frame(width: pageTitleFieldWidth)
+                            .frame(width: pageTitleFieldWidth, height: 36, alignment: .leading)
                             .focused($headerTitleFocused)
                             .onSubmit(normalizePageTitle)
                             .onChange(of: headerTitleFocused) { _, isFocused in
