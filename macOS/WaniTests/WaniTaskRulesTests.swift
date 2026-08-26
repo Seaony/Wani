@@ -126,6 +126,22 @@ struct WaniTaskRulesTests {
         #expect(todo.deletedAt == nil)
     }
 
+    @Test("Project progress includes open and completed tasks")
+    func projectProgress() {
+        let project = WaniProject(title: "Launch")
+        let open = WaniTodo(title: "Open", project: project)
+        let completed = WaniTodo(title: "Completed", project: project)
+        completed.status = .completed
+        let canceled = WaniTodo(title: "Canceled", project: project)
+        canceled.status = .canceled
+        let deleted = WaniTodo(title: "Deleted", project: project)
+        deleted.deletedAt = date(2026, 8, 26, 12)
+
+        let todos = [open, completed, canceled, deleted]
+        #expect(WaniTaskRules.projectTasks(todos, projectID: project.id).count == 3)
+        #expect(WaniTaskRules.projectProgress(todos, projectID: project.id) == 0.5)
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,

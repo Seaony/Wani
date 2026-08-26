@@ -105,6 +105,24 @@ enum WaniTaskRules {
         }
     }
 
+    static func projectTasks(
+        _ todos: [WaniTodo],
+        projectID: UUID
+    ) -> [WaniTodo] {
+        todos.filter { $0.project?.id == projectID && $0.deletedAt == nil }
+    }
+
+    static func projectProgress(
+        _ todos: [WaniTodo],
+        projectID: UUID
+    ) -> Double {
+        let projectTodos = projectTasks(todos, projectID: projectID)
+            .filter { $0.status != .canceled }
+        guard !projectTodos.isEmpty else { return 0 }
+        let completed = projectTodos.filter { $0.status == .completed }.count
+        return Double(completed) / Double(projectTodos.count)
+    }
+
     static func matches(_ todo: WaniTodo, query: String) -> Bool {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }

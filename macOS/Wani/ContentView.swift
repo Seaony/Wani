@@ -21,6 +21,7 @@ struct ContentView: View {
     @State private var quickEntryTitle = ""
     @State private var searchOpen = false
     @State private var searchQuery = ""
+    @State private var newListOpen = false
 
     private var palette: WaniPalette { WaniPalette(colorScheme: colorScheme) }
 
@@ -31,9 +32,11 @@ struct ContentView: View {
                     palette: palette,
                     areas: areas,
                     projects: projects,
+                    todos: todos,
                     counts: smartListCounts,
                     selection: $selection,
-                    openSearch: { searchOpen = true }
+                    openSearch: { searchOpen = true },
+                    openNewList: { newListOpen = true }
                 )
                 .frame(width: 258)
 
@@ -57,6 +60,16 @@ struct ContentView: View {
                     query: $searchQuery,
                     open: openSearchResult,
                     dismiss: closeSearch
+                )
+            }
+
+            if newListOpen {
+                WaniNewListOverlay(
+                    palette: palette,
+                    areas: areas,
+                    saveArea: saveArea,
+                    saveProject: saveProject,
+                    dismiss: { newListOpen = false }
                 )
             }
         }
@@ -161,11 +174,8 @@ struct ContentView: View {
         case .smart(let list):
             WaniTaskRules.tasks(todos, in: list)
         case .project(let projectID):
-            todos.filter {
-                $0.project?.id == projectID
-                    && $0.deletedAt == nil
-                    && $0.status == .open
-            }
+            WaniTaskRules.projectTasks(todos, projectID: projectID)
+                .filter { $0.status == .open }
         }
     }
 
@@ -196,7 +206,15 @@ struct ContentView: View {
         case .smart(.trash): return visibleTodos.isEmpty ? "Empty" : "\(visibleTodos.count) deleted"
         case .project(let id):
             let project = projects.first { $0.id == id }
-            return "\(project?.area?.title ?? "") · \(visibleTodos.count) open"
+            let progress = WaniTaskRules.projectProgress(todos, projectID: id)
+            let percentage = Int((progress * 100).rounded())
+            let prefix: String
+            if let areaTitle = project?.area?.title {
+                prefix = "\(areaTitle) · "
+            } else {
+                prefix = ""
+            }
+            return "\(prefix)\(visibleTodos.count) open · \(percentage)% complete"
         }
     }
 
@@ -376,6 +394,30 @@ struct ContentView: View {
         }
         expandedTodoID = todo.id
         closeSearch()
+    }
+
+    private func saveArea(_ title: String) {
+        let area = WaniArea(
+            title: title,
+            sortOrder: (areas.map(\.sortOrder).max() ?? 0) + 1
+        )
+        modelContext.insert(area)
+        try? modelContext.save()
+        newListOpen = false
+    }
+
+    private func saveProject(_ title: String, areaID: UUID?) {
+        let area = areaID.flatMap { id in areas.first { $0.id == id } }
+        let project = WaniProject(
+            title: title,
+            area: area,
+            sortOrder: (projects.map(\.sortOrder).max() ?? 0) + 1
+        )
+        modelContext.insert(project)
+        try? modelContext.save()
+        selection = .project(project.id)
+        expandedTodoID = nil
+        newListOpen = false
     }
 
     private func closeQuickEntry() {
