@@ -1562,7 +1562,7 @@ struct ContentView: View {
     private func moveSelectedToInbox() {
         for todo in selectedTodos {
             WaniTaskRules.moveToInbox(todo)
-            WaniReminderScheduler.cancel(todo)
+            syncReminder(for: todo, requestAuthorization: false)
         }
         saveChanges()
         clearTodoSelection()
@@ -2056,7 +2056,7 @@ struct ContentView: View {
 
     private func moveToInbox(_ todo: WaniTodo) {
         WaniTaskRules.moveToInbox(todo)
-        WaniReminderScheduler.cancel(todo)
+        syncReminder(for: todo, requestAuthorization: false)
         saveChanges()
     }
 
@@ -2102,11 +2102,14 @@ struct ContentView: View {
         }
     }
 
-    private func syncReminder(for todo: WaniTodo) {
+    private func syncReminder(
+        for todo: WaniTodo,
+        requestAuthorization: Bool = true
+    ) {
         Task {
             await WaniReminderScheduler.sync(
                 todo,
-                requestAuthorization: true,
+                requestAuthorization: requestAuthorization,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled
             )
         }
