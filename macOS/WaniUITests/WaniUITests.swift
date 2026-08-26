@@ -140,6 +140,10 @@ final class WaniUITests: XCTestCase {
         app.typeKey(.escape, modifierFlags: [])
 
         app.menuBars.menuBarItems["Items"].click()
+        XCTAssertTrue(app.menuItems["Move…"].exists)
+        XCTAssertTrue(app.menuItems["Tags…"].exists)
+        XCTAssertTrue(app.menuItems["Mark as Completed"].exists)
+        XCTAssertTrue(app.menuItems["Mark as Canceled"].exists)
         app.menuItems["Deadline…"].click()
         XCTAssertTrue(app.buttons["Apply Deadline"].waitForExistence(timeout: 2))
     }

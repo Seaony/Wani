@@ -194,9 +194,15 @@ struct ContentView: View {
         .focusedSceneValue(
             \.waniItemCommandActions,
             WaniItemCommandActions(
-                isEnabled: !selectedTodos.isEmpty || focusedToolbarTodo != nil,
+                canEdit: !selectedTodos.isEmpty || focusedToolbarTodo != nil,
+                canClose: selectedTodos.contains { $0.status == .open }
+                    || focusedToolbarTodo != nil,
                 openWhen: openWhenCommand,
-                openDeadline: openDeadlineCommand
+                openMove: openMoveCommand,
+                openTags: openTagsCommand,
+                openDeadline: openDeadlineCommand,
+                complete: completeItemCommand,
+                cancel: cancelItemCommand
             )
         )
         .background(palette.background)
@@ -1769,6 +1775,43 @@ struct ContentView: View {
             toolbarDateEditorOpen = focusedToolbarTodo != nil
         } else {
             batchDeadlineEditorOpen = true
+        }
+    }
+
+    private func openMoveCommand() {
+        if selectedTodos.isEmpty {
+            openMoveForExpandedTodo()
+        } else {
+            batchMoveOpen = true
+        }
+    }
+
+    private func openTagsCommand() {
+        if selectedTodos.isEmpty {
+            guard let todo = focusedToolbarTodo else { return }
+            selectedTodoIDs = [todo.id]
+            selectionAnchorID = todo.id
+            expandedTodoID = nil
+        }
+        batchTagEditorOpen = true
+    }
+
+    private func completeItemCommand() {
+        if selectedTodos.isEmpty {
+            guard let todo = focusedToolbarTodo else { return }
+            toggleCompleted(todo)
+            expandedTodoID = nil
+        } else {
+            completeSelectedTodos()
+        }
+    }
+
+    private func cancelItemCommand() {
+        if selectedTodos.isEmpty {
+            guard let todo = focusedToolbarTodo else { return }
+            cancel(todo)
+        } else {
+            cancelSelectedTodos()
         }
     }
 

@@ -1,9 +1,14 @@
 import SwiftUI
 
 struct WaniItemCommandActions {
-    let isEnabled: Bool
+    let canEdit: Bool
+    let canClose: Bool
     let openWhen: () -> Void
+    let openMove: () -> Void
+    let openTags: () -> Void
     let openDeadline: () -> Void
+    let complete: () -> Void
+    let cancel: () -> Void
 }
 
 private struct WaniItemCommandActionsKey: FocusedValueKey {
@@ -25,12 +30,35 @@ struct WaniItemCommands: Commands {
             Button("When…") {
                 actions?.openWhen()
             }
-            .disabled(actions?.isEnabled != true)
+            .disabled(actions?.canEdit != true)
+
+            Button("Move…") {
+                actions?.openMove()
+            }
+            .disabled(actions?.canEdit != true)
+
+            Button("Tags…") {
+                actions?.openTags()
+            }
+            .disabled(actions?.canEdit != true)
 
             Button("Deadline…") {
                 actions?.openDeadline()
             }
-            .disabled(actions?.isEnabled != true)
+            .disabled(actions?.canEdit != true)
+
+            Divider()
+
+            Menu("Completion") {
+                Button("Mark as Completed") {
+                    actions?.complete()
+                }
+
+                Button("Mark as Canceled") {
+                    actions?.cancel()
+                }
+            }
+            .disabled(actions?.canClose != true)
         }
     }
 }
