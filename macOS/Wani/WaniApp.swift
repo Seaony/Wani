@@ -12,6 +12,7 @@ import SwiftData
 @main
 struct WaniApp: App {
     private let modelContainer: ModelContainer
+    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
 
     init() {
         do {
@@ -34,11 +35,21 @@ struct WaniApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Wani", id: "main") {
             ContentView()
         }
         .modelContainer(modelContainer)
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1180, height: 790)
+
+        MenuBarExtra(
+            "Wani",
+            systemImage: "checkmark.circle",
+            isInserted: $showMenuBarIcon
+        ) {
+            WaniMenuBarView()
+        }
+        .modelContainer(modelContainer)
+        .menuBarExtraStyle(.menu)
     }
 }

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WaniSettingsOverlay: View {
     enum Tab: String, CaseIterable, Identifiable {
+        case general = "General"
         case appearance = "Appearance"
         case quickEntry = "Quick Entry"
 
@@ -9,6 +10,7 @@ struct WaniSettingsOverlay: View {
 
         var symbol: String {
             switch self {
+            case .general: "gearshape"
             case .appearance: "circle.lefthalf.filled"
             case .quickEntry: "keyboard"
             }
@@ -22,9 +24,14 @@ struct WaniSettingsOverlay: View {
     @Binding var showCounts: Bool
     @Binding var showAreaLines: Bool
     @Binding var quickEntryUsesCurrentList: Bool
+    @Binding var launchDestination: WaniLaunchDestination
+    @Binding var showMenuBarIcon: Bool
+    @Binding var showDockBadge: Bool
     let dismiss: () -> Void
 
     @State private var tab: Tab = .appearance
+    @State private var launchAtLogin = false
+    @State private var startupError = ""
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -40,6 +47,8 @@ struct WaniSettingsOverlay: View {
 
                 Group {
                     switch tab {
+                    case .general:
+                        generalContent
                     case .appearance:
                         appearanceContent
                     case .quickEntry:
@@ -55,6 +64,9 @@ struct WaniSettingsOverlay: View {
             .padding(.top, 78)
         }
         .onExitCommand(perform: dismiss)
+        .onAppear {
+            launchAtLogin = WaniStartupService.isEnabled
+        }
     }
 
     private var titleBar: some View {
@@ -165,6 +177,39 @@ struct WaniSettingsOverlay: View {
         .padding(.vertical, 22)
     }
 
+    private var generalContent: some View {
+        VStack(spacing: 13) {
+            settingRow("Startup", alignment: .top) {
+                VStack(alignment: .leading, spacing: 8) {
+                    preferenceToggle("Launch at login", isOn: launchAtLoginBinding)
+                    preferenceToggle("Show icon in the menu bar", isOn: $showMenuBarIcon)
+                    preferenceToggle("Badge the Dock icon with today's count", isOn: $showDockBadge)
+
+                    if !startupError.isEmpty {
+                        Text(startupError)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            divider
+
+            settingRow("On launch, open") {
+                Picker("On launch, open", selection: $launchDestination) {
+                    ForEach(WaniLaunchDestination.allCases) { destination in
+                        Text(destination.title).tag(destination)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 150)
+            }
+        }
+        .padding(.horizontal, 26)
+        .padding(.vertical, 22)
+    }
+
     private var quickEntryContent: some View {
         VStack(spacing: 13) {
             settingRow("Quick Entry") {
@@ -256,6 +301,22 @@ struct WaniSettingsOverlay: View {
             .font(.system(size: 13))
             .foregroundStyle(palette.text)
             .tint(palette.accent)
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { launchAtLogin },
+            set: { enabled in
+                do {
+                    try WaniStartupService.setEnabled(enabled)
+                    launchAtLogin = WaniStartupService.isEnabled
+                    startupError = ""
+                } catch {
+                    launchAtLogin = WaniStartupService.isEnabled
+                    startupError = error.localizedDescription
+                }
+            }
+        )
     }
 
     private func keycap(_ title: String) -> some View {

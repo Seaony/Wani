@@ -22,6 +22,9 @@ struct ContentView: View {
     @AppStorage("showSidebarCounts") private var showSidebarCounts = true
     @AppStorage("showAreaLines") private var showAreaLines = true
     @AppStorage("quickEntryUsesCurrentList") private var quickEntryUsesCurrentList = true
+    @AppStorage("launchDestination") private var launchDestinationRaw = WaniLaunchDestination.today.rawValue
+    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
+    @AppStorage("showDockBadge") private var showDockBadge = false
 
     @State private var selection: WaniNavigationTarget = .smart(.today)
     @State private var expandedTodoID: UUID?
@@ -33,6 +36,7 @@ struct ContentView: View {
     @State private var settingsOpen = false
     @State private var addingHeading = false
     @State private var newHeadingTitle = ""
+    @State private var appliedLaunchDestination = false
 
     private var appearance: WaniAppearance {
         get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
@@ -47,6 +51,11 @@ struct ContentView: View {
     private var density: WaniListDensity {
         get { WaniListDensity(rawValue: densityRaw) ?? .medium }
         nonmutating set { densityRaw = newValue.rawValue }
+    }
+
+    private var launchDestination: WaniLaunchDestination {
+        get { WaniLaunchDestination(rawValue: launchDestinationRaw) ?? .today }
+        nonmutating set { launchDestinationRaw = newValue.rawValue }
     }
 
     private var palette: WaniPalette {
@@ -113,6 +122,12 @@ struct ContentView: View {
                     showCounts: $showSidebarCounts,
                     showAreaLines: $showAreaLines,
                     quickEntryUsesCurrentList: $quickEntryUsesCurrentList,
+                    launchDestination: Binding(
+                        get: { launchDestination },
+                        set: { launchDestination = $0 }
+                    ),
+                    showMenuBarIcon: $showMenuBarIcon,
+                    showDockBadge: $showDockBadge,
                     dismiss: { settingsOpen = false }
                 )
             }
@@ -121,6 +136,19 @@ struct ContentView: View {
         .background(palette.background)
         .tint(palette.accent)
         .preferredColorScheme(appearance.colorScheme)
+        .onAppear {
+            if !appliedLaunchDestination {
+                selection = .smart(launchDestination.smartList)
+                appliedLaunchDestination = true
+            }
+            updateDockBadge()
+        }
+        .onChange(of: showDockBadge) {
+            updateDockBadge()
+        }
+        .onChange(of: todayCount) {
+            updateDockBadge()
+        }
         .task {
             for todo in todos where todo.reminderDate != nil {
                 await WaniReminderScheduler.sync(todo, requestAuthorization: false)
@@ -301,6 +329,10 @@ struct ContentView: View {
         Dictionary(uniqueKeysWithValues: WaniSmartList.allCases.map { list in
             (list, WaniTaskRules.tasks(todos, in: list).count)
         })
+    }
+
+    private var todayCount: Int {
+        smartListCounts[.today] ?? 0
     }
 
     private var pageTitle: String {
@@ -606,6 +638,10 @@ struct ContentView: View {
     private func closeSearch() {
         searchOpen = false
         searchQuery = ""
+    }
+
+    private func updateDockBadge() {
+        WaniDockBadge.update(enabled: showDockBadge, todayCount: todayCount)
     }
 }
 

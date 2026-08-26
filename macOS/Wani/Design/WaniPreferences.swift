@@ -68,3 +68,27 @@ enum WaniListDensity: String, CaseIterable, Identifiable {
         }
     }
 }
+
+enum WaniLaunchDestination: String, CaseIterable, Identifiable {
+    case today
+    case inbox
+    case upcoming
+
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .today: "Today"
+        case .inbox: "Inbox"
+        case .upcoming: "Upcoming"
+        }
+    }
+
+    var smartList: WaniSmartList {
+        switch self {
+        case .today: .today
+        case .inbox: .inbox
+        case .upcoming: .upcoming
+        }
+    }
+}
