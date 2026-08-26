@@ -49,6 +49,7 @@ struct ContentView: View {
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
     @FocusState private var headerTitleFocused: Bool
+    @FocusState private var headingTitleFocused: Bool
 
     init(cloudSyncEnabled: Bool = true) {
         _cloudSyncMonitor = StateObject(
@@ -199,6 +200,7 @@ struct ContentView: View {
         .onChange(of: selection) {
             clearTodoSelection()
             projectTagFilter = nil
+            closeHeadingComposer()
         }
         .onChange(of: quickEntryShortcutRaw) {
             registerGlobalQuickEntry()
@@ -834,7 +836,6 @@ struct ContentView: View {
             WaniHeadingRow(
                 heading: heading,
                 palette: palette,
-                count: headingTodos.count,
                 save: saveChanges,
                 reorder: reorderHeading
             )
@@ -842,32 +843,18 @@ struct ContentView: View {
         }
 
         if addingHeading {
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 TextField("New heading", text: $newHeadingTitle)
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.system(size: 13.5, weight: .semibold))
+                    .foregroundStyle(palette.text)
+                    .focused($headingTitleFocused)
                     .onSubmit(saveHeading)
-                Button("Cancel", action: closeHeadingComposer)
-                    .buttonStyle(.plain)
-                Button("Add", action: saveHeading)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(palette.accent)
-                    .disabled(newHeadingTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             .padding(.horizontal, 11)
-            .frame(height: 38)
-        } else {
-            Button {
-                addingHeading = true
-            } label: {
-                Label("New Heading", systemImage: "plus")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(palette.tertiaryText)
-                    .padding(.horizontal, 11)
-                    .frame(height: 38)
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 40)
+            .background(palette.softAccent, in: RoundedRectangle(cornerRadius: 9))
+            .onExitCommand(perform: closeHeadingComposer)
         }
     }
 
@@ -1145,8 +1132,14 @@ struct ContentView: View {
                 quickEntryOpen = true
             }
             .keyboardShortcut("n", modifiers: [])
-            toolbarButton("plus.app", label: "Quick Entry") {
-                quickEntryOpen = true
+            if selectedProject != nil {
+                toolbarButton("rectangle.stack.badge.plus", label: "New Heading") {
+                    openHeadingComposer()
+                }
+            } else {
+                toolbarButton("plus.app", label: "Quick Entry") {
+                    quickEntryOpen = true
+                }
             }
             toolbarButton("calendar", label: "When") {
                 selection = .smart(.upcoming)
@@ -1671,7 +1664,17 @@ struct ContentView: View {
         closeHeadingComposer()
     }
 
+    private func openHeadingComposer() {
+        guard selectedProject != nil else { return }
+        addingHeading = true
+        Task { @MainActor in
+            await Task.yield()
+            headingTitleFocused = true
+        }
+    }
+
     private func closeHeadingComposer() {
+        headingTitleFocused = false
         addingHeading = false
         newHeadingTitle = ""
     }
