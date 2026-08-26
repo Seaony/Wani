@@ -7,6 +7,7 @@ struct WaniTaskRow: View {
     let palette: WaniPalette
     let projects: [WaniProject]
     let headings: [WaniHeading]
+    let density: WaniListDensity
     let isExpanded: Bool
     let toggleExpanded: () -> Void
     let toggleCompleted: () -> Void
@@ -78,7 +79,7 @@ struct WaniTaskRow: View {
             }
         }
         .padding(.horizontal, isExpanded ? 16 : 11)
-        .padding(.vertical, isExpanded ? 14 : 9)
+        .padding(.vertical, isExpanded ? 14 : density.rowPadding)
         .background(
             isExpanded ? palette.card : Color.clear,
             in: RoundedRectangle(cornerRadius: 10)

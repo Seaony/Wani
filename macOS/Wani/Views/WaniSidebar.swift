@@ -6,9 +6,12 @@ struct WaniSidebar: View {
     let projects: [WaniProject]
     let todos: [WaniTodo]
     let counts: [WaniSmartList: Int]
+    let showCounts: Bool
+    let showAreaLines: Bool
     @Binding var selection: WaniNavigationTarget
     let openSearch: () -> Void
     let openNewList: () -> Void
+    let openSettings: () -> Void
 
     @State private var collapsedAreaIDs: Set<UUID> = []
 
@@ -81,9 +84,12 @@ struct WaniSidebar: View {
                     .font(.system(size: 12.5))
                     .foregroundStyle(palette.secondaryText)
                 Spacer()
-                Image(systemName: "slider.horizontal.3")
-                    .foregroundStyle(palette.tertiaryText)
-                    .accessibilityLabel("Settings")
+                Button(action: openSettings) {
+                    Image(systemName: "slider.horizontal.3")
+                        .foregroundStyle(palette.tertiaryText)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Settings")
             }
             .padding(.horizontal, 18)
             .frame(height: 46)
@@ -103,7 +109,7 @@ struct WaniSidebar: View {
                 Text(list.title)
                     .font(.system(size: 13.5, weight: .medium))
                 Spacer()
-                if let count = counts[list], count > 0 {
+                if showCounts, let count = counts[list], count > 0 {
                     Text(count.formatted())
                         .font(.system(size: 12))
                         .foregroundStyle(palette.tertiaryText)
@@ -137,11 +143,15 @@ struct WaniSidebar: View {
                     Text(area.title.uppercased())
                         .font(.system(size: 10.5, weight: .bold))
                         .tracking(1.2)
-                    Rectangle()
-                        .fill(palette.line)
-                        .frame(height: 1)
+                    if showAreaLines {
+                        Rectangle()
+                            .fill(palette.line)
+                            .frame(height: 1)
+                    } else {
+                        Spacer(minLength: 0)
+                    }
                     let count = areaOpenCount(area)
-                    if count > 0 {
+                    if showCounts, count > 0 {
                         Text(count.formatted())
                             .font(.system(size: 11))
                     }
@@ -192,7 +202,7 @@ struct WaniSidebar: View {
                 Spacer()
                 let openCount = WaniTaskRules.projectTasks(todos, projectID: project.id)
                     .filter { $0.status == .open }.count
-                if openCount > 0 {
+                if showCounts, openCount > 0 {
                     Text(openCount.formatted())
                         .font(.system(size: 12))
                         .foregroundStyle(palette.tertiaryText)

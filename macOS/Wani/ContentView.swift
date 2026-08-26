@@ -16,6 +16,13 @@ struct ContentView: View {
     @Query(sort: \WaniHeading.sortOrder) private var headings: [WaniHeading]
     @Query(sort: \WaniTodo.sortOrder) private var todos: [WaniTodo]
 
+    @AppStorage("appearance") private var appearanceRaw = WaniAppearance.light.rawValue
+    @AppStorage("accent") private var accentRaw = WaniAccent.terracotta.rawValue
+    @AppStorage("listDensity") private var densityRaw = WaniListDensity.medium.rawValue
+    @AppStorage("showSidebarCounts") private var showSidebarCounts = true
+    @AppStorage("showAreaLines") private var showAreaLines = true
+    @AppStorage("quickEntryUsesCurrentList") private var quickEntryUsesCurrentList = true
+
     @State private var selection: WaniNavigationTarget = .smart(.today)
     @State private var expandedTodoID: UUID?
     @State private var quickEntryOpen = false
@@ -23,10 +30,28 @@ struct ContentView: View {
     @State private var searchOpen = false
     @State private var searchQuery = ""
     @State private var newListOpen = false
+    @State private var settingsOpen = false
     @State private var addingHeading = false
     @State private var newHeadingTitle = ""
 
-    private var palette: WaniPalette { WaniPalette(colorScheme: colorScheme) }
+    private var appearance: WaniAppearance {
+        get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
+        nonmutating set { appearanceRaw = newValue.rawValue }
+    }
+
+    private var accent: WaniAccent {
+        get { WaniAccent(rawValue: accentRaw) ?? .terracotta }
+        nonmutating set { accentRaw = newValue.rawValue }
+    }
+
+    private var density: WaniListDensity {
+        get { WaniListDensity(rawValue: densityRaw) ?? .medium }
+        nonmutating set { densityRaw = newValue.rawValue }
+    }
+
+    private var palette: WaniPalette {
+        WaniPalette(colorScheme: colorScheme, accent: accent)
+    }
 
     var body: some View {
         ZStack {
@@ -37,9 +62,12 @@ struct ContentView: View {
                     projects: projects,
                     todos: todos,
                     counts: smartListCounts,
+                    showCounts: showSidebarCounts,
+                    showAreaLines: showAreaLines,
                     selection: $selection,
                     openSearch: { searchOpen = true },
-                    openNewList: { newListOpen = true }
+                    openNewList: { newListOpen = true },
+                    openSettings: { settingsOpen = true }
                 )
                 .frame(width: 258)
 
@@ -75,10 +103,24 @@ struct ContentView: View {
                     dismiss: { newListOpen = false }
                 )
             }
+
+            if settingsOpen {
+                WaniSettingsOverlay(
+                    palette: palette,
+                    appearance: Binding(get: { appearance }, set: { appearance = $0 }),
+                    accent: Binding(get: { accent }, set: { accent = $0 }),
+                    density: Binding(get: { density }, set: { density = $0 }),
+                    showCounts: $showSidebarCounts,
+                    showAreaLines: $showAreaLines,
+                    quickEntryUsesCurrentList: $quickEntryUsesCurrentList,
+                    dismiss: { settingsOpen = false }
+                )
+            }
         }
         .frame(minWidth: 760, minHeight: 520)
         .background(palette.background)
         .tint(palette.accent)
+        .preferredColorScheme(appearance.colorScheme)
         .task {
             for todo in todos where todo.reminderDate != nil {
                 await WaniReminderScheduler.sync(todo, requestAuthorization: false)
@@ -238,6 +280,7 @@ struct ContentView: View {
                 palette: palette,
                 projects: projects,
                 headings: headings,
+                density: density,
                 isExpanded: expandedTodoID == todo.id,
                 toggleExpanded: {
                     expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
@@ -293,6 +336,13 @@ struct ContentView: View {
         }
     }
 
+    private var quickEntryDestination: WaniNavigationTarget {
+        guard quickEntryUsesCurrentList, canAddToCurrentList else {
+            return .smart(.inbox)
+        }
+        return selection
+    }
+
     private var pageSymbol: String {
         switch selection {
         case .smart(let list): list.symbolName
@@ -308,7 +358,7 @@ struct ContentView: View {
     }
 
     private var destinationTitle: String {
-        switch selection {
+        switch quickEntryDestination {
         case .smart(let list): list.title
         case .project(let id): projects.first { $0.id == id }?.title ?? "Inbox"
         }
@@ -398,7 +448,7 @@ struct ContentView: View {
         guard !title.isEmpty else { return }
 
         let todo: WaniTodo
-        switch selection {
+        switch quickEntryDestination {
         case .smart(.today):
             todo = WaniTodo(
                 title: title,

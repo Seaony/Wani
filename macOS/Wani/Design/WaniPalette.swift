@@ -15,7 +15,7 @@ struct WaniPalette {
     let accent: Color
     let softAccent: Color
 
-    init(colorScheme: ColorScheme) {
+    init(colorScheme: ColorScheme, accent selectedAccent: WaniAccent = .terracotta) {
         if colorScheme == .dark {
             desk = Color(hex: 0x100E0C)
             background = Color(hex: 0x1D1915)
@@ -28,8 +28,8 @@ struct WaniPalette {
             line = Color(hex: 0x342D26)
             faintLine = Color.white.opacity(0.07)
             hover = Color.white.opacity(0.07)
-            accent = Color(hex: 0xE0794E)
-            softAccent = Color(hex: 0xE0794E).opacity(0.16)
+            accent = selectedAccent.color
+            softAccent = selectedAccent.color.opacity(0.16)
         } else {
             desk = Color(hex: 0xE7DDCE)
             background = Color(hex: 0xF4EEE6)
@@ -42,13 +42,15 @@ struct WaniPalette {
             line = Color(hex: 0xE7DDCF)
             faintLine = Color(hex: 0x8C735A).opacity(0.11)
             hover = Color(hex: 0xB49678).opacity(0.14)
-            accent = Color(hex: 0xC05A34)
-            softAccent = Color(hex: 0xF7E4D9)
+            accent = selectedAccent.color
+            softAccent = selectedAccent == .terracotta
+                ? Color(hex: 0xF7E4D9)
+                : selectedAccent.color.opacity(0.14)
         }
     }
 }
 
-private extension Color {
+extension Color {
     init(hex: UInt32) {
         self.init(
             red: Double((hex >> 16) & 0xff) / 255,
