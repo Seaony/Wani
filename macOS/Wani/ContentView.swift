@@ -1299,17 +1299,16 @@ struct ContentView: View {
             return "\(projectCount) \(projectCount == 1 ? "project" : "projects") · \(visibleOpenTodoCount) open"
         case .project(let id):
             let project = projects.first { $0.id == id }
-            let progress = WaniTaskRules.projectProgress(todos, projectID: id)
-            let openCount = WaniTaskRules.projectTasks(todos, projectID: id)
-                .filter { $0.status == .open }.count
-            let percentage = Int((progress * 100).rounded())
+            let projectTodos = WaniTaskRules.projectTasks(todos, projectID: id)
+            let openCount = projectTodos.filter { $0.status == .open }.count
+            let doneCount = projectTodos.filter { $0.status == .completed }.count
             let prefix: String
             if let areaTitle = project?.area?.title {
                 prefix = "\(areaTitle) · "
             } else {
                 prefix = ""
             }
-            return "\(prefix)\(openCount) open · \(percentage)% complete"
+            return "\(prefix)\(openCount) open, \(doneCount) done"
         }
     }
 
