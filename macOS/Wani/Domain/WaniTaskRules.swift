@@ -800,6 +800,48 @@ enum WaniTaskRules {
         return occurrences
     }
 
+    static func repeatPreviewDates(
+        startingAt startDate: Date,
+        frequency: WaniRepeatFrequency,
+        interval: Int,
+        afterCompletion: Bool,
+        weekdays: [Int] = [],
+        dateRules: [WaniRepeatDateRule] = [],
+        endDate: Date? = nil,
+        endAfterCount: Int? = nil,
+        maximumCount: Int = 5,
+        calendar: Calendar = .current
+    ) -> [Date] {
+        guard frequency != .none, !afterCompletion, maximumCount > 0 else { return [] }
+        if let endDate,
+           calendar.startOfDay(for: startDate) > calendar.startOfDay(for: endDate) {
+            return []
+        }
+
+        let occurrenceLimit = endAfterCount.map { max($0, 1) }
+        var dates = [startDate]
+        var currentDate = startDate
+
+        while dates.count < maximumCount,
+              occurrenceLimit.map({ dates.count < $0 }) ?? true,
+              let nextDate = nextDate(
+                after: currentDate,
+                frequency: frequency,
+                interval: interval,
+                weekdays: weekdays,
+                dateRules: dateRules,
+                calendar: calendar
+              ) {
+            if let endDate,
+               calendar.startOfDay(for: nextDate) > calendar.startOfDay(for: endDate) {
+                break
+            }
+            dates.append(nextDate)
+            currentDate = nextDate
+        }
+        return dates
+    }
+
     static func cancel(_ todo: WaniTodo, at date: Date = Date()) {
         todo.status = .canceled
         todo.completedAt = nil

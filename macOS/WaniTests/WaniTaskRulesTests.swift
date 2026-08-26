@@ -629,6 +629,33 @@ struct WaniTaskRulesTests {
         ])
     }
 
+    @Test("Repeat previews use the production schedule and end conditions")
+    func repeatPreviewDates() {
+        let preview = WaniTaskRules.repeatPreviewDates(
+            startingAt: date(2026, 1, 31, 9),
+            frequency: .monthly,
+            interval: 1,
+            afterCompletion: false,
+            dateRules: [WaniRepeatDateRule(ordinal: 31)],
+            endAfterCount: 3,
+            calendar: calendar
+        )
+
+        #expect(preview == [
+            date(2026, 1, 31, 9),
+            date(2026, 3, 31, 9),
+            date(2026, 5, 31, 9),
+        ])
+        #expect(WaniTaskRules.repeatPreviewDates(
+            startingAt: date(2026, 1, 31, 9),
+            frequency: .monthly,
+            interval: 1,
+            afterCompletion: true,
+            dateRules: [WaniRepeatDateRule(ordinal: 31)],
+            calendar: calendar
+        ).isEmpty)
+    }
+
     @Test("Trash restore and cancellation preserve state transitions")
     func lifecycleTransitions() {
         let now = date(2026, 8, 26, 12)

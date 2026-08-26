@@ -23,6 +23,7 @@ struct WaniRepeatEditor: View {
     let apply: (WaniRepeatConfiguration) -> Void
     let dismiss: () -> Void
     private let defaultMonth: Int
+    private let previewStartDate: Date
 
     @State private var frequency: WaniRepeatFrequency
     @State private var interval: Int
@@ -46,7 +47,9 @@ struct WaniRepeatEditor: View {
         self.palette = palette
         self.apply = apply
         self.dismiss = dismiss
-        self.defaultMonth = Calendar.current.component(.month, from: todo.startDate ?? .now)
+        let startDate = todo.startDate ?? Calendar.current.startOfDay(for: .now)
+        self.defaultMonth = Calendar.current.component(.month, from: startDate)
+        self.previewStartDate = startDate
         _frequency = State(initialValue: todo.repeatFrequency == .none ? .weekly : todo.repeatFrequency)
         _interval = State(initialValue: max(todo.repeatInterval, 1))
         _afterCompletion = State(initialValue: todo.repeatFrequency == .none || todo.repeatsAfterCompletion)
@@ -54,7 +57,6 @@ struct WaniRepeatEditor: View {
             ? [Calendar.current.component(.weekday, from: todo.startDate ?? .now)]
             : todo.repeatWeekdays
         _weekdays = State(initialValue: Set(initialWeekdays))
-        let startDate = todo.startDate ?? .now
         _dateRules = State(initialValue: todo.repeatDateRules.isEmpty
             ? [WaniRepeatDateRule(
                 ordinal: Calendar.current.component(.day, from: startDate),
@@ -144,6 +146,7 @@ struct WaniRepeatEditor: View {
 
                     if !afterCompletion {
                         repeatEndSelector
+                        repeatPreview
                     }
 
                     optionRow(
@@ -299,6 +302,40 @@ struct WaniRepeatEditor: View {
                 .datePickerStyle(.field)
             }
         }
+    }
+
+    private var repeatPreview: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Text("Next")
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(palette.secondaryText)
+            Text(previewDates.isEmpty ? "No upcoming dates" : previewText)
+                .font(.system(size: 11.5))
+                .foregroundStyle(palette.tertiaryText)
+                .lineLimit(1)
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var previewDates: [Date] {
+        WaniTaskRules.repeatPreviewDates(
+            startingAt: previewStartDate,
+            frequency: frequency,
+            interval: interval,
+            afterCompletion: afterCompletion,
+            weekdays: frequency == .weekly ? Array(weekdays) : [],
+            dateRules: frequency == .monthly || frequency == .yearly ? dateRulesForSave : [],
+            endDate: endCondition == .onDate ? endDate : nil,
+            endAfterCount: endCondition == .afterOccurrences ? endAfterCount : nil,
+            maximumCount: 6
+        )
+    }
+
+    private var previewText: String {
+        previewDates.prefix(5)
+            .map { $0.formatted(.dateTime.month(.abbreviated).day()) }
+            .joined(separator: ", ") + (previewDates.count > 5 ? ", …" : "")
     }
 
     private var dateRuleEditor: some View {
