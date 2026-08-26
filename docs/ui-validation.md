@@ -1,5 +1,17 @@
 # Wani 界面验收记录
 
+## 2026-08-27：macOS 桌面小组件
+
+对照 `Desktop Widgets.dc.html` 完成以下 9 个桌面小组件：
+
+- 小号：Today at a glance、Project progress、Inbox、Next Up。
+- 中号：Today、Projects、Quick Capture。
+- 大号：Upcoming、Month at a glance。
+
+设计稿已在 Dia 中逐项检查；实现包含对应的小、中、大尺寸、浅深色自适应、任务完成与延期入口、快速录入入口，以及由主应用导出到 App Group 的只读快照。后台构建、测试与静态分析结果见 [后台构建与测试记录](build-validation.md)。
+
+尚未完成系统桌面上的视觉与交互验收：Xcode Canvas 和可安装小组件都需要有效签名，而当前 Personal Team 不支持项目已有的 iCloud capability。已使用 Xcode 前台实际触发并确认该错误，不能将这一项视为通过；继续条件见 [iCloud 验收记录](icloud-validation.md)。
+
 ## 2026-08-26：人工检查
 
 本次检查使用 Debug 构建和现有本地数据，未运行 UI 自动化。

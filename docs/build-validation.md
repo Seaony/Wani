@@ -1,5 +1,12 @@
 # Wani 后台构建与测试记录
 
+## 2026-08-27：macOS 桌面小组件
+
+- `WaniTests` 的 52 项单元测试全部通过；新增覆盖小组件的 Today、Upcoming、项目进度、月历标记与深链接分类。
+- 无签名静态分析成功，没有产生诊断。
+- 无签名 Release 构建成功，Wani 主应用与内嵌的 `WaniWidgets.appex` 均编译并通过嵌入二进制校验。
+- UI 自动化未执行完成且不计入本次结果。Xcode Canvas 与系统桌面安装所需的签名能力仍受当前 Personal Team 的 iCloud 限制，详见 [iCloud 验收记录](icloud-validation.md)。
+
 ## 2026-08-26
 
 本节仅记录后台构建、静态分析和单元测试；没有运行 UI 自动化，前台手动检查另见界面验收记录。

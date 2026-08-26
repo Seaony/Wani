@@ -20,6 +20,79 @@ struct WaniTaskRulesTests {
         #expect(WaniAppearance.allCases.first == .system)
     }
 
+    @Test("Widget snapshots classify tasks and project progress")
+    func widgetSnapshotClassification() throws {
+        let now = date(2026, 8, 27, 12)
+        let projectID = UUID()
+        let todayID = UUID()
+        let upcomingID = UUID()
+        let completedID = UUID()
+        let project = WaniWidgetProjectSnapshot(
+            id: projectID,
+            title: "Mantis",
+            sortOrder: 0,
+            completedAt: nil,
+            canceledAt: nil,
+            deletedAt: nil
+        )
+        let tasks = [
+            widgetTask(
+                id: todayID,
+                title: "Today",
+                projectID: projectID,
+                status: "open",
+                schedule: "date",
+                startDate: date(2026, 8, 27, 0),
+                deadline: date(2026, 8, 27, 0),
+                sortOrder: 0
+            ),
+            widgetTask(
+                id: upcomingID,
+                title: "Tomorrow",
+                projectID: projectID,
+                status: "open",
+                schedule: "date",
+                startDate: date(2026, 8, 28, 0),
+                sortOrder: 1
+            ),
+            widgetTask(
+                id: completedID,
+                title: "Done",
+                projectID: projectID,
+                status: "completed",
+                schedule: "anytime",
+                completedAt: now,
+                sortOrder: 2
+            ),
+            widgetTask(
+                title: "Canceled",
+                projectID: projectID,
+                status: "canceled",
+                schedule: "anytime",
+                sortOrder: 3
+            ),
+        ]
+        let snapshot = WaniWidgetSnapshot(
+            generatedAt: now,
+            tasks: tasks,
+            projects: [project]
+        )
+
+        #expect(snapshot.todayTasks(now: now).map(\.id) == [todayID])
+        #expect(snapshot.completedTodayCount(now: now) == 1)
+        #expect(snapshot.upcomingDays(count: 1, now: now).first?.tasks.map(\.id) == [upcomingID])
+        let progress = try #require(snapshot.projectProgress().first)
+        #expect(progress.openCount == 2)
+        #expect(progress.completedCount == 1)
+        #expect(progress.progress == 1.0 / 3.0)
+        let marks = snapshot.monthMarks(in: now, calendar: calendar)[date(2026, 8, 27, 0)]
+            ?? WaniWidgetDateMarks()
+        #expect(marks.scheduled)
+        #expect(marks.deadline)
+        #expect(WaniWidgetDeepLink.complete(todoID: todayID).absoluteString ==
+            "wani://widget/complete/\(todayID.uuidString)")
+    }
+
     @Test("CloudKit account states map to visible sync states")
     func cloudAccountStates() {
         #expect(WaniCloudAccountState(.available) == .available)
@@ -1716,6 +1789,34 @@ struct WaniTaskRulesTests {
         ) == ids[1])
         #expect(WaniSelectionRules.boundaryID(in: .previous, in: ids) == ids[0])
         #expect(WaniSelectionRules.boundaryID(in: .next, in: ids) == ids[3])
+    }
+
+    private func widgetTask(
+        id: UUID = UUID(),
+        title: String,
+        projectID: UUID?,
+        status: String,
+        schedule: String,
+        startDate: Date? = nil,
+        deadline: Date? = nil,
+        completedAt: Date? = nil,
+        sortOrder: Double
+    ) -> WaniWidgetTaskSnapshot {
+        WaniWidgetTaskSnapshot(
+            id: id,
+            title: title,
+            projectID: projectID,
+            projectTitle: projectID == nil ? nil : "Mantis",
+            status: status,
+            schedule: schedule,
+            startDate: startDate,
+            deadline: deadline,
+            createdAt: date(2026, 8, 27, 0),
+            updatedAt: date(2026, 8, 27, 0),
+            completedAt: completedAt,
+            deletedAt: nil,
+            sortOrder: sortOrder
+        )
     }
 
     private func date(

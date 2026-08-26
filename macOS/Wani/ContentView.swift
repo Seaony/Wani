@@ -8,6 +8,7 @@
 import AppKit
 import SwiftData
 import SwiftUI
+import WidgetKit
 
 struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -38,6 +39,7 @@ struct ContentView: View {
     @State private var quickEntryOpen = false
     @State private var quickEntryTitle = ""
     @State private var quickEntryInsertionAfterTodoID: UUID?
+    @State private var widgetQuickEntryDestination: WaniNavigationTarget?
     @State private var searchOpen = false
     @State private var searchQuery = ""
     @State private var settingsOpen = false
@@ -239,6 +241,11 @@ struct ContentView: View {
             updateDockBadge()
             registerGlobalQuickEntry()
             generateDueRepeatingTodos()
+            refreshWidgetSnapshot()
+        }
+        .onOpenURL(perform: handleWidgetDeepLink)
+        .onChange(of: widgetSnapshotRevision) {
+            refreshWidgetSnapshot()
         }
         .onChange(of: showDockBadge) {
             updateDockBadge()
@@ -1317,6 +1324,9 @@ struct ContentView: View {
     }
 
     private var quickEntryDestination: WaniNavigationTarget {
+        if let widgetQuickEntryDestination {
+            return widgetQuickEntryDestination
+        }
         guard quickEntryUsesCurrentList, canAddToCurrentList else {
             return .smart(.inbox)
         }
@@ -2832,6 +2842,102 @@ struct ContentView: View {
         quickEntryOpen = false
         quickEntryTitle = ""
         quickEntryInsertionAfterTodoID = nil
+        widgetQuickEntryDestination = nil
+    }
+
+    private var widgetSnapshotRevision: [Date] {
+        (todos.map(\.updatedAt) + projects.map(\.updatedAt)).sorted()
+    }
+
+    private func refreshWidgetSnapshot() {
+        let snapshot = WaniWidgetSnapshot(
+            generatedAt: .now,
+            tasks: todos.map { todo in
+                WaniWidgetTaskSnapshot(
+                    id: todo.id,
+                    title: todo.title,
+                    projectID: todo.project?.id,
+                    projectTitle: todo.project?.title,
+                    status: todo.status.rawValue,
+                    schedule: todo.schedule.rawValue,
+                    startDate: todo.startDate,
+                    deadline: todo.deadline,
+                    createdAt: todo.createdAt,
+                    updatedAt: todo.updatedAt,
+                    completedAt: todo.completedAt,
+                    deletedAt: todo.deletedAt,
+                    sortOrder: todo.sortOrder
+                )
+            },
+            projects: projects.map { project in
+                WaniWidgetProjectSnapshot(
+                    id: project.id,
+                    title: project.title,
+                    sortOrder: project.sortOrder,
+                    completedAt: project.completedAt,
+                    canceledAt: project.canceledAt,
+                    deletedAt: project.deletedAt
+                )
+            }
+        )
+        if WaniWidgetSnapshotStore.save(snapshot) {
+            WidgetCenter.shared.reloadAllTimelines()
+        }
+    }
+
+    private func handleWidgetDeepLink(_ url: URL) {
+        guard url.scheme == "wani", url.host == "widget" else { return }
+        let path = url.pathComponents.filter { $0 != "/" }
+        guard let action = path.first else { return }
+
+        switch action {
+        case "complete":
+            guard path.count == 2,
+                  let id = UUID(uuidString: path[1]),
+                  let todo = todos.first(where: { $0.id == id && $0.status == .open })
+            else { return }
+            toggleCompleted(todo)
+        case "postpone":
+            guard path.count == 2,
+                  let id = UUID(uuidString: path[1]),
+                  let todo = todos.first(where: { $0.id == id && $0.status == .open }),
+                  let tomorrow = Calendar.current.date(
+                    byAdding: .day,
+                    value: 1,
+                    to: Calendar.current.startOfDay(for: .now)
+                  )
+            else { return }
+            WaniTaskRules.schedule(
+                todo,
+                as: .date,
+                startDate: tomorrow,
+                isEvening: false
+            )
+            syncReminder(for: todo, requestAuthorization: false)
+            saveChanges()
+        case "quick-capture":
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+            let destination = components?.queryItems?.first {
+                $0.name == "destination"
+            }?.value
+            let projectID = components?.queryItems?.first {
+                $0.name == "project"
+            }?.value.flatMap(UUID.init(uuidString:))
+
+            if destination == "today" {
+                widgetQuickEntryDestination = .smart(.today)
+            } else if destination == "project",
+                      let projectID,
+                      projects.contains(where: { $0.id == projectID }) {
+                widgetQuickEntryDestination = .project(projectID)
+            } else {
+                widgetQuickEntryDestination = .smart(.inbox)
+            }
+            quickEntryInsertionAfterTodoID = nil
+            quickEntryOpen = true
+        default:
+            return
+        }
     }
 
     private func registerGlobalQuickEntry() {
