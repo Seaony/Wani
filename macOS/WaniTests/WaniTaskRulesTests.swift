@@ -681,12 +681,16 @@ struct WaniTaskRulesTests {
         let heading = WaniHeading(title: "Polish", project: project)
         let todo = WaniTodo(title: "Move me", schedule: .inbox)
 
+        todo.deletedAt = now.addingTimeInterval(-60)
         WaniTaskRules.move(todo, to: area, at: now)
+        #expect(todo.deletedAt == nil)
         #expect(todo.area?.id == area.id)
         #expect(todo.project == nil)
         #expect(todo.schedule == .anytime)
 
+        todo.deletedAt = now.addingTimeInterval(-60)
         WaniTaskRules.move(todo, to: project, heading: heading, at: now)
+        #expect(todo.deletedAt == nil)
         #expect(todo.area == nil)
         #expect(todo.project?.id == project.id)
         #expect(todo.heading?.id == heading.id)
@@ -694,7 +698,9 @@ struct WaniTaskRulesTests {
         #expect(todo.updatedAt == now)
 
         todo.reminderDate = now.addingTimeInterval(3_600)
+        todo.deletedAt = now
         WaniTaskRules.moveToInbox(todo, at: now.addingTimeInterval(60))
+        #expect(todo.deletedAt == nil)
         #expect(todo.project == nil)
         #expect(todo.heading == nil)
         #expect(todo.area == nil)

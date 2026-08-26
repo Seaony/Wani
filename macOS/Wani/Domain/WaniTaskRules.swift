@@ -493,6 +493,7 @@ enum WaniTaskRules {
         heading: WaniHeading? = nil,
         at date: Date = Date()
     ) {
+        todo.deletedAt = nil
         todo.project = project
         todo.heading = heading
         todo.area = nil
@@ -524,6 +525,7 @@ enum WaniTaskRules {
     }
 
     static func moveToInbox(_ todo: WaniTodo, at date: Date = Date()) {
+        todo.deletedAt = nil
         todo.project = nil
         todo.heading = nil
         todo.area = nil
@@ -785,6 +787,7 @@ enum WaniTaskRules {
         to area: WaniArea,
         at date: Date = Date()
     ) {
+        todo.deletedAt = nil
         todo.area = area
         todo.project = nil
         todo.heading = nil

@@ -1495,6 +1495,7 @@ struct ContentView: View {
             .keyboardShortcut("m", modifiers: [.command, .shift])
 
             Button("Trash", systemImage: "trash", action: trashSelectedTodos)
+                .disabled(!selectedTodos.contains { $0.deletedAt == nil })
 
             Spacer()
 
