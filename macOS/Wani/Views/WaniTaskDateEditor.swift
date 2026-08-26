@@ -152,10 +152,11 @@ struct WaniTaskDateEditor: View {
         Binding(
             get: { todo.deadline != nil },
             set: { enabled in
-                todo.deadline = enabled
+                let deadline = enabled
                     ? Calendar.current.date(byAdding: .day, value: 7, to: todo.startDate ?? .now)
                     : nil
-                touchAndSave()
+                WaniTaskRules.setDeadline(todo, to: deadline)
+                save()
                 reminderChanged()
             }
         )
@@ -165,8 +166,8 @@ struct WaniTaskDateEditor: View {
         Binding(
             get: { todo.deadline ?? .now },
             set: {
-                todo.deadline = $0
-                touchAndSave()
+                WaniTaskRules.setDeadline(todo, to: $0)
+                save()
                 reminderChanged()
             }
         )
@@ -176,19 +177,11 @@ struct WaniTaskDateEditor: View {
         Binding(
             get: { todo.reminderDate != nil },
             set: { enabled in
-                if enabled {
-                    if todo.schedule != .date {
-                        WaniTaskRules.schedule(
-                            todo,
-                            as: .date,
-                            startDate: Calendar.current.startOfDay(for: .now)
-                        )
-                    }
-                    todo.reminderDate = WaniTaskRules.suggestedReminderDate(for: todo)
-                } else {
-                    todo.reminderDate = nil
-                }
-                touchAndSave()
+                let reminder = enabled
+                    ? WaniTaskRules.suggestedReminderDate(for: todo)
+                    : nil
+                WaniTaskRules.setReminder(todo, to: reminder)
+                save()
                 reminderChanged()
             }
         )

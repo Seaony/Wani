@@ -992,6 +992,51 @@ struct WaniTaskRulesTests {
         #expect(todo.updatedAt == now)
     }
 
+    @Test("Shared reminder times and deadlines apply across a selection")
+    func batchDateMetadata() {
+        let updatedAt = date(2026, 8, 26, 12)
+        let reminderTime = date(2026, 9, 5, 15, 30)
+        let inbox = WaniTodo(title: "Inbox")
+        let scheduled = WaniTodo(
+            title: "Scheduled",
+            schedule: .date,
+            startDate: date(2026, 8, 28, 0)
+        )
+
+        for todo in [inbox, scheduled] {
+            WaniTaskRules.setReminder(
+                todo,
+                to: reminderTime,
+                at: updatedAt,
+                calendar: calendar
+            )
+            WaniTaskRules.setDeadline(
+                todo,
+                to: date(2026, 8, 31, 17),
+                at: updatedAt,
+                calendar: calendar
+            )
+        }
+
+        #expect(inbox.schedule == .date)
+        #expect(inbox.startDate == date(2026, 8, 26, 0))
+        #expect(inbox.reminderDate == date(2026, 8, 26, 15, 30))
+        #expect(scheduled.reminderDate == date(2026, 8, 28, 15, 30))
+        #expect(inbox.deadline == date(2026, 8, 31, 0))
+        #expect(scheduled.deadline == date(2026, 8, 31, 0))
+        #expect(inbox.updatedAt == updatedAt)
+        #expect(scheduled.updatedAt == updatedAt)
+
+        for todo in [inbox, scheduled] {
+            WaniTaskRules.setReminder(todo, to: nil, at: updatedAt, calendar: calendar)
+            WaniTaskRules.setDeadline(todo, to: nil, at: updatedAt, calendar: calendar)
+        }
+        #expect(inbox.reminderDate == nil)
+        #expect(scheduled.reminderDate == nil)
+        #expect(inbox.deadline == nil)
+        #expect(scheduled.deadline == nil)
+    }
+
     @Test("Reminder requests include stable identity and future date")
     func reminderRequest() {
         let now = date(2026, 8, 26, 12)

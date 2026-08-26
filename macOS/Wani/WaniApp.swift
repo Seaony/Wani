@@ -44,6 +44,9 @@ struct WaniApp: App {
         .modelContainer(modelContainer)
         .windowStyle(.hiddenTitleBar)
         .defaultSize(width: 1180, height: 790)
+        .commands {
+            WaniItemCommands()
+        }
 
         MenuBarExtra(
             "Wani",

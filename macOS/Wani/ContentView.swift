@@ -50,6 +50,7 @@ struct ContentView: View {
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
     @State private var batchDateEditorOpen = false
+    @State private var batchDeadlineEditorOpen = false
     @State private var batchTagEditorOpen = false
     @State private var toolbarDateEditorOpen = false
     @State private var projectTagFilter: String?
@@ -190,6 +191,14 @@ struct ContentView: View {
 
         }
         .frame(minWidth: 760, minHeight: 520)
+        .focusedSceneValue(
+            \.waniItemCommandActions,
+            WaniItemCommandActions(
+                isEnabled: !selectedTodos.isEmpty || focusedToolbarTodo != nil,
+                openWhen: openWhenCommand,
+                openDeadline: openDeadlineCommand
+            )
+        )
         .background(palette.background)
         .tint(palette.accent)
         .preferredColorScheme(appearance.colorScheme)
@@ -1521,9 +1530,19 @@ struct ContentView: View {
             .popover(isPresented: $batchDateEditorOpen, arrowEdge: .bottom) {
                 WaniBatchDateEditor(
                     palette: palette,
-                    apply: scheduleSelectedTodos
+                    apply: scheduleSelectedTodos,
+                    applyReminder: setReminderForSelectedTodos
                 )
                 .frame(width: 420)
+                .padding(8)
+                .background(palette.panel)
+            }
+            .popover(isPresented: $batchDeadlineEditorOpen, arrowEdge: .bottom) {
+                WaniBatchDeadlineEditor(
+                    palette: palette,
+                    apply: setDeadlineForSelectedTodos
+                )
+                .frame(width: 320)
                 .padding(8)
                 .background(palette.panel)
             }
@@ -1646,6 +1665,7 @@ struct ContentView: View {
         selectedTodoIDs.removeAll()
         selectionAnchorID = nil
         batchDateEditorOpen = false
+        batchDeadlineEditorOpen = false
         batchTagEditorOpen = false
         closeBatchMove()
     }
@@ -1714,6 +1734,42 @@ struct ContentView: View {
         }
         saveChanges()
         clearTodoSelection()
+    }
+
+    private func setReminderForSelectedTodos(_ reminderTime: Date?) {
+        let updatedAt = Date.now
+        for todo in selectedTodos {
+            WaniTaskRules.setReminder(todo, to: reminderTime, at: updatedAt)
+            syncReminder(for: todo, requestAuthorization: false)
+        }
+        saveChanges()
+        clearTodoSelection()
+    }
+
+    private func setDeadlineForSelectedTodos(_ deadline: Date?) {
+        let updatedAt = Date.now
+        for todo in selectedTodos {
+            WaniTaskRules.setDeadline(todo, to: deadline, at: updatedAt)
+            syncReminder(for: todo, requestAuthorization: false)
+        }
+        saveChanges()
+        clearTodoSelection()
+    }
+
+    private func openWhenCommand() {
+        if selectedTodos.isEmpty {
+            toolbarDateEditorOpen = focusedToolbarTodo != nil
+        } else {
+            batchDateEditorOpen = true
+        }
+    }
+
+    private func openDeadlineCommand() {
+        if selectedTodos.isEmpty {
+            toolbarDateEditorOpen = focusedToolbarTodo != nil
+        } else {
+            batchDeadlineEditorOpen = true
+        }
     }
 
     private func setTagForSelectedTodos(_ tag: String, enabled: Bool) {

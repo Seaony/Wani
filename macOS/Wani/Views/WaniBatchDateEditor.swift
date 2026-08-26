@@ -3,8 +3,11 @@ import SwiftUI
 struct WaniBatchDateEditor: View {
     let palette: WaniPalette
     let apply: (WaniTaskSchedule, Date?, Bool) -> Void
+    let applyReminder: (Date?) -> Void
 
     @State private var customDate = Calendar.current.startOfDay(for: .now)
+    @State private var reminderTime = Date.now.addingTimeInterval(3_600)
+    @State private var reminderEditorOpen = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
@@ -41,6 +44,43 @@ struct WaniBatchDateEditor: View {
                     applyDate(customDate)
                 }
                 .buttonStyle(.borderedProminent)
+            }
+
+            Divider().overlay(palette.faintLine)
+
+            HStack(spacing: 10) {
+                Button {
+                    reminderEditorOpen.toggle()
+                } label: {
+                    Label("Add Reminder", systemImage: "bell")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(palette.secondaryText)
+
+                Spacer()
+
+                Button("Clear Reminders") {
+                    applyReminder(nil)
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11.5, weight: .medium))
+                .foregroundStyle(palette.accent)
+            }
+
+            if reminderEditorOpen {
+                HStack(spacing: 10) {
+                    DatePicker(
+                        "Reminder Time",
+                        selection: $reminderTime,
+                        displayedComponents: .hourAndMinute
+                    )
+                    .datePickerStyle(.field)
+
+                    Button("Apply Reminder") {
+                        applyReminder(reminderTime)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             }
         }
         .padding(12)

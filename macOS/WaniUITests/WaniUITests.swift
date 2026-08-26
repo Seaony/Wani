@@ -130,6 +130,20 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["2 found"].waitForExistence(timeout: 2))
     }
 
+    func testBatchDateMetadataEditorsAreAvailable() throws {
+        createTodo(named: "First Dated Task")
+        createTodo(named: "Second Dated Task")
+
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey("s", modifierFlags: .command)
+        XCTAssertTrue(app.buttons["Add Reminder"].waitForExistence(timeout: 2))
+        app.typeKey(.escape, modifierFlags: [])
+
+        app.menuBars.menuBarItems["Items"].click()
+        app.menuItems["Deadline…"].click()
+        XCTAssertTrue(app.buttons["Apply Deadline"].waitForExistence(timeout: 2))
+    }
+
     private func createTodo(named title: String) {
         app.buttons["New To-Do"].click()
         let titleField = app.textFields["What's on your mind?"]
