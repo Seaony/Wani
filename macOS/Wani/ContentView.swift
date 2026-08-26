@@ -1323,6 +1323,20 @@ struct ContentView: View {
 
     private var navigationShortcuts: some View {
         VStack {
+            Button("New To-Do") {
+                quickEntryOpen = true
+            }
+            .keyboardShortcut("n", modifiers: .command)
+            .disabled(!canAddToCurrentList)
+
+            Button("New Project", action: createProject)
+                .keyboardShortcut("n", modifiers: [.command, .option])
+
+            Button("Search") {
+                searchOpen = true
+            }
+            .keyboardShortcut("f", modifiers: .command)
+
             navigationShortcut("Go to Inbox", key: "1", list: .inbox)
             navigationShortcut("Go to Today", key: "2", list: .today)
             navigationShortcut("Go to Upcoming", key: "3", list: .upcoming)
