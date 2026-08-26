@@ -84,16 +84,20 @@ enum WaniTaskRules {
         guard todo.deletedAt == nil else { return false }
 
         if list == .logbook {
-            guard todo.status != .open else { return false }
-            return !isAwaitingMidnightArchive(
+            return isProjectLogged(
                 todo,
-                enabled: deferCompletedUntilMidnight,
+                deferCompletedUntilMidnight: deferCompletedUntilMidnight,
                 now: now,
                 calendar: calendar
             )
         }
 
-        guard todo.status == .open else { return false }
+        guard todo.status == .open || isAwaitingMidnightArchive(
+            todo,
+            enabled: deferCompletedUntilMidnight,
+            now: now,
+            calendar: calendar
+        ) else { return false }
 
         switch list {
         case .inbox:
@@ -173,14 +177,21 @@ enum WaniTaskRules {
         _ todos: [WaniTodo],
         now: Date = Date(),
         calendar: Calendar = .current,
-        previewDayCount: Int = 8
+        previewDayCount: Int = 8,
+        deferCompletedUntilMidnight: Bool = false
     ) -> [WaniUpcomingDay] {
         let tomorrow = calendar.date(
             byAdding: .day,
             value: 1,
             to: calendar.startOfDay(for: now)
         )!
-        let upcomingTodos = tasks(todos, in: .upcoming, now: now, calendar: calendar)
+        let upcomingTodos = tasks(
+            todos,
+            in: .upcoming,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: deferCompletedUntilMidnight
+        )
         var dates = Set((0..<max(previewDayCount, 0)).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: tomorrow)
         })
@@ -239,10 +250,18 @@ enum WaniTaskRules {
     static func primaryList(
         for todo: WaniTodo,
         now: Date = Date(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        deferCompletedUntilMidnight: Bool = false
     ) -> WaniSmartList {
         if todo.deletedAt != nil { return .trash }
-        if todo.status != .open { return .logbook }
+        if todo.status != .open && !isAwaitingMidnightArchive(
+            todo,
+            enabled: deferCompletedUntilMidnight,
+            now: now,
+            calendar: calendar
+        ) {
+            return .logbook
+        }
 
         switch todo.schedule {
         case .inbox:

@@ -132,6 +132,7 @@ struct ContentView: View {
                     areas: areas,
                     projects: projects,
                     todos: todos,
+                    deferCompletedUntilMidnight: moveToLogbookAtMidnight,
                     query: $searchQuery,
                     openArea: openSearchResult,
                     openProject: openSearchResult,
@@ -606,7 +607,10 @@ struct ContentView: View {
         if visibleTodos.isEmpty {
             emptyState
         } else {
-            let days = WaniTaskRules.upcomingDays(todos)
+            let days = WaniTaskRules.upcomingDays(
+                todos,
+                deferCompletedUntilMidnight: moveToLogbookAtMidnight
+            )
             ForEach(Array(days.enumerated()), id: \.element.date) { index, day in
                 if index > 0, !Calendar.current.isDate(
                     days[index - 1].date,
@@ -1004,11 +1008,15 @@ struct ContentView: View {
 
     private var smartListCounts: [WaniSmartList: Int] {
         var counts = Dictionary(uniqueKeysWithValues: WaniSmartList.allCases.map { list in
-            (list, WaniTaskRules.tasks(
+            let listTodos = WaniTaskRules.tasks(
                 todos,
                 in: list,
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
-            ).count)
+            )
+            let count = list == .logbook
+                ? listTodos.count
+                : listTodos.filter { $0.status == .open }.count
+            return (list, count)
         })
         counts[.logbook, default: 0] += archivedProjects.count
         counts[.trash] = trashItemCount
@@ -1106,18 +1114,18 @@ struct ContentView: View {
     private var pageMetadata: String {
         switch selection {
         case .smart(.today):
-            return "\(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) · \(visibleTodos.count) to do"
+            return "\(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day())) · \(visibleOpenTodoCount) to do"
         case .smart(.upcoming):
-            return "The days ahead · \(visibleTodos.count) scheduled"
+            return "The days ahead · \(visibleOpenTodoCount) scheduled"
         case .smart(.inbox):
-            return visibleTodos.isEmpty ? "Everything is filed" : "\(visibleTodos.count) unsorted"
+            return visibleOpenTodoCount == 0 ? "Everything is filed" : "\(visibleOpenTodoCount) unsorted"
         case .smart(.anytime): return "Everything you could pick up now"
         case .smart(.someday): return "Kept warm for later"
         case .smart(.logbook): return "\(visibleTodos.count + archivedProjects.count) logged"
         case .smart(.trash): return trashItemCount == 0 ? "Empty" : "\(trashItemCount) deleted"
         case .area(let id):
             let projectCount = activeProjects.filter { $0.area?.id == id }.count
-            return "\(projectCount) \(projectCount == 1 ? "project" : "projects") · \(visibleTodos.count) open"
+            return "\(projectCount) \(projectCount == 1 ? "project" : "projects") · \(visibleOpenTodoCount) open"
         case .project(let id):
             let project = projects.first { $0.id == id }
             let progress = WaniTaskRules.projectProgress(todos, projectID: id)
@@ -1132,6 +1140,10 @@ struct ContentView: View {
             }
             return "\(prefix)\(openCount) open · \(percentage)% complete"
         }
+    }
+
+    private var visibleOpenTodoCount: Int {
+        visibleTodos.filter { $0.status == .open }.count
     }
 
     private var quickEntryDestination: WaniNavigationTarget {
@@ -1573,10 +1585,21 @@ struct ContentView: View {
     }
 
     private func openSearchResult(_ todo: WaniTodo) {
-        let primaryList = WaniTaskRules.primaryList(for: todo)
-        if todo.status == .open, todo.deletedAt == nil, let project = todo.project {
+        let awaitingArchive = WaniTaskRules.isAwaitingMidnightArchive(
+            todo,
+            enabled: moveToLogbookAtMidnight
+        )
+        let primaryList = WaniTaskRules.primaryList(
+            for: todo,
+            deferCompletedUntilMidnight: moveToLogbookAtMidnight
+        )
+        if (todo.status == .open || awaitingArchive),
+           todo.deletedAt == nil,
+           let project = todo.project {
             selection = .project(project.id)
-        } else if todo.status == .open, todo.deletedAt == nil, let area = todo.area {
+        } else if (todo.status == .open || awaitingArchive),
+                  todo.deletedAt == nil,
+                  let area = todo.area {
             selection = .area(area.id)
         } else {
             selection = .smart(primaryList)

@@ -5,6 +5,7 @@ struct WaniSearchOverlay: View {
     let areas: [WaniArea]
     let projects: [WaniProject]
     let todos: [WaniTodo]
+    let deferCompletedUntilMidnight: Bool
     @Binding var query: String
     let openArea: (WaniArea) -> Void
     let openProject: (WaniProject) -> Void
@@ -144,12 +145,23 @@ struct WaniSearchOverlay: View {
     }
 
     private func locationTitle(for todo: WaniTodo) -> String {
-        if todo.status == .open, todo.deletedAt == nil, let project = todo.project {
+        let awaitingArchive = WaniTaskRules.isAwaitingMidnightArchive(
+            todo,
+            enabled: deferCompletedUntilMidnight
+        )
+        if (todo.status == .open || awaitingArchive),
+           todo.deletedAt == nil,
+           let project = todo.project {
             return project.title
         }
-        if todo.status == .open, todo.deletedAt == nil, let area = todo.area {
+        if (todo.status == .open || awaitingArchive),
+           todo.deletedAt == nil,
+           let area = todo.area {
             return area.title
         }
-        return WaniTaskRules.primaryList(for: todo).title
+        return WaniTaskRules.primaryList(
+            for: todo,
+            deferCompletedUntilMidnight: deferCompletedUntilMidnight
+        ).title
     }
 }

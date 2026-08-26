@@ -681,12 +681,23 @@ struct WaniTaskRulesTests {
     @Test("Midnight archive defers today's completed items")
     func midnightArchive() {
         let now = date(2026, 8, 26, 12)
-        let today = WaniTodo(title: "Today")
+        let today = WaniTodo(
+            title: "Today",
+            schedule: .date,
+            startDate: date(2026, 8, 26, 9)
+        )
         today.status = .completed
         today.completedAt = date(2026, 8, 26, 9)
         let yesterday = WaniTodo(title: "Yesterday")
         yesterday.status = .completed
         yesterday.completedAt = date(2026, 8, 25, 18)
+        let upcoming = WaniTodo(
+            title: "Upcoming",
+            schedule: .date,
+            startDate: date(2026, 8, 27, 9)
+        )
+        upcoming.status = .completed
+        upcoming.completedAt = date(2026, 8, 26, 10)
 
         #expect(WaniTaskRules.isAwaitingMidnightArchive(
             today,
@@ -701,6 +712,31 @@ struct WaniTaskRulesTests {
             calendar: calendar,
             deferCompletedUntilMidnight: true
         ))
+        #expect(WaniTaskRules.contains(
+            today,
+            in: .today,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
+        ))
+        #expect(WaniTaskRules.primaryList(
+            for: today,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
+        ) == .today)
+        #expect(WaniTaskRules.primaryList(
+            for: today,
+            now: now,
+            calendar: calendar
+        ) == .logbook)
+        #expect(WaniTaskRules.upcomingDays(
+            [upcoming],
+            now: now,
+            calendar: calendar,
+            previewDayCount: 1,
+            deferCompletedUntilMidnight: true
+        ).first?.todos.map(\.id) == [upcoming.id])
         #expect(WaniTaskRules.contains(
             yesterday,
             in: .logbook,
@@ -731,6 +767,13 @@ struct WaniTaskRulesTests {
             deferCompletedUntilMidnight: true,
             now: now,
             calendar: calendar
+        ))
+        #expect(WaniTaskRules.contains(
+            todo,
+            in: .logbook,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
         ))
     }
 
