@@ -372,14 +372,20 @@ struct WaniSettingsOverlay: View {
     }
 
     private func themeCard(_ item: WaniAppearance) -> some View {
-        Button {
+        let previewColors = switch item {
+        case .system: (Color(hex: 0xEFE7DB), Color(hex: 0x1E1A16))
+        case .light: (Color(hex: 0xEFE7DB), Color(hex: 0xFAF5ED))
+        case .dark: (Color(hex: 0x231E1A), Color(hex: 0x1E1A16))
+        }
+
+        return Button {
             appearance = item
         } label: {
             VStack(spacing: 7) {
                 HStack(spacing: 0) {
-                    Color(hex: item == .light ? 0xEFE7DB : 0x231E1A)
+                    previewColors.0
                         .frame(width: 42)
-                    Color(hex: item == .light ? 0xFAF5ED : 0x1E1A16)
+                    previewColors.1
                 }
                 .frame(height: 66)
                 .clipShape(RoundedRectangle(cornerRadius: 5))

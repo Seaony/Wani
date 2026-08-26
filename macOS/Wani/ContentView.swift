@@ -18,7 +18,7 @@ struct ContentView: View {
     @Query(sort: \WaniTodo.sortOrder) private var todos: [WaniTodo]
     @StateObject private var cloudSyncMonitor: WaniCloudSyncMonitor
 
-    @AppStorage("appearance") private var appearanceRaw = WaniAppearance.light.rawValue
+    @AppStorage("appearance") private var appearanceRaw = WaniAppearance.system.rawValue
     @AppStorage("accent") private var accentRaw = WaniAccent.terracotta.rawValue
     @AppStorage("listDensity") private var densityRaw = WaniListDensity.medium.rawValue
     @AppStorage("showSidebarCounts") private var showSidebarCounts = true
@@ -69,7 +69,7 @@ struct ContentView: View {
     }
 
     private var appearance: WaniAppearance {
-        get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
+        get { WaniAppearance(rawValue: appearanceRaw) ?? .system }
         nonmutating set { appearanceRaw = newValue.rawValue }
     }
 

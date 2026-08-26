@@ -12,6 +12,14 @@ struct WaniTaskRulesTests {
         return calendar
     }
 
+    @Test("System appearance follows macOS while explicit themes override it")
+    func appearanceColorSchemes() {
+        #expect(WaniAppearance.system.colorScheme == nil)
+        #expect(WaniAppearance.light.colorScheme == .light)
+        #expect(WaniAppearance.dark.colorScheme == .dark)
+        #expect(WaniAppearance.allCases.first == .system)
+    }
+
     @Test("CloudKit account states map to visible sync states")
     func cloudAccountStates() {
         #expect(WaniCloudAccountState(.available) == .available)
