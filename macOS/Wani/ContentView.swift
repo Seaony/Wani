@@ -701,8 +701,18 @@ struct ContentView: View {
         if visibleTodos.isEmpty {
             emptyState
         } else {
-            let ungrouped = visibleTodos.filter { $0.project == nil }
+            let ungrouped = visibleTodos.filter { $0.project == nil && $0.area == nil }
             taskRows(ungrouped)
+
+            ForEach(areas) { area in
+                let areaTodos = visibleTodos.filter {
+                    $0.project == nil && $0.area?.id == area.id
+                }
+                if !areaTodos.isEmpty {
+                    smartAreaHeader(area)
+                    taskRows(areaTodos)
+                }
+            }
 
             ForEach(activeProjects) { project in
                 let projectTodos = visibleTodos.filter { $0.project?.id == project.id }
@@ -748,6 +758,21 @@ struct ContentView: View {
                     .font(.system(size: 12))
                     .foregroundStyle(palette.tertiaryText)
             }
+            Rectangle()
+                .fill(palette.line)
+                .frame(height: 1)
+        }
+        .foregroundStyle(palette.text)
+        .padding(.horizontal, 11)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
+    }
+
+    private func smartAreaHeader(_ area: WaniArea) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            Text(area.title)
+                .font(.system(size: 13.5, weight: .semibold))
+                .tracking(-0.1)
             Rectangle()
                 .fill(palette.line)
                 .frame(height: 1)
