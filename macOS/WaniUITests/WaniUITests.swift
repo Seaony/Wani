@@ -189,6 +189,9 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Next"].exists)
         XCTAssertTrue(app.checkBoxes["Add Reminder"].exists)
         XCTAssertTrue(app.checkBoxes["Add Deadline"].exists)
+
+        app.typeKey(.escape, modifierFlags: [])
+        XCTAssertFalse(app.buttons["Save Repeat"].waitForExistence(timeout: 1))
     }
 
     private func createTodo(named title: String) {

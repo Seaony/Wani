@@ -185,6 +185,7 @@ struct WaniRepeatEditor: View {
                     Spacer()
                     Button("Cancel", action: dismiss)
                         .buttonStyle(.plain)
+                        .keyboardShortcut(.cancelAction)
                         .foregroundStyle(palette.secondaryText)
                     Button("Save") {
                         apply(WaniRepeatConfiguration(
