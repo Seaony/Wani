@@ -804,7 +804,7 @@ enum WaniTaskRules {
         guard todo.repeatFrequency != .none else { return nil }
 
         let baseDate = todo.repeatsAfterCompletion
-            ? completedAt
+            ? calendar.startOfDay(for: completedAt)
             : (todo.startDate ?? completedAt)
         guard let nextDate = nextDate(
             after: baseDate,
@@ -833,13 +833,27 @@ enum WaniTaskRules {
 
         if let originalStartDate = todo.startDate {
             if let deadline = todo.deadline {
-                next.deadline = nextDate.addingTimeInterval(
-                    deadline.timeIntervalSince(originalStartDate)
+                let deadlineDayOffset = calendar.dateComponents(
+                    [.day],
+                    from: calendar.startOfDay(for: originalStartDate),
+                    to: calendar.startOfDay(for: deadline)
+                ).day ?? 0
+                next.deadline = calendar.date(
+                    byAdding: .day,
+                    value: deadlineDayOffset,
+                    to: calendar.startOfDay(for: nextDate)
                 )
             }
             if let reminderDate = todo.reminderDate {
-                next.reminderDate = nextDate.addingTimeInterval(
-                    reminderDate.timeIntervalSince(originalStartDate)
+                let reminderTime = calendar.dateComponents(
+                    [.hour, .minute, .second],
+                    from: reminderDate
+                )
+                next.reminderDate = calendar.date(
+                    bySettingHour: reminderTime.hour ?? 0,
+                    minute: reminderTime.minute ?? 0,
+                    second: reminderTime.second ?? 0,
+                    of: nextDate
                 )
             }
         }
