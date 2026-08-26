@@ -134,6 +134,10 @@ struct WaniTaskRulesTests {
             schedule: .date,
             startDate: date(2026, 8, 28, 9)
         )
+        let dueToday = WaniTodo(title: "Due today", schedule: .anytime)
+        dueToday.deadline = date(2026, 8, 26, 17)
+        let futureDeadline = WaniTodo(title: "Future deadline", schedule: .anytime)
+        futureDeadline.deadline = date(2026, 8, 29, 17)
         let someday = WaniTodo(title: "Someday", schedule: .someday)
         let completed = WaniTodo(title: "Completed", schedule: .anytime)
         completed.status = .completed
@@ -144,9 +148,13 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.contains(inbox, in: .inbox, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(today, in: .today, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(overdue, in: .today, now: now, calendar: calendar))
+        #expect(WaniTaskRules.contains(dueToday, in: .today, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(future, in: .upcoming, now: now, calendar: calendar))
+        #expect(WaniTaskRules.contains(futureDeadline, in: .upcoming, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(anytime, in: .anytime, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(today, in: .anytime, now: now, calendar: calendar))
+        #expect(WaniTaskRules.contains(dueToday, in: .anytime, now: now, calendar: calendar))
+        #expect(WaniTaskRules.contains(futureDeadline, in: .anytime, now: now, calendar: calendar))
         #expect(!WaniTaskRules.contains(future, in: .anytime, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(someday, in: .someday, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(completed, in: .logbook, now: now, calendar: calendar))
@@ -618,9 +626,11 @@ struct WaniTaskRulesTests {
             schedule: .date,
             startDate: date(2026, 9, 9, 9)
         )
+        let deadline = WaniTodo(title: "Deadline", schedule: .anytime)
+        deadline.deadline = date(2026, 8, 28, 17)
 
         let days = WaniTaskRules.upcomingDays(
-            [tomorrow, september, distant],
+            [tomorrow, september, distant, deadline],
             now: now,
             calendar: calendar
         )
@@ -629,7 +639,7 @@ struct WaniTaskRulesTests {
         #expect(days.first?.date == date(2026, 8, 27, 0))
         #expect(days.first?.todos.map(\.title) == ["Tomorrow"])
         #expect(days[1].date == date(2026, 8, 28, 0))
-        #expect(days[1].todos.isEmpty)
+        #expect(days[1].todos.map(\.title) == ["Deadline"])
         #expect(days[5].date == date(2026, 9, 1, 0))
         #expect(days[5].todos.map(\.title) == ["September"])
         #expect(days.last?.date == date(2026, 9, 9, 0))

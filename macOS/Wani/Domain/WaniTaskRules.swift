@@ -128,25 +128,24 @@ enum WaniTaskRules {
         case .inbox:
             return todo.schedule == .inbox
         case .today:
-            guard todo.schedule == .date, let startDate = todo.startDate else {
-                return false
-            }
             let tomorrow = calendar.date(
                 byAdding: .day,
                 value: 1,
                 to: calendar.startOfDay(for: now)
             )!
-            return startDate < tomorrow
+            let startsByToday = todo.schedule == .date
+                && todo.startDate.map { $0 < tomorrow } == true
+            let deadlineIsToday = todo.deadline.map {
+                calendar.isDate($0, inSameDayAs: now)
+            } == true
+            return startsByToday || deadlineIsToday
         case .upcoming:
-            guard todo.schedule == .date, let startDate = todo.startDate else {
-                return false
-            }
             let tomorrow = calendar.date(
                 byAdding: .day,
                 value: 1,
                 to: calendar.startOfDay(for: now)
             )!
-            return startDate >= tomorrow
+            return upcomingDate(for: todo, tomorrow: tomorrow, calendar: calendar) != nil
         case .anytime:
             if todo.schedule == .anytime {
                 return true
@@ -233,19 +232,36 @@ enum WaniTaskRules {
         })
 
         for todo in upcomingTodos {
-            guard let startDate = todo.startDate else { continue }
-            dates.insert(calendar.startOfDay(for: startDate))
+            guard let date = upcomingDate(for: todo, tomorrow: tomorrow, calendar: calendar) else {
+                continue
+            }
+            dates.insert(date)
         }
 
         return dates.sorted().map { date in
             WaniUpcomingDay(
                 date: date,
                 todos: upcomingTodos.filter {
-                    guard let startDate = $0.startDate else { return false }
-                    return calendar.isDate(startDate, inSameDayAs: date)
+                    upcomingDate(for: $0, tomorrow: tomorrow, calendar: calendar) == date
                 }
             )
         }
+    }
+
+    private static func upcomingDate(
+        for todo: WaniTodo,
+        tomorrow: Date,
+        calendar: Calendar
+    ) -> Date? {
+        if todo.schedule == .date,
+           let startDate = todo.startDate,
+           startDate >= tomorrow {
+            return calendar.startOfDay(for: startDate)
+        }
+        if let deadline = todo.deadline, deadline >= tomorrow {
+            return calendar.startOfDay(for: deadline)
+        }
+        return nil
     }
 
     static func logbookMonths(
