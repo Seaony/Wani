@@ -28,6 +28,23 @@ struct WaniCompletedProjectMonth {
 }
 
 enum WaniTaskRules {
+    static func reorderedIDs(
+        _ ids: [UUID],
+        moving movingID: UUID,
+        to targetID: UUID
+    ) -> [UUID] {
+        guard
+            movingID != targetID,
+            let sourceIndex = ids.firstIndex(of: movingID),
+            let targetIndex = ids.firstIndex(of: targetID)
+        else { return ids }
+
+        var result = ids
+        result.remove(at: sourceIndex)
+        result.insert(movingID, at: min(targetIndex, result.count))
+        return result
+    }
+
     static func contains(
         _ todo: WaniTodo,
         in list: WaniSmartList,

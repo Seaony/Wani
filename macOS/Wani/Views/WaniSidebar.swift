@@ -12,6 +12,8 @@ struct WaniSidebar: View {
     let openSearch: () -> Void
     let createArea: () -> Void
     let createProject: () -> Void
+    let reorderArea: (UUID, UUID) -> Bool
+    let reorderProject: (UUID, UUID) -> Bool
     let openSettings: () -> Void
 
     @State private var collapsedAreaIDs: Set<UUID> = []
@@ -180,6 +182,14 @@ struct WaniSidebar: View {
                 in: RoundedRectangle(cornerRadius: 8)
             )
             .padding(.bottom, 5)
+            .contentShape(Rectangle())
+            .draggable("area:\(area.id.uuidString)")
+            .dropDestination(for: String.self) { values, _ in
+                guard let movingID = draggedID(in: values, prefix: "area:") else {
+                    return false
+                }
+                return reorderArea(movingID, area.id)
+            }
 
             if !collapsedAreaIDs.contains(area.id) {
                 ForEach(projects.filter { $0.area?.id == area.id }) { project in
@@ -234,6 +244,14 @@ struct WaniSidebar: View {
                 selection == .project(project.id) ? palette.softAccent : Color.clear,
                 in: RoundedRectangle(cornerRadius: 8)
             )
+            .contentShape(Rectangle())
+            .draggable("project:\(project.id.uuidString)")
+            .dropDestination(for: String.self) { values, _ in
+                guard let movingID = draggedID(in: values, prefix: "project:") else {
+                    return false
+                }
+                return reorderProject(movingID, project.id)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(project.title)
@@ -268,5 +286,12 @@ struct WaniSidebar: View {
             .frame(height: 1)
             .padding(.horizontal, 8)
             .padding(.vertical, 9)
+    }
+
+    private func draggedID(in values: [String], prefix: String) -> UUID? {
+        guard let value = values.first(where: { $0.hasPrefix(prefix) }) else {
+            return nil
+        }
+        return UUID(uuidString: String(value.dropFirst(prefix.count)))
     }
 }

@@ -93,6 +93,8 @@ struct ContentView: View {
                     openSearch: { searchOpen = true },
                     createArea: createArea,
                     createProject: createProject,
+                    reorderArea: reorderArea,
+                    reorderProject: reorderProject,
                     openSettings: { settingsOpen = true }
                 )
                 .frame(width: 258)
@@ -802,7 +804,8 @@ struct ContentView: View {
                 heading: heading,
                 palette: palette,
                 count: headingTodos.count,
-                save: saveChanges
+                save: saveChanges,
+                reorder: reorderHeading
             )
             taskRows(headingTodos)
         }
@@ -1419,6 +1422,64 @@ struct ContentView: View {
         selection = .project(project.id)
         expandedTodoID = nil
         focusHeaderTitle()
+    }
+
+    private func reorderArea(_ movingID: UUID, before targetID: UUID) -> Bool {
+        let orderedIDs = WaniTaskRules.reorderedIDs(
+            areas.map(\.id),
+            moving: movingID,
+            to: targetID
+        )
+        guard orderedIDs != areas.map(\.id) else { return false }
+        let updatedAt = Date.now
+        for (index, id) in orderedIDs.enumerated() {
+            guard let area = areas.first(where: { $0.id == id }) else { continue }
+            area.sortOrder = Double(index)
+            area.updatedAt = updatedAt
+        }
+        saveChanges()
+        return true
+    }
+
+    private func reorderProject(_ movingID: UUID, before targetID: UUID) -> Bool {
+        guard
+            let movingProject = activeProjects.first(where: { $0.id == movingID }),
+            let targetProject = activeProjects.first(where: { $0.id == targetID }),
+            movingProject.area?.id == targetProject.area?.id
+        else { return false }
+
+        let siblings = activeProjects.filter { $0.area?.id == targetProject.area?.id }
+        let orderedIDs = WaniTaskRules.reorderedIDs(
+            siblings.map(\.id),
+            moving: movingID,
+            to: targetID
+        )
+        guard orderedIDs != siblings.map(\.id) else { return false }
+        let updatedAt = Date.now
+        for (index, id) in orderedIDs.enumerated() {
+            guard let project = siblings.first(where: { $0.id == id }) else { continue }
+            project.sortOrder = Double(index)
+            project.updatedAt = updatedAt
+        }
+        saveChanges()
+        return true
+    }
+
+    private func reorderHeading(_ movingID: UUID, before targetID: UUID) -> Bool {
+        let orderedIDs = WaniTaskRules.reorderedIDs(
+            projectHeadings.map(\.id),
+            moving: movingID,
+            to: targetID
+        )
+        guard orderedIDs != projectHeadings.map(\.id) else { return false }
+        let updatedAt = Date.now
+        for (index, id) in orderedIDs.enumerated() {
+            guard let heading = projectHeadings.first(where: { $0.id == id }) else { continue }
+            heading.sortOrder = Double(index)
+            heading.updatedAt = updatedAt
+        }
+        saveChanges()
+        return true
     }
 
     private func normalizePageTitle() {

@@ -10,6 +10,35 @@ struct WaniTaskRulesTests {
         return calendar
     }
 
+    @Test("Reordering moves an item to its drop target")
+    func reorderedIDs() {
+        let first = UUID()
+        let second = UUID()
+        let third = UUID()
+
+        #expect(
+            WaniTaskRules.reorderedIDs(
+                [first, second, third],
+                moving: third,
+                to: first
+            ) == [third, first, second]
+        )
+        #expect(
+            WaniTaskRules.reorderedIDs(
+                [first, second, third],
+                moving: first,
+                to: third
+            ) == [second, third, first]
+        )
+        #expect(
+            WaniTaskRules.reorderedIDs(
+                [first, second, third],
+                moving: first,
+                to: UUID()
+            ) == [first, second, third]
+        )
+    }
+
     @Test("Global Quick Entry exposes distinct configurable shortcuts")
     func globalQuickEntryShortcuts() {
         let shortcuts = WaniQuickEntryShortcut.allCases
