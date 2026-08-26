@@ -1,0 +1,51 @@
+# Repository-local instructions
+AGENTS.md
+CLAUDE.md
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode / Swift
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+.build/
+.swiftpm/
+
+# Android / Gradle
+.gradle/
+local.properties
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# JavaScript / TypeScript
+node_modules/
+.next/
+.nuxt/
+dist/
+coverage/
+*.log
+
+# Backend runtimes
+.env
+.env.*
+!.env.example
+!.env.*.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+target/
+
+# Editors
+.vscode/
+*.swp
+*~
