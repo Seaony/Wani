@@ -76,6 +76,20 @@ final class WaniUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Close Settings"].waitForExistence(timeout: 1))
     }
 
+    func testMoveTodoToInbox() throws {
+        createTodo(named: "Move UI Test Task")
+
+        todoButton(named: "Move UI Test Task").click()
+        app.typeKey("m", modifierFlags: [.command, .shift])
+
+        let inboxDestination = app.buttons["Inbox, No Project"]
+        XCTAssertTrue(inboxDestination.waitForExistence(timeout: 2))
+        inboxDestination.click()
+
+        app.buttons["Inbox"].click()
+        XCTAssertTrue(todoButton(named: "Move UI Test Task").waitForExistence(timeout: 2))
+    }
+
     private func createTodo(named title: String) {
         app.buttons["New To-Do"].click()
         let titleField = app.textFields["What's on your mind?"]
