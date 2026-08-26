@@ -214,6 +214,8 @@ struct ContentView: View {
                 openTags: openTagsCommand,
                 openDeadline: openDeadlineCommand,
                 openRepeat: openRepeatCommand,
+                copy: copyItemCommand,
+                paste: pasteTodosFromClipboard,
                 duplicate: duplicateItemCommand,
                 complete: completeItemCommand,
                 cancel: cancelItemCommand
@@ -1755,6 +1757,55 @@ struct ContentView: View {
         guard !text.isEmpty else { return }
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+    }
+
+    private func copyItemCommand() {
+        if NSApp.keyWindow?.firstResponder is NSTextView {
+            NSApp.sendAction(#selector(NSText.copy(_:)), to: nil, from: nil)
+            return
+        }
+        copySelectedTodos()
+    }
+
+    private func pasteTodosFromClipboard() {
+        if NSApp.keyWindow?.firstResponder is NSTextView {
+            NSApp.sendAction(#selector(NSText.paste(_:)), to: nil, from: nil)
+            return
+        }
+
+        guard
+            canAddToCurrentList,
+            !quickEntryOpen,
+            !searchOpen,
+            !settingsOpen,
+            repeatEditorTodo == nil,
+            !batchMoveOpen,
+            let text = NSPasteboard.general.string(forType: .string)
+        else { return }
+
+        let titles = text
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        guard !titles.isEmpty else { return }
+
+        var sortOrder = (todos.map(\.sortOrder).max() ?? 0) + 1
+        let pastedTodos = titles.map { title in
+            let todo = selection.makeTodo(
+                title: title,
+                areas: areas,
+                projects: projects
+            )
+            todo.sortOrder = sortOrder
+            sortOrder += 1
+            modelContext.insert(todo)
+            return todo
+        }
+        saveChanges()
+
+        expandedTodoID = nil
+        selectedTodoIDs = Set(pastedTodos.map(\.id))
+        selectionAnchorID = pastedTodos.first?.id
     }
 
     private func duplicateItemCommand() {

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct WaniItemCommandActions {
@@ -10,6 +11,8 @@ struct WaniItemCommandActions {
     let openTags: () -> Void
     let openDeadline: () -> Void
     let openRepeat: () -> Void
+    let copy: () -> Void
+    let paste: () -> Void
     let duplicate: () -> Void
     let complete: () -> Void
     let cancel: () -> Void
@@ -30,6 +33,23 @@ struct WaniItemCommands: Commands {
     @FocusedValue(\.waniItemCommandActions) private var actions
 
     var body: some Commands {
+        CommandGroup(replacing: .pasteboard) {
+            Button("Cut") {
+                NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil)
+            }
+            .keyboardShortcut("x", modifiers: .command)
+
+            Button("Copy") {
+                actions?.copy()
+            }
+            .keyboardShortcut("c", modifiers: .command)
+
+            Button("Paste") {
+                actions?.paste()
+            }
+            .keyboardShortcut("v", modifiers: .command)
+        }
+
         CommandGroup(after: .pasteboard) {
             Button("Duplicate To-Do") {
                 actions?.duplicate()
