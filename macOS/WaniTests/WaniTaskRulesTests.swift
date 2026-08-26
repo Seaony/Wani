@@ -218,6 +218,35 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.completedProjectMonths([project], calendar: calendar).isEmpty)
     }
 
+    @Test("Deleting an area trashes its active projects and detaches every child project")
+    func areaDeletionLifecycle() {
+        let earlierDeletion = date(2026, 8, 25, 12)
+        let deletedAt = date(2026, 8, 26, 12)
+        let area = WaniArea(title: "Personal")
+        let activeProject = WaniProject(title: "Active", area: area)
+        let alreadyDeletedProject = WaniProject(title: "Deleted", area: area)
+        alreadyDeletedProject.deletedAt = earlierDeletion
+        let otherProject = WaniProject(title: "Other")
+        let activeTodo = WaniTodo(title: "Active task", project: activeProject)
+        let alreadyDeletedTodo = WaniTodo(title: "Deleted task", project: alreadyDeletedProject)
+        alreadyDeletedTodo.deletedAt = earlierDeletion
+
+        WaniTaskRules.moveAreaContentsToTrash(
+            area,
+            projects: [activeProject, alreadyDeletedProject, otherProject],
+            todos: [activeTodo, alreadyDeletedTodo],
+            at: deletedAt
+        )
+
+        #expect(activeProject.deletedAt == deletedAt)
+        #expect(activeTodo.deletedAt == deletedAt)
+        #expect(activeProject.area == nil)
+        #expect(alreadyDeletedProject.deletedAt == earlierDeletion)
+        #expect(alreadyDeletedTodo.deletedAt == earlierDeletion)
+        #expect(alreadyDeletedProject.area == nil)
+        #expect(otherProject.deletedAt == nil)
+    }
+
     @Test("Moving tasks updates project heading and Inbox scheduling")
     func moveTask() {
         let now = date(2026, 8, 26, 12)

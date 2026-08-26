@@ -366,6 +366,12 @@ struct ContentView: View {
         } else if selectedArea != nil {
             Menu {
                 Button("New Project", systemImage: "circle", action: createProject)
+
+                Divider()
+
+                Button("Delete Area", systemImage: "trash", role: .destructive) {
+                    deleteSelectedArea()
+                }
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 16, weight: .semibold))
@@ -1419,6 +1425,22 @@ struct ContentView: View {
         }
         saveChanges()
         selection = .smart(.trash)
+    }
+
+    private func deleteSelectedArea() {
+        guard let area = selectedArea else { return }
+        let areaProjects = projects.filter { $0.area?.id == area.id }
+        WaniTaskRules.moveAreaContentsToTrash(
+            area,
+            projects: areaProjects,
+            todos: todos
+        )
+        for todo in todos where areaProjects.contains(where: { $0.id == todo.project?.id }) {
+            WaniReminderScheduler.cancel(todo)
+        }
+        modelContext.delete(area)
+        saveChanges()
+        selection = areaProjects.isEmpty ? .smart(.today) : .smart(.trash)
     }
 
     private func focusHeaderTitle() {

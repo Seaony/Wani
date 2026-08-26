@@ -470,6 +470,21 @@ enum WaniTaskRules {
         }
     }
 
+    static func moveAreaContentsToTrash(
+        _ area: WaniArea,
+        projects: [WaniProject],
+        todos: [WaniTodo],
+        at date: Date = Date()
+    ) {
+        for project in projects where project.area?.id == area.id {
+            if project.deletedAt == nil {
+                moveProjectToTrash(project, todos: todos, at: date)
+            }
+            project.area = nil
+            project.updatedAt = date
+        }
+    }
+
     private static func nextOccurrence(
         for todo: WaniTodo,
         completedAt: Date,
