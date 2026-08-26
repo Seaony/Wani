@@ -29,6 +29,7 @@ struct WaniTaskRow: View {
     @State private var checklistTitle = ""
     @State private var tagDraft = ""
     @State private var dateEditorOpen = false
+    @FocusState private var checklistFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -127,6 +128,14 @@ struct WaniTaskRow: View {
             checklistEditor
             tagEditor
 
+            Button("New Checklist") {
+                checklistFieldFocused = true
+            }
+            .keyboardShortcut("c", modifiers: [.command, .shift])
+            .frame(width: 0, height: 0)
+            .opacity(0)
+            .accessibilityHidden(true)
+
             if dateEditorOpen {
                 WaniTaskDateEditor(
                     todo: todo,
@@ -198,6 +207,7 @@ struct WaniTaskRow: View {
                 TextField("Add checklist item", text: $checklistTitle)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
+                    .focused($checklistFieldFocused)
                     .onSubmit(addChecklistItem)
             }
             .padding(.vertical, 7)
