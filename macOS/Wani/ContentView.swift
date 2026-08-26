@@ -1166,7 +1166,7 @@ struct ContentView: View {
         return [todo]
     }
 
-    private var displayedTodoIDs: [UUID] {
+    private var displayedTodoSections: [[WaniTodo]] {
         let sections: [[WaniTodo]]
         switch selection {
         case .smart(.today):
@@ -1223,7 +1223,11 @@ struct ContentView: View {
             }
             sections = projectSections
         }
-        return WaniSelectionRules.orderedIDs(in: sections.map { $0.map(\.id) })
+        return sections
+    }
+
+    private var displayedTodoIDs: [UUID] {
+        WaniSelectionRules.orderedIDs(in: displayedTodoSections.map { $0.map(\.id) })
     }
 
     private var pageTitle: String {
@@ -1771,6 +1775,23 @@ struct ContentView: View {
         else { return false }
 
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if modifiers.contains(.command),
+           !modifiers.contains(.control),
+           !modifiers.contains(.shift) {
+            let direction: WaniSelectionDirection
+            switch event.specialKey {
+            case .upArrow:
+                direction = .previous
+            case .downArrow:
+                direction = .next
+            default:
+                return false
+            }
+            return reorderKeyboardTodo(
+                in: direction,
+                toBoundary: modifiers.contains(.option)
+            )
+        }
         guard !modifiers.contains(.command), !modifiers.contains(.control) else { return false }
 
         if event.specialKey == .carriageReturn || event.specialKey == .enter {
@@ -1818,6 +1839,35 @@ struct ContentView: View {
         }
         expandedTodoID = nil
         return true
+    }
+
+    private func reorderKeyboardTodo(
+        in direction: WaniSelectionDirection,
+        toBoundary: Bool
+    ) -> Bool {
+        let todo = selectedTodos.count == 1 ? selectedTodos[0] : focusedToolbarTodo
+        guard
+            let todo,
+            let rows = displayedTodoSections.first(where: { section in
+                section.contains { $0.id == todo.id }
+            }),
+            let currentIndex = rows.firstIndex(where: { $0.id == todo.id })
+        else { return false }
+
+        let targetIndex: Int
+        if toBoundary {
+            targetIndex = direction == .previous
+                ? rows.startIndex
+                : rows.index(before: rows.endIndex)
+        } else {
+            let offset = direction == .previous ? -1 : 1
+            targetIndex = min(
+                max(currentIndex + offset, rows.startIndex),
+                rows.index(before: rows.endIndex)
+            )
+        }
+        guard targetIndex != currentIndex else { return true }
+        return reorderTodo(todo.id, to: rows[targetIndex].id, in: rows)
     }
 
     private func openSelectedTodo() {
