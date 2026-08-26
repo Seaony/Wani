@@ -10,7 +10,8 @@ struct WaniSidebar: View {
     let showAreaLines: Bool
     @Binding var selection: WaniNavigationTarget
     let openSearch: () -> Void
-    let openNewList: () -> Void
+    let createArea: () -> Void
+    let createProject: () -> Void
     let openSettings: () -> Void
 
     @State private var collapsedAreaIDs: Set<UUID> = []
@@ -76,13 +77,18 @@ struct WaniSidebar: View {
                 .frame(height: 1)
 
             HStack {
-                Button(action: openNewList) {
+                Menu {
+                    Button("New Project", systemImage: "circle", action: createProject)
+                    Button("New Area", systemImage: "cube.transparent", action: createArea)
+                } label: {
                     Label("New List", systemImage: "plus")
                 }
-                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
                 .accessibilityLabel("New List")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(palette.secondaryText)
+                .font(.system(size: 12.5))
+                .foregroundStyle(palette.secondaryText)
                 Spacer()
                 Button(action: openSettings) {
                     Image(systemName: "slider.horizontal.3")
@@ -129,37 +135,50 @@ struct WaniSidebar: View {
 
     private func areaSection(_ area: WaniArea) -> some View {
         VStack(spacing: 1) {
-            Button {
-                if collapsedAreaIDs.contains(area.id) {
-                    collapsedAreaIDs.remove(area.id)
-                } else {
-                    collapsedAreaIDs.insert(area.id)
-                }
-            } label: {
-                HStack(spacing: 6) {
+            HStack(spacing: 6) {
+                Button {
+                    if collapsedAreaIDs.contains(area.id) {
+                        collapsedAreaIDs.remove(area.id)
+                    } else {
+                        collapsedAreaIDs.insert(area.id)
+                    }
+                } label: {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 9, weight: .bold))
                         .rotationEffect(.degrees(collapsedAreaIDs.contains(area.id) ? 0 : 90))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(collapsedAreaIDs.contains(area.id) ? "Expand Area" : "Collapse Area")
+
+                Button {
+                    selection = .area(area.id)
+                } label: {
                     Text(area.title.uppercased())
                         .font(.system(size: 10.5, weight: .bold))
                         .tracking(1.2)
-                    if showAreaLines {
-                        Rectangle()
-                            .fill(palette.line)
-                            .frame(height: 1)
-                    } else {
-                        Spacer(minLength: 0)
-                    }
-                    let count = areaOpenCount(area)
-                    if showCounts, count > 0 {
-                        Text(count.formatted())
-                            .font(.system(size: 11))
-                    }
+                }
+                .buttonStyle(.plain)
+
+                if showAreaLines {
+                    Rectangle()
+                        .fill(palette.line)
+                        .frame(height: 1)
+                } else {
+                    Spacer(minLength: 0)
+                }
+                let count = areaOpenCount(area)
+                if showCounts, count > 0 {
+                    Text(count.formatted())
+                        .font(.system(size: 11))
                 }
             }
-            .buttonStyle(.plain)
             .foregroundStyle(palette.tertiaryText)
             .padding(.horizontal, 8)
+            .frame(height: 28)
+            .background(
+                selection == .area(area.id) ? palette.softAccent : Color.clear,
+                in: RoundedRectangle(cornerRadius: 8)
+            )
             .padding(.bottom, 5)
 
             if !collapsedAreaIDs.contains(area.id) {

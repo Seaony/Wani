@@ -37,7 +37,6 @@ struct ContentView: View {
     @State private var quickEntryTitle = ""
     @State private var searchOpen = false
     @State private var searchQuery = ""
-    @State private var newListOpen = false
     @State private var settingsOpen = false
     @State private var addingHeading = false
     @State private var newHeadingTitle = ""
@@ -46,9 +45,9 @@ struct ContentView: View {
     @State private var selectionAnchorID: UUID?
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
-    @State private var projectEditorOpen = false
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
+    @FocusState private var headerTitleFocused: Bool
 
     private var appearance: WaniAppearance {
         get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
@@ -92,7 +91,8 @@ struct ContentView: View {
                     showAreaLines: showAreaLines,
                     selection: $selection,
                     openSearch: { searchOpen = true },
-                    openNewList: { newListOpen = true },
+                    createArea: createArea,
+                    createProject: createProject,
                     openSettings: { settingsOpen = true }
                 )
                 .frame(width: 258)
@@ -117,16 +117,6 @@ struct ContentView: View {
                     query: $searchQuery,
                     open: openSearchResult,
                     dismiss: closeSearch
-                )
-            }
-
-            if newListOpen {
-                WaniNewListOverlay(
-                    palette: palette,
-                    areas: areas,
-                    saveArea: saveArea,
-                    saveProject: saveProject,
-                    dismiss: { newListOpen = false }
                 )
             }
 
@@ -168,17 +158,6 @@ struct ContentView: View {
                 )
             }
 
-            if projectEditorOpen, let project = selectedProject {
-                WaniProjectEditor(
-                    palette: palette,
-                    project: project,
-                    areas: areas,
-                    canComplete: WaniTaskRules.canCompleteProject(project, todos: todos),
-                    save: saveProjectDetails,
-                    complete: completeSelectedProject,
-                    dismiss: { projectEditorOpen = false }
-                )
-            }
         }
         .frame(minWidth: 760, minHeight: 520)
         .background(palette.background)
@@ -203,7 +182,6 @@ struct ContentView: View {
         }
         .onChange(of: selection) {
             clearTodoSelection()
-            projectEditorOpen = false
             projectTagFilter = nil
         }
         .onChange(of: quickEntryShortcutRaw) {
@@ -213,7 +191,6 @@ struct ContentView: View {
             NSApp.activate(ignoringOtherApps: true)
             settingsOpen = false
             searchOpen = false
-            newListOpen = false
             quickEntryOpen = true
         }
         .task {
@@ -228,42 +205,15 @@ struct ContentView: View {
                 Button { } label: {
                     Image(systemName: "sidebar.left")
                 }
-                if selectedProject != nil {
-                    Button {
-                        projectEditorOpen = true
-                    } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                    .accessibilityLabel("Edit Project")
-                } else {
-                    Button { } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                }
             }
             .buttonStyle(.plain)
             .foregroundStyle(palette.tertiaryText)
             .padding(.horizontal, 16)
             .frame(height: 46)
 
+            pageHeader
+
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top, spacing: 14) {
-                    Image(systemName: pageSymbol)
-                        .font(.system(size: 25, weight: .medium))
-                        .foregroundStyle(pageSymbolColor)
-                        .frame(width: 34, height: 34)
-
-                    VStack(alignment: .leading, spacing: 7) {
-                        Text(pageTitle)
-                            .font(.system(size: 29, weight: .semibold))
-                            .tracking(-0.3)
-                            .foregroundStyle(palette.text)
-                        Text(pageMetadata)
-                            .font(.system(size: 13))
-                            .foregroundStyle(palette.tertiaryText)
-                    }
-                }
-
                 if selectedProject != nil, !projectTagNames.isEmpty {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 4) {
@@ -288,6 +238,8 @@ struct ContentView: View {
                 LazyVStack(spacing: 1) {
                     if case .project = selection {
                         projectTaskContent
+                    } else if case .area = selection {
+                        areaTaskContent
                     } else if selection == .smart(.today) {
                         todayTaskContent
                     } else if selection == .smart(.upcoming) {
@@ -321,6 +273,104 @@ struct ContentView: View {
         .background(palette.panel)
     }
 
+    private var pageHeader: some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: pageSymbol)
+                .font(.system(size: 25, weight: .medium))
+                .foregroundStyle(pageSymbolColor)
+                .frame(width: 34, height: 34)
+
+            VStack(alignment: .leading, spacing: 7) {
+                HStack(spacing: 8) {
+                    if selectedProject != nil || selectedArea != nil {
+                        TextField(pageTitle, text: pageTitleBinding)
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 29, weight: .semibold))
+                            .tracking(-0.3)
+                            .foregroundStyle(palette.text)
+                            .frame(width: pageTitleFieldWidth)
+                            .focused($headerTitleFocused)
+                            .onSubmit(normalizePageTitle)
+                            .onChange(of: headerTitleFocused) { _, isFocused in
+                                if !isFocused {
+                                    normalizePageTitle()
+                                }
+                            }
+                            .accessibilityLabel(selectedProject == nil ? "Area Name" : "Project Name")
+                    } else {
+                        Text(pageTitle)
+                            .font(.system(size: 29, weight: .semibold))
+                            .tracking(-0.3)
+                            .foregroundStyle(palette.text)
+                    }
+
+                    pageActions
+                    Spacer(minLength: 0)
+                }
+
+                if selectedProject != nil {
+                    TextField("Notes", text: projectNotesBinding, axis: .vertical)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(palette.secondaryText)
+                        .lineLimit(1...4)
+                        .accessibilityLabel("Project Notes")
+                }
+
+                Text(pageMetadata)
+                    .font(.system(size: 13))
+                    .foregroundStyle(palette.tertiaryText)
+            }
+        }
+        .padding(.horizontal, 52)
+        .padding(.top, 8)
+    }
+
+    @ViewBuilder
+    private var pageActions: some View {
+        if let project = selectedProject {
+            Menu {
+                Button("Complete Project", systemImage: "checkmark.circle") {
+                    completeSelectedProject()
+                }
+                .disabled(!WaniTaskRules.canCompleteProject(project, todos: todos))
+
+                Menu("Move to Area", systemImage: "folder") {
+                    Button("No Area") {
+                        moveSelectedProject(to: nil)
+                    }
+                    ForEach(areas) { area in
+                        Button(area.title) {
+                            moveSelectedProject(to: area)
+                        }
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(palette.tertiaryText)
+                    .frame(width: 28, height: 28)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("Project Actions")
+        } else if selectedArea != nil {
+            Menu {
+                Button("New Project", systemImage: "circle", action: createProject)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(palette.tertiaryText)
+                    .frame(width: 28, height: 28)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("Area Actions")
+        }
+    }
+
     private var visibleTodos: [WaniTodo] {
         switch selection {
         case .smart(let list):
@@ -329,6 +379,15 @@ struct ContentView: View {
                 in: list,
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
             )
+        case .area(let areaID):
+            todos.filter { todo in
+                todo.project?.area?.id == areaID
+                    && todo.deletedAt == nil
+                    && (todo.status == .open || WaniTaskRules.isAwaitingMidnightArchive(
+                        todo,
+                        enabled: moveToLogbookAtMidnight
+                    ))
+            }
         case .project(let projectID):
             WaniTaskRules.projectTasks(todos, projectID: projectID)
                 .filter {
@@ -348,6 +407,11 @@ struct ContentView: View {
     private var selectedProject: WaniProject? {
         guard case .project(let projectID) = selection else { return nil }
         return projects.first { $0.id == projectID }
+    }
+
+    private var selectedArea: WaniArea? {
+        guard case .area(let areaID) = selection else { return nil }
+        return areas.first { $0.id == areaID }
     }
 
     private var projectTagNames: [String] {
@@ -518,6 +582,27 @@ struct ContentView: View {
         }
     }
 
+    @ViewBuilder
+    private var areaTaskContent: some View {
+        let areaProjects = activeProjects.filter { $0.area?.id == selectedArea?.id }
+        if areaProjects.isEmpty {
+            emptyState
+        } else {
+            ForEach(areaProjects) { project in
+                Button {
+                    selection = .project(project.id)
+                } label: {
+                    smartProjectHeader(project)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(project.title)
+
+                taskRows(visibleTodos.filter { $0.project?.id == project.id })
+            }
+        }
+    }
+
     private func smartProjectHeader(_ project: WaniProject) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 9) {
             Text(project.title)
@@ -677,6 +762,7 @@ struct ContentView: View {
                     .frame(height: 38)
             }
             .buttonStyle(.plain)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -757,8 +843,44 @@ struct ContentView: View {
     private var pageTitle: String {
         switch selection {
         case .smart(let list): list.title
+        case .area(let id): areas.first { $0.id == id }?.title ?? "Area"
         case .project(let id): projects.first { $0.id == id }?.title ?? "Project"
         }
+    }
+
+    private var pageTitleBinding: Binding<String> {
+        Binding(
+            get: { pageTitle },
+            set: { title in
+                if let project = selectedProject {
+                    project.title = title
+                    project.updatedAt = .now
+                } else if let area = selectedArea {
+                    area.title = title
+                    area.updatedAt = .now
+                }
+                saveChanges()
+            }
+        )
+    }
+
+    private var projectNotesBinding: Binding<String> {
+        Binding(
+            get: { selectedProject?.notes ?? "" },
+            set: { notes in
+                guard let project = selectedProject else { return }
+                project.notes = notes
+                project.updatedAt = .now
+                saveChanges()
+            }
+        )
+    }
+
+    private var pageTitleFieldWidth: CGFloat {
+        let value = pageTitle.isEmpty ? "Untitled" : pageTitle
+        let font = NSFont.systemFont(ofSize: 29, weight: .semibold)
+        let width = (value as NSString).size(withAttributes: [.font: font]).width + 12
+        return min(max(width, 90), 520)
     }
 
     private var pageMetadata: String {
@@ -773,6 +895,9 @@ struct ContentView: View {
         case .smart(.someday): return "Kept warm for later"
         case .smart(.logbook): return "\(visibleTodos.count + completedProjects.count) completed"
         case .smart(.trash): return visibleTodos.isEmpty ? "Empty" : "\(visibleTodos.count) deleted"
+        case .area(let id):
+            let projectCount = activeProjects.filter { $0.area?.id == id }.count
+            return "\(projectCount) \(projectCount == 1 ? "project" : "projects") · \(visibleTodos.count) open"
         case .project(let id):
             let project = projects.first { $0.id == id }
             let progress = WaniTaskRules.projectProgress(todos, projectID: id)
@@ -799,6 +924,7 @@ struct ContentView: View {
     private var pageSymbol: String {
         switch selection {
         case .smart(let list): list.symbolName
+        case .area: "cube.transparent"
         case .project: "circle"
         }
     }
@@ -806,6 +932,7 @@ struct ContentView: View {
     private var pageSymbolColor: Color {
         switch selection {
         case .smart(let list): list.symbolColor
+        case .area: palette.accent
         case .project: palette.accent
         }
     }
@@ -813,6 +940,7 @@ struct ContentView: View {
     private var destinationTitle: String {
         switch quickEntryDestination {
         case .smart(let list): list.title
+        case .area(let id): areas.first { $0.id == id }?.title ?? "Inbox"
         case .project(let id): projects.first { $0.id == id }?.title ?? "Inbox"
         }
     }
@@ -857,6 +985,7 @@ struct ContentView: View {
         case .smart(.upcoming): "The calendar is clear"
         case .smart(.logbook): "Nothing logged yet"
         case .smart(.trash): "The Trash is empty"
+        case .area: "An empty area"
         case .project: "A blank project"
         default: "Empty for now"
         }
@@ -869,6 +998,7 @@ struct ContentView: View {
         case .smart(.upcoming): "Nothing is scheduled for the weeks ahead."
         case .smart(.logbook): "Completed to-dos collect here."
         case .smart(.trash): "Deleted to-dos wait here until you remove them permanently."
+        case .area: "Create a project from the area menu to begin."
         case .project: "Add the first to-do and the shape of the work appears."
         default: "Nothing parked in this list."
         }
@@ -877,6 +1007,7 @@ struct ContentView: View {
     private var canAddToCurrentList: Bool {
         switch selection {
         case .smart(.logbook), .smart(.trash): false
+        case .area: false
         default: true
         }
     }
@@ -1174,38 +1305,56 @@ struct ContentView: View {
         closeSearch()
     }
 
-    private func saveArea(_ title: String) {
+    private func createArea() {
         let area = WaniArea(
-            title: title,
+            title: "New Area",
             sortOrder: (areas.map(\.sortOrder).max() ?? 0) + 1
         )
         modelContext.insert(area)
-        try? modelContext.save()
-        newListOpen = false
+        saveChanges()
+        selection = .area(area.id)
+        focusHeaderTitle()
     }
 
-    private func saveProject(_ title: String, areaID: UUID?) {
-        let area = areaID.flatMap { id in areas.first { $0.id == id } }
+    private func createProject() {
+        let area = selectedArea ?? selectedProject?.area
         let project = WaniProject(
-            title: title,
+            title: "New Project",
             area: area,
             sortOrder: (projects.map(\.sortOrder).max() ?? 0) + 1
         )
         modelContext.insert(project)
-        try? modelContext.save()
+        saveChanges()
         selection = .project(project.id)
         expandedTodoID = nil
-        newListOpen = false
+        focusHeaderTitle()
     }
 
-    private func saveProjectDetails(_ title: String, notes: String, areaID: UUID?) {
+    private func normalizePageTitle() {
+        let trimmedTitle = pageTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let project = selectedProject {
+            project.title = trimmedTitle.isEmpty ? "New Project" : trimmedTitle
+            project.updatedAt = .now
+        } else if let area = selectedArea {
+            area.title = trimmedTitle.isEmpty ? "New Area" : trimmedTitle
+            area.updatedAt = .now
+        }
+        headerTitleFocused = false
+        saveChanges()
+    }
+
+    private func moveSelectedProject(to area: WaniArea?) {
         guard let project = selectedProject else { return }
-        project.title = title
-        project.notes = notes
-        project.area = areaID.flatMap { id in areas.first { $0.id == id } }
+        project.area = area
         project.updatedAt = .now
         saveChanges()
-        projectEditorOpen = false
+    }
+
+    private func focusHeaderTitle() {
+        Task { @MainActor in
+            await Task.yield()
+            headerTitleFocused = true
+        }
     }
 
     private func completeSelectedProject() {
@@ -1215,7 +1364,6 @@ struct ContentView: View {
         else { return }
 
         saveChanges()
-        projectEditorOpen = false
         selection = .smart(.logbook)
     }
 

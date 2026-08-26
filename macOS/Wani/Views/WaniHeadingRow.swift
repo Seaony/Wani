@@ -13,6 +13,8 @@ struct WaniHeadingRow: View {
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.1)
                 .foregroundStyle(palette.tertiaryText)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(minWidth: 80, alignment: .leading)
                 .onSubmit(save)
             Rectangle()
                 .fill(palette.line)
@@ -24,7 +26,7 @@ struct WaniHeadingRow: View {
             }
         }
         .padding(.horizontal, 11)
-        .padding(.top, 17)
-        .padding(.bottom, 5)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
     }
 }

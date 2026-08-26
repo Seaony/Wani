@@ -3,6 +3,7 @@ import SwiftUI
 
 enum WaniNavigationTarget: Hashable {
     case smart(WaniSmartList)
+    case area(UUID)
     case project(UUID)
 }
 
