@@ -195,6 +195,7 @@ struct ContentView: View {
             }
             updateDockBadge()
             registerGlobalQuickEntry()
+            generateDueRepeatingTodos()
         }
         .onChange(of: showDockBadge) {
             updateDockBadge()
@@ -223,6 +224,9 @@ struct ContentView: View {
             settingsOpen = false
             searchOpen = false
             quickEntryOpen = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            generateDueRepeatingTodos()
         }
         .task {
             await syncNotifications()
@@ -1032,7 +1036,8 @@ struct ContentView: View {
                 },
                 reorder: { movingID, targetID in
                     reorderTodo(movingID, to: targetID, in: rows)
-                }
+                },
+                recurrenceChanged: generateDueRepeatingTodos
             )
         }
     }
@@ -1318,7 +1323,8 @@ struct ContentView: View {
                         todo: todo,
                         palette: palette,
                         save: saveChanges,
-                        reminderChanged: { syncReminder(for: todo) }
+                        reminderChanged: { syncReminder(for: todo) },
+                        recurrenceChanged: generateDueRepeatingTodos
                     )
                     .frame(width: 420)
                     .padding(8)
@@ -2045,6 +2051,28 @@ struct ContentView: View {
                 requestAuthorization: false,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled
             )
+        }
+    }
+
+    private func generateDueRepeatingTodos() {
+        let generated = todos.flatMap {
+            WaniTaskRules.generateDueRegularOccurrences(from: $0)
+        }
+        guard !generated.isEmpty else { return }
+
+        for todo in generated {
+            modelContext.insert(todo)
+        }
+        saveChanges()
+
+        for todo in generated {
+            Task {
+                await WaniReminderScheduler.sync(
+                    todo,
+                    requestAuthorization: false,
+                    deadlineNotificationsEnabled: deadlineNotificationsEnabled
+                )
+            }
         }
     }
 }

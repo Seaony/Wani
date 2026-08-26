@@ -604,13 +604,60 @@ enum WaniTaskRules {
         at date: Date = Date(),
         calendar: Calendar = .current
     ) -> WaniTodo? {
-        let next = nextOccurrence(for: todo, completedAt: date, calendar: calendar)
+        let next: WaniTodo?
+        if todo.repeatGeneratedNextStartDate == nil {
+            next = nextOccurrence(for: todo, completedAt: date, calendar: calendar)
+            todo.repeatGeneratedNextStartDate = next?.startDate
+        } else {
+            next = nil
+        }
         todo.status = .completed
         todo.completedAt = date
         todo.canceledAt = nil
         todo.loggedAt = nil
         todo.updatedAt = date
         return next
+    }
+
+    static func generateDueRegularOccurrences(
+        from todo: WaniTodo,
+        through date: Date = Date(),
+        calendar: Calendar = .current
+    ) -> [WaniTodo] {
+        guard
+            todo.status == .open,
+            todo.deletedAt == nil,
+            todo.schedule == .date,
+            todo.repeatFrequency != .none,
+            !todo.repeatsAfterCompletion,
+            todo.repeatGeneratedNextStartDate == nil
+        else { return [] }
+
+        let tomorrow = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: calendar.startOfDay(for: date)
+        )!
+        var source = todo
+        var occurrences: [WaniTodo] = []
+
+        while
+            let startDate = source.startDate,
+            startDate < tomorrow,
+            source.repeatGeneratedNextStartDate == nil,
+            let next = nextOccurrence(
+                for: source,
+                completedAt: startDate,
+                calendar: calendar
+            )
+        {
+            source.repeatGeneratedNextStartDate = next.startDate
+            source.updatedAt = date
+            occurrences.append(next)
+            source = next
+        }
+
+        return occurrences
     }
 
     static func cancel(_ todo: WaniTodo, at date: Date = Date()) {

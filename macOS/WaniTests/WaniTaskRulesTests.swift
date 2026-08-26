@@ -219,6 +219,41 @@ struct WaniTaskRulesTests {
         #expect(next?.reminderDate == date(2026, 9, 9, 11))
         #expect(next?.tagNames == ["Review"])
         #expect(next?.checklistItems?.first?.isCompleted == false)
+        #expect(todo.repeatGeneratedNextStartDate == next?.startDate)
+    }
+
+    @Test("Regular repeats generate due copies without completing earlier copies")
+    func regularRepeatGeneration() {
+        let now = date(2026, 8, 26, 12)
+        let todo = WaniTodo(
+            title: "Daily review",
+            schedule: .date,
+            startDate: date(2026, 8, 24, 9)
+        )
+        todo.repeatFrequency = .daily
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: now,
+            calendar: calendar
+        )
+
+        #expect(todo.status == .open)
+        #expect(generated.map(\.startDate) == [
+            date(2026, 8, 25, 9),
+            date(2026, 8, 26, 9),
+            date(2026, 8, 27, 9),
+        ])
+        #expect(todo.repeatGeneratedNextStartDate == date(2026, 8, 25, 9))
+        #expect(generated[0].repeatGeneratedNextStartDate == date(2026, 8, 26, 9))
+        #expect(generated[1].repeatGeneratedNextStartDate == date(2026, 8, 27, 9))
+        #expect(generated[2].repeatGeneratedNextStartDate == nil)
+        #expect(WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: now,
+            calendar: calendar
+        ).isEmpty)
+        #expect(WaniTaskRules.complete(todo, at: now, calendar: calendar) == nil)
     }
 
     @Test("Trash restore and cancellation preserve state transitions")

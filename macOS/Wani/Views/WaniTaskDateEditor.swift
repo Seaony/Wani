@@ -5,6 +5,7 @@ struct WaniTaskDateEditor: View {
     let palette: WaniPalette
     let save: () -> Void
     let reminderChanged: () -> Void
+    let recurrenceChanged: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
@@ -97,6 +98,7 @@ struct WaniTaskDateEditor: View {
         }
         .padding(12)
         .background(palette.hover, in: RoundedRectangle(cornerRadius: 9))
+        .onDisappear(perform: recurrenceChanged)
     }
 
     private func scheduleButton(

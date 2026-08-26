@@ -24,6 +24,7 @@ struct WaniTaskRow: View {
     let moveToArea: (WaniArea) -> Void
     let moveToProject: (WaniProject, WaniHeading?) -> Void
     let reorder: (UUID, UUID) -> Bool
+    let recurrenceChanged: () -> Void
 
     @State private var checklistTitle = ""
     @State private var tagDraft = ""
@@ -131,7 +132,8 @@ struct WaniTaskRow: View {
                     todo: todo,
                     palette: palette,
                     save: saveChanges,
-                    reminderChanged: syncReminder
+                    reminderChanged: syncReminder,
+                    recurrenceChanged: recurrenceChanged
                 )
             }
 

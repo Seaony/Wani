@@ -103,6 +103,7 @@ final class WaniTodo {
     var repeatFrequencyRawValue: String = WaniRepeatFrequency.none.rawValue
     var repeatInterval: Int = 1
     var repeatsAfterCompletion: Bool = false
+    var repeatGeneratedNextStartDate: Date?
     var tagNamesData: Data?
     var sortOrder: Double = 0
     var createdAt: Date = Date()
