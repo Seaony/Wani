@@ -705,6 +705,46 @@ struct WaniTaskRulesTests {
         #expect(!todo.isEvening)
     }
 
+    @Test("Repeating tasks always have a scheduled start day")
+    func repeatStartDate() {
+        let now = date(2026, 8, 26, 12)
+        let todo = WaniTodo(title: "Repeat", schedule: .inbox)
+
+        WaniTaskRules.setRepeatFrequency(
+            .daily,
+            for: todo,
+            at: now,
+            calendar: calendar
+        )
+        #expect(todo.repeatFrequency == .daily)
+        #expect(todo.schedule == .date)
+        #expect(todo.startDate == date(2026, 8, 26, 0))
+        #expect(todo.updatedAt == now)
+
+        WaniTaskRules.setRepeatFrequency(
+            .none,
+            for: todo,
+            at: date(2026, 8, 27, 12),
+            calendar: calendar
+        )
+        #expect(todo.repeatFrequency == .none)
+        #expect(todo.schedule == .date)
+        #expect(todo.startDate == date(2026, 8, 26, 0))
+
+        let future = WaniTodo(
+            title: "Future repeat",
+            schedule: .date,
+            startDate: date(2026, 9, 1, 0)
+        )
+        WaniTaskRules.setRepeatFrequency(
+            .weekly,
+            for: future,
+            at: now,
+            calendar: calendar
+        )
+        #expect(future.startDate == date(2026, 9, 1, 0))
+    }
+
     @Test("Today separates daytime and evening tasks")
     func todaySections() {
         let now = date(2026, 8, 26, 12)

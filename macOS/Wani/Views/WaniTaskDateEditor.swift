@@ -208,7 +208,11 @@ struct WaniTaskDateEditor: View {
     private var repeatBinding: Binding<WaniRepeatFrequency> {
         Binding(
             get: { todo.repeatFrequency },
-            set: { todo.repeatFrequency = $0; touchAndSave() }
+            set: {
+                WaniTaskRules.setRepeatFrequency($0, for: todo)
+                save()
+                reminderChanged()
+            }
         )
     }
 

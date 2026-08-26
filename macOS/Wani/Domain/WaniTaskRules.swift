@@ -568,6 +568,25 @@ enum WaniTaskRules {
         todo.updatedAt = date
     }
 
+    static func setRepeatFrequency(
+        _ frequency: WaniRepeatFrequency,
+        for todo: WaniTodo,
+        at date: Date = Date(),
+        calendar: Calendar = .current
+    ) {
+        if frequency != .none && (todo.schedule != .date || todo.startDate == nil) {
+            schedule(
+                todo,
+                as: .date,
+                startDate: calendar.startOfDay(for: date),
+                at: date,
+                calendar: calendar
+            )
+        }
+        todo.repeatFrequency = frequency
+        todo.updatedAt = date
+    }
+
     static func suggestedReminderDate(
         for todo: WaniTodo,
         now: Date = Date(),
