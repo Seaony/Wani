@@ -270,18 +270,23 @@ struct WaniTaskRulesTests {
         #expect(generated.map(\.startDate) == [
             date(2026, 8, 25, 9),
             date(2026, 8, 26, 9),
-            date(2026, 8, 27, 9),
         ])
         #expect(todo.repeatGeneratedNextStartDate == date(2026, 8, 25, 9))
         #expect(generated[0].repeatGeneratedNextStartDate == date(2026, 8, 26, 9))
-        #expect(generated[1].repeatGeneratedNextStartDate == date(2026, 8, 27, 9))
-        #expect(generated[2].repeatGeneratedNextStartDate == nil)
+        #expect(generated[1].repeatGeneratedNextStartDate == nil)
         #expect(WaniTaskRules.generateDueRegularOccurrences(
             from: todo,
             through: now,
             calendar: calendar
         ).isEmpty)
         #expect(WaniTaskRules.complete(todo, at: now, calendar: calendar) == nil)
+
+        let nextDay = WaniTaskRules.generateDueRegularOccurrences(
+            from: generated[1],
+            through: date(2026, 8, 27, 12),
+            calendar: calendar
+        )
+        #expect(nextDay.map(\.startDate) == [date(2026, 8, 27, 9)])
     }
 
     @Test("Trash restore and cancellation preserve state transitions")

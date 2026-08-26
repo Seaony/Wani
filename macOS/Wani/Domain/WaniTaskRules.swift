@@ -671,16 +671,17 @@ enum WaniTaskRules {
         var occurrences: [WaniTodo] = []
 
         while
-            let startDate = source.startDate,
-            startDate < tomorrow,
             source.repeatGeneratedNextStartDate == nil,
+            let startDate = source.startDate,
             let next = nextOccurrence(
                 for: source,
                 completedAt: startDate,
                 calendar: calendar
-            )
+            ),
+            let nextStartDate = next.startDate,
+            nextStartDate < tomorrow
         {
-            source.repeatGeneratedNextStartDate = next.startDate
+            source.repeatGeneratedNextStartDate = nextStartDate
             source.updatedAt = date
             occurrences.append(next)
             source = next
