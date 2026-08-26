@@ -148,6 +148,20 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Apply Deadline"].waitForExistence(timeout: 2))
     }
 
+    func testRepeatEditorIsAvailableFromItemsMenu() throws {
+        createTodo(named: "Repeat UI Test Task")
+        todoButton(named: "Repeat UI Test Task").click()
+
+        app.menuBars.menuBarItems["Items"].click()
+        app.menuItems["Repeat…"].click()
+
+        XCTAssertTrue(app.buttons["Save Repeat"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.radioButtons["Regularly"].exists)
+        XCTAssertTrue(app.radioButtons["After Completion"].exists)
+        XCTAssertTrue(app.checkBoxes["Add Reminder"].exists)
+        XCTAssertTrue(app.checkBoxes["Add Deadline"].exists)
+    }
+
     private func createTodo(named title: String) {
         app.buttons["New To-Do"].click()
         let titleField = app.textFields["What's on your mind?"]

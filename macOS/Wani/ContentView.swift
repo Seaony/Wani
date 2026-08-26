@@ -53,6 +53,7 @@ struct ContentView: View {
     @State private var batchDeadlineEditorOpen = false
     @State private var batchTagEditorOpen = false
     @State private var toolbarDateEditorOpen = false
+    @State private var repeatEditorTodoID: UUID?
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
     @State private var emptyTrashConfirmationOpen = false
@@ -173,6 +174,15 @@ struct ContentView: View {
                 )
             }
 
+            if let todo = repeatEditorTodo {
+                WaniRepeatEditor(
+                    todo: todo,
+                    palette: palette,
+                    apply: applyRepeatConfiguration,
+                    dismiss: closeRepeatEditor
+                )
+            }
+
             if batchMoveOpen {
                 WaniBatchMoveOverlay(
                     palette: palette,
@@ -197,10 +207,12 @@ struct ContentView: View {
                 canEdit: !selectedTodos.isEmpty || focusedToolbarTodo != nil,
                 canClose: selectedTodos.contains { $0.status == .open }
                     || focusedToolbarTodo != nil,
+                canRepeat: repeatCommandTodo != nil,
                 openWhen: openWhenCommand,
                 openMove: openMoveCommand,
                 openTags: openTagsCommand,
                 openDeadline: openDeadlineCommand,
+                openRepeat: openRepeatCommand,
                 complete: completeItemCommand,
                 cancel: cancelItemCommand
             )
@@ -1127,6 +1139,17 @@ struct ContentView: View {
         return todo
     }
 
+    private var repeatEditorTodo: WaniTodo? {
+        guard let repeatEditorTodoID else { return nil }
+        return todos.first { $0.id == repeatEditorTodoID }
+    }
+
+    private var repeatCommandTodo: WaniTodo? {
+        let todo = selectedTodos.count == 1 ? selectedTodos[0] : focusedToolbarTodo
+        guard todo?.status == .open, todo?.deletedAt == nil else { return nil }
+        return todo
+    }
+
     private var displayedTodoIDs: [UUID] {
         let sections: [[WaniTodo]]
         switch selection {
@@ -1673,6 +1696,7 @@ struct ContentView: View {
         batchDateEditorOpen = false
         batchDeadlineEditorOpen = false
         batchTagEditorOpen = false
+        repeatEditorTodoID = nil
         closeBatchMove()
     }
 
@@ -1776,6 +1800,34 @@ struct ContentView: View {
         } else {
             batchDeadlineEditorOpen = true
         }
+    }
+
+    private func openRepeatCommand() {
+        repeatEditorTodoID = repeatCommandTodo?.id
+    }
+
+    private func applyRepeatConfiguration(
+        _ frequency: WaniRepeatFrequency,
+        interval: Int,
+        afterCompletion: Bool,
+        reminderTime: Date?,
+        deadline: Date?
+    ) {
+        guard let todo = repeatEditorTodo else { return }
+        let updatedAt = Date.now
+        WaniTaskRules.setRepeatFrequency(frequency, for: todo, at: updatedAt)
+        todo.repeatInterval = max(interval, 1)
+        todo.repeatsAfterCompletion = afterCompletion
+        WaniTaskRules.setReminder(todo, to: reminderTime, at: updatedAt)
+        WaniTaskRules.setDeadline(todo, to: deadline, at: updatedAt)
+        syncReminder(for: todo, requestAuthorization: false)
+        saveChanges()
+        closeRepeatEditor()
+        generateDueRepeatingTodos()
+    }
+
+    private func closeRepeatEditor() {
+        repeatEditorTodoID = nil
     }
 
     private func openMoveCommand() {

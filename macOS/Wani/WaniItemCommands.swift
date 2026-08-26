@@ -3,10 +3,12 @@ import SwiftUI
 struct WaniItemCommandActions {
     let canEdit: Bool
     let canClose: Bool
+    let canRepeat: Bool
     let openWhen: () -> Void
     let openMove: () -> Void
     let openTags: () -> Void
     let openDeadline: () -> Void
+    let openRepeat: () -> Void
     let complete: () -> Void
     let cancel: () -> Void
 }
@@ -59,6 +61,11 @@ struct WaniItemCommands: Commands {
                 }
             }
             .disabled(actions?.canClose != true)
+
+            Button("Repeat…") {
+                actions?.openRepeat()
+            }
+            .disabled(actions?.canRepeat != true)
         }
     }
 }

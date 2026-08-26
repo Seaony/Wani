@@ -241,7 +241,7 @@ struct WaniTaskDateEditor: View {
     }
 }
 
-private extension WaniRepeatFrequency {
+extension WaniRepeatFrequency {
     var title: String {
         switch self {
         case .none: "Never"
