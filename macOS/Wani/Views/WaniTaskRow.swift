@@ -15,6 +15,8 @@ struct WaniTaskRow: View {
     let toggleExpanded: () -> Void
     let toggleCompleted: () -> Void
     let cancelTodo: () -> Void
+    let canLogNow: Bool
+    let logNow: () -> Void
     let moveToTrash: () -> Void
     let restore: () -> Void
     let deletePermanently: () -> Void
@@ -147,6 +149,13 @@ struct WaniTaskRow: View {
                     Button("Delete", action: deletePermanently)
                 } else {
                     moveMenu
+                    if canLogNow {
+                        Button(action: logNow) {
+                            Image(systemName: "archivebox")
+                        }
+                        .keyboardShortcut("y", modifiers: [.command, .shift])
+                        .accessibilityLabel("Move to Logbook Now")
+                    }
                     if todo.status == .open {
                         Button(action: cancelTodo) {
                             Image(systemName: "xmark.circle")

@@ -407,7 +407,10 @@ enum WaniTaskRules {
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> Bool {
-        guard enabled, todo.deletedAt == nil, todo.status != .open else {
+        guard enabled,
+              todo.deletedAt == nil,
+              todo.status != .open,
+              todo.loggedAt == nil else {
             return false
         }
         guard let archivedAt = todo.completedAt ?? todo.canceledAt else {
@@ -580,6 +583,7 @@ enum WaniTaskRules {
         todo.status = .completed
         todo.completedAt = date
         todo.canceledAt = nil
+        todo.loggedAt = nil
         todo.updatedAt = date
         return next
     }
@@ -588,13 +592,25 @@ enum WaniTaskRules {
         todo.status = .canceled
         todo.completedAt = nil
         todo.canceledAt = date
+        todo.loggedAt = nil
         todo.updatedAt = date
+    }
+
+    @discardableResult
+    static func logNow(_ todo: WaniTodo, at date: Date = Date()) -> Bool {
+        guard todo.status != .open,
+              todo.deletedAt == nil,
+              todo.loggedAt == nil else { return false }
+        todo.loggedAt = date
+        todo.updatedAt = date
+        return true
     }
 
     static func reopen(_ todo: WaniTodo, at date: Date = Date()) {
         todo.status = .open
         todo.completedAt = nil
         todo.canceledAt = nil
+        todo.loggedAt = nil
         todo.updatedAt = date
         if let heading = todo.heading, heading.archivedAt != nil {
             reopenHeading(heading, at: date)

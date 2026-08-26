@@ -989,6 +989,11 @@ struct ContentView: View {
                 },
                 toggleCompleted: { toggleStatus(todo) },
                 cancelTodo: { cancel(todo) },
+                canLogNow: WaniTaskRules.isAwaitingMidnightArchive(
+                    todo,
+                    enabled: moveToLogbookAtMidnight
+                ),
+                logNow: { logNow(todo) },
                 moveToTrash: { moveToTrash(todo) },
                 restore: { restore(todo) },
                 deletePermanently: { deletePermanently(todo) },
@@ -1328,6 +1333,15 @@ struct ContentView: View {
                 .keyboardShortcut("k", modifiers: [.command, .option])
                 .disabled(!selectedTodos.contains { $0.status == .open })
 
+            Button("Log Now", systemImage: "archivebox", action: logSelectedTodosNow)
+                .keyboardShortcut("y", modifiers: [.command, .shift])
+                .disabled(!selectedTodos.contains {
+                    WaniTaskRules.isAwaitingMidnightArchive(
+                        $0,
+                        enabled: moveToLogbookAtMidnight
+                    )
+                })
+
             if canGroupSelectionInNewHeading {
                 Button {
                     openHeadingComposer(groupingSelection: true)
@@ -1429,6 +1443,18 @@ struct ContentView: View {
         for todo in selectedTodos {
             WaniTaskRules.moveToTrash(todo)
             WaniReminderScheduler.cancel(todo)
+        }
+        saveChanges()
+        expandedTodoID = nil
+        clearTodoSelection()
+    }
+
+    private func logSelectedTodosNow() {
+        for todo in selectedTodos where WaniTaskRules.isAwaitingMidnightArchive(
+            todo,
+            enabled: moveToLogbookAtMidnight
+        ) {
+            WaniTaskRules.logNow(todo)
         }
         saveChanges()
         expandedTodoID = nil
@@ -1553,6 +1579,12 @@ struct ContentView: View {
     private func cancel(_ todo: WaniTodo) {
         WaniTaskRules.cancel(todo)
         WaniReminderScheduler.cancel(todo)
+        expandedTodoID = nil
+        saveChanges()
+    }
+
+    private func logNow(_ todo: WaniTodo) {
+        guard WaniTaskRules.logNow(todo) else { return }
         expandedTodoID = nil
         saveChanges()
     }

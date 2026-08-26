@@ -744,6 +744,24 @@ struct WaniTaskRulesTests {
             calendar: calendar,
             deferCompletedUntilMidnight: true
         ))
+
+        let loggedAt = date(2026, 8, 26, 13)
+        #expect(WaniTaskRules.logNow(today, at: loggedAt))
+        #expect(today.loggedAt == loggedAt)
+        #expect(!WaniTaskRules.isAwaitingMidnightArchive(
+            today,
+            enabled: true,
+            now: loggedAt,
+            calendar: calendar
+        ))
+        #expect(WaniTaskRules.contains(
+            today,
+            in: .logbook,
+            now: loggedAt,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
+        ))
+        #expect(!WaniTaskRules.logNow(today, at: loggedAt))
     }
 
     @Test("Archiving a heading logs its closed tasks without waiting for midnight")

@@ -109,6 +109,7 @@ final class WaniTodo {
     var updatedAt: Date = Date()
     var completedAt: Date?
     var canceledAt: Date?
+    var loggedAt: Date?
     var deletedAt: Date?
     var area: WaniArea?
     var project: WaniProject?
