@@ -1562,6 +1562,7 @@ struct ContentView: View {
     private func moveSelectedToInbox() {
         for todo in selectedTodos {
             WaniTaskRules.moveToInbox(todo)
+            WaniReminderScheduler.cancel(todo)
         }
         saveChanges()
         clearTodoSelection()
@@ -2055,6 +2056,7 @@ struct ContentView: View {
 
     private func moveToInbox(_ todo: WaniTodo) {
         WaniTaskRules.moveToInbox(todo)
+        WaniReminderScheduler.cancel(todo)
         saveChanges()
     }
 

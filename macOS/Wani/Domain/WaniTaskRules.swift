@@ -529,6 +529,7 @@ enum WaniTaskRules {
         todo.area = nil
         todo.schedule = .inbox
         todo.startDate = nil
+        todo.reminderDate = nil
         todo.isEvening = false
         todo.updatedAt = date
     }
@@ -546,6 +547,7 @@ enum WaniTaskRules {
             todo.isEvening = isEvening
         } else {
             todo.startDate = nil
+            todo.reminderDate = nil
             todo.isEvening = false
         }
         todo.updatedAt = date

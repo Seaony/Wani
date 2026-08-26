@@ -177,6 +177,13 @@ struct WaniTaskDateEditor: View {
             get: { todo.reminderDate != nil },
             set: { enabled in
                 if enabled {
+                    if todo.schedule != .date {
+                        WaniTaskRules.schedule(
+                            todo,
+                            as: .date,
+                            startDate: Calendar.current.startOfDay(for: .now)
+                        )
+                    }
                     todo.reminderDate = WaniTaskRules.suggestedReminderDate(for: todo)
                 } else {
                     todo.reminderDate = nil
@@ -227,6 +234,7 @@ struct WaniTaskDateEditor: View {
     private func setSchedule(_ schedule: WaniTaskSchedule) {
         WaniTaskRules.schedule(todo, as: schedule)
         save()
+        reminderChanged()
     }
 
     private func touchAndSave() {

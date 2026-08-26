@@ -482,12 +482,14 @@ struct WaniTaskRulesTests {
         #expect(todo.schedule == .anytime)
         #expect(todo.updatedAt == now)
 
+        todo.reminderDate = now.addingTimeInterval(3_600)
         WaniTaskRules.moveToInbox(todo, at: now.addingTimeInterval(60))
         #expect(todo.project == nil)
         #expect(todo.heading == nil)
         #expect(todo.area == nil)
         #expect(todo.schedule == .inbox)
         #expect(todo.startDate == nil)
+        #expect(todo.reminderDate == nil)
     }
 
     @Test("A new heading groups only unheaded tasks from its project")
@@ -562,9 +564,11 @@ struct WaniTaskRulesTests {
         #expect(todo.isEvening)
         #expect(todo.updatedAt == now)
 
+        todo.reminderDate = tomorrow
         WaniTaskRules.schedule(todo, as: .someday, at: now)
         #expect(todo.schedule == .someday)
         #expect(todo.startDate == nil)
+        #expect(todo.reminderDate == nil)
         #expect(!todo.isEvening)
     }
 
