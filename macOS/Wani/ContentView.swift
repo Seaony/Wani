@@ -248,6 +248,8 @@ struct ContentView: View {
                 LazyVStack(spacing: 1) {
                     if case .project = selection {
                         projectTaskContent
+                    } else if selection == .smart(.today) {
+                        todayTaskContent
                     } else if visibleTodos.isEmpty {
                         emptyState
                     } else {
@@ -300,6 +302,58 @@ struct ContentView: View {
     private var selectedProject: WaniProject? {
         guard case .project(let projectID) = selection else { return nil }
         return projects.first { $0.id == projectID }
+    }
+
+    @ViewBuilder
+    private var todayTaskContent: some View {
+        if visibleTodos.isEmpty {
+            emptyState
+        } else {
+            let daytimeTodos = WaniTaskRules.todayTasks(
+                todos,
+                evening: false,
+                deferCompletedUntilMidnight: moveToLogbookAtMidnight
+            )
+            let eveningTodos = WaniTaskRules.todayTasks(
+                todos,
+                evening: true,
+                deferCompletedUntilMidnight: moveToLogbookAtMidnight
+            )
+
+            taskRows(daytimeTodos)
+
+            if !eveningTodos.isEmpty {
+                listSectionHeader(
+                    "This Evening",
+                    subtitle: "after 18:00",
+                    count: eveningTodos.count
+                )
+                taskRows(eveningTodos)
+            }
+        }
+    }
+
+    private func listSectionHeader(
+        _ title: String,
+        subtitle: String,
+        count: Int
+    ) -> some View {
+        HStack(spacing: 8) {
+            Text(title.uppercased())
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.1)
+            Text(subtitle)
+                .font(.system(size: 11))
+            Rectangle()
+                .fill(palette.line)
+                .frame(height: 1)
+            Text(count.formatted())
+                .font(.system(size: 11))
+        }
+        .foregroundStyle(palette.tertiaryText)
+        .padding(.horizontal, 11)
+        .padding(.top, 17)
+        .padding(.bottom, 5)
     }
 
     @ViewBuilder

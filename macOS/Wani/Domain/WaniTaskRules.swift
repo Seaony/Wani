@@ -95,6 +95,23 @@ enum WaniTaskRules {
             }
     }
 
+    static func todayTasks(
+        _ todos: [WaniTodo],
+        evening: Bool,
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        deferCompletedUntilMidnight: Bool = false
+    ) -> [WaniTodo] {
+        tasks(
+            todos,
+            in: .today,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: deferCompletedUntilMidnight
+        )
+        .filter { $0.isEvening == evening }
+    }
+
     static func primaryList(
         for todo: WaniTodo,
         now: Date = Date(),

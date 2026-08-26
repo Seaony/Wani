@@ -194,6 +194,46 @@ struct WaniTaskRulesTests {
         #expect(!todo.isEvening)
     }
 
+    @Test("Today separates daytime and evening tasks")
+    func todaySections() {
+        let now = date(2026, 8, 26, 12)
+        let daytime = WaniTodo(
+            title: "Daytime",
+            schedule: .date,
+            startDate: date(2026, 8, 26, 9)
+        )
+        let evening = WaniTodo(
+            title: "Evening",
+            schedule: .date,
+            startDate: date(2026, 8, 26, 18)
+        )
+        evening.isEvening = true
+        let futureEvening = WaniTodo(
+            title: "Future evening",
+            schedule: .date,
+            startDate: date(2026, 8, 27, 18)
+        )
+        futureEvening.isEvening = true
+
+        let todos = [daytime, evening, futureEvening]
+        #expect(
+            WaniTaskRules.todayTasks(
+                todos,
+                evening: false,
+                now: now,
+                calendar: calendar
+            ).map(\.title) == ["Daytime"]
+        )
+        #expect(
+            WaniTaskRules.todayTasks(
+                todos,
+                evening: true,
+                now: now,
+                calendar: calendar
+            ).map(\.title) == ["Evening"]
+        )
+    }
+
     @Test("Suggested reminders never start in the past")
     func suggestedReminder() {
         let now = date(2026, 8, 26, 12)
