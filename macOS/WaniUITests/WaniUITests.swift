@@ -91,6 +91,23 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(todoButton(named: "Move UI Test Task").waitForExistence(timeout: 2))
     }
 
+    func testBatchScheduleToSomeday() throws {
+        createTodo(named: "First Batch Task")
+        createTodo(named: "Second Batch Task")
+
+        app.typeKey("a", modifierFlags: .command)
+        XCTAssertTrue(app.staticTexts["2 selected"].waitForExistence(timeout: 2))
+
+        app.typeKey("s", modifierFlags: .command)
+        let scheduleSomeday = app.buttons["Schedule Someday"]
+        XCTAssertTrue(scheduleSomeday.waitForExistence(timeout: 2))
+        scheduleSomeday.click()
+
+        app.buttons["Someday"].click()
+        XCTAssertTrue(todoButton(named: "First Batch Task").waitForExistence(timeout: 2))
+        XCTAssertTrue(todoButton(named: "Second Batch Task").waitForExistence(timeout: 2))
+    }
+
     private func createTodo(named title: String) {
         app.buttons["New To-Do"].click()
         let titleField = app.textFields["What's on your mind?"]

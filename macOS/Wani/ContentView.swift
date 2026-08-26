@@ -49,6 +49,7 @@ struct ContentView: View {
     @State private var selectionAnchorID: UUID?
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
+    @State private var batchDateEditorOpen = false
     @State private var toolbarDateEditorOpen = false
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
@@ -1476,6 +1477,22 @@ struct ContentView: View {
                     )
                 })
 
+            Button {
+                batchDateEditorOpen = true
+            } label: {
+                Label("When", systemImage: "calendar")
+            }
+            .keyboardShortcut("s", modifiers: .command)
+            .popover(isPresented: $batchDateEditorOpen, arrowEdge: .bottom) {
+                WaniBatchDateEditor(
+                    palette: palette,
+                    apply: scheduleSelectedTodos
+                )
+                .frame(width: 420)
+                .padding(8)
+                .background(palette.panel)
+            }
+
             if canGroupSelectionInNewHeading {
                 Button {
                     openHeadingComposer(groupingSelection: true)
@@ -1547,6 +1564,7 @@ struct ContentView: View {
     private func clearTodoSelection() {
         selectedTodoIDs.removeAll()
         selectionAnchorID = nil
+        batchDateEditorOpen = false
         closeBatchMove()
     }
 
@@ -1593,6 +1611,26 @@ struct ContentView: View {
         }
         saveChanges()
         expandedTodoID = nil
+        clearTodoSelection()
+    }
+
+    private func scheduleSelectedTodos(
+        _ schedule: WaniTaskSchedule,
+        startDate: Date?,
+        isEvening: Bool
+    ) {
+        let updatedAt = Date.now
+        for todo in selectedTodos {
+            WaniTaskRules.schedule(
+                todo,
+                as: schedule,
+                startDate: startDate,
+                isEvening: isEvening,
+                at: updatedAt
+            )
+            syncReminder(for: todo, requestAuthorization: false)
+        }
+        saveChanges()
         clearTodoSelection()
     }
 
