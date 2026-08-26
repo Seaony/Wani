@@ -271,6 +271,55 @@ struct WaniTaskRulesTests {
         }
     }
 
+    @Test("Quick Entry creates the model required by its destination")
+    func quickEntryDestinations() {
+        let now = date(2026, 8, 26, 15, 30)
+        let area = WaniArea(title: "Personal")
+        let project = WaniProject(title: "Launch", area: area)
+        let mappings: [(WaniNavigationTarget, WaniTaskSchedule, Date?)] = [
+            (.smart(.inbox), .inbox, nil),
+            (.smart(.today), .date, date(2026, 8, 26, 0)),
+            (.smart(.upcoming), .date, date(2026, 8, 27, 0)),
+            (.smart(.anytime), .anytime, nil),
+            (.smart(.someday), .someday, nil),
+            (.smart(.logbook), .inbox, nil),
+            (.smart(.trash), .inbox, nil),
+        ]
+
+        for (target, schedule, startDate) in mappings {
+            let todo = target.makeTodo(
+                title: "Capture",
+                areas: [area],
+                projects: [project],
+                now: now,
+                calendar: calendar
+            )
+            #expect(todo.title == "Capture")
+            #expect(todo.schedule == schedule)
+            #expect(todo.startDate == startDate)
+        }
+
+        let areaTodo = WaniNavigationTarget.area(area.id).makeTodo(
+            title: "Area",
+            areas: [area],
+            projects: [project],
+            now: now,
+            calendar: calendar
+        )
+        #expect(areaTodo.schedule == .anytime)
+        #expect(areaTodo.area?.id == area.id)
+
+        let projectTodo = WaniNavigationTarget.project(project.id).makeTodo(
+            title: "Project",
+            areas: [area],
+            projects: [project],
+            now: now,
+            calendar: calendar
+        )
+        #expect(projectTodo.schedule == .anytime)
+        #expect(projectTodo.project?.id == project.id)
+    }
+
     @Test("Smart lists classify tasks by lifecycle and date")
     func smartListClassification() {
         let now = date(2026, 8, 26, 12)

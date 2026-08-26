@@ -1637,39 +1637,11 @@ struct ContentView: View {
         let title = quickEntryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
 
-        let todo: WaniTodo
-        switch quickEntryDestination {
-        case .smart(.today):
-            todo = WaniTodo(
-                title: title,
-                schedule: .date,
-                startDate: Calendar.current.startOfDay(for: .now)
-            )
-        case .smart(.upcoming):
-            todo = WaniTodo(
-                title: title,
-                schedule: .date,
-                startDate: Calendar.current.date(byAdding: .day, value: 1, to: .now)
-            )
-        case .smart(.anytime):
-            todo = WaniTodo(title: title, schedule: .anytime)
-        case .smart(.someday):
-            todo = WaniTodo(title: title, schedule: .someday)
-        case .area(let areaID):
-            todo = WaniTodo(
-                title: title,
-                schedule: .anytime,
-                area: areas.first { $0.id == areaID }
-            )
-        case .project(let projectID):
-            todo = WaniTodo(
-                title: title,
-                schedule: .anytime,
-                project: projects.first { $0.id == projectID }
-            )
-        default:
-            todo = WaniTodo(title: title, schedule: .inbox)
-        }
+        let todo = quickEntryDestination.makeTodo(
+            title: title,
+            areas: areas,
+            projects: projects
+        )
 
         todo.sortOrder = (todos.map(\.sortOrder).max() ?? 0) + 1
         modelContext.insert(todo)

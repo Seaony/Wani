@@ -26,6 +26,55 @@ enum WaniNavigationTarget: Hashable {
                 && project.deletedAt == nil
         }
     }
+
+    func makeTodo(
+        title: String,
+        areas: [WaniArea],
+        projects: [WaniProject],
+        now: Date = .now,
+        calendar: Calendar = .current
+    ) -> WaniTodo {
+        guard acceptsNewTodos(areas: areas, projects: projects) else {
+            return WaniTodo(title: title, schedule: .inbox)
+        }
+
+        switch self {
+        case .smart(.today):
+            return WaniTodo(
+                title: title,
+                schedule: .date,
+                startDate: calendar.startOfDay(for: now)
+            )
+        case .smart(.upcoming):
+            return WaniTodo(
+                title: title,
+                schedule: .date,
+                startDate: calendar.date(
+                    byAdding: .day,
+                    value: 1,
+                    to: calendar.startOfDay(for: now)
+                )
+            )
+        case .smart(.anytime):
+            return WaniTodo(title: title, schedule: .anytime)
+        case .smart(.someday):
+            return WaniTodo(title: title, schedule: .someday)
+        case .area(let areaID):
+            return WaniTodo(
+                title: title,
+                schedule: .anytime,
+                area: areas.first { $0.id == areaID }
+            )
+        case .project(let projectID):
+            return WaniTodo(
+                title: title,
+                schedule: .anytime,
+                project: projects.first { $0.id == projectID }
+            )
+        default:
+            return WaniTodo(title: title, schedule: .inbox)
+        }
+    }
 }
 
 extension WaniSmartList {
