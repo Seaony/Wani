@@ -79,6 +79,32 @@ enum WaniTaskRules {
             }
     }
 
+    static func primaryList(
+        for todo: WaniTodo,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> WaniSmartList {
+        if todo.deletedAt != nil { return .trash }
+        if todo.status != .open { return .logbook }
+
+        switch todo.schedule {
+        case .inbox:
+            return .inbox
+        case .anytime:
+            return .anytime
+        case .someday:
+            return .someday
+        case .date:
+            guard let startDate = todo.startDate else { return .anytime }
+            let tomorrow = calendar.date(
+                byAdding: .day,
+                value: 1,
+                to: calendar.startOfDay(for: now)
+            )!
+            return startDate < tomorrow ? .today : .upcoming
+        }
+    }
+
     static func matches(_ todo: WaniTodo, query: String) -> Bool {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }

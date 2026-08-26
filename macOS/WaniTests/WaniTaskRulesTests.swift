@@ -48,6 +48,10 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.contains(completed, in: .logbook, now: now, calendar: calendar))
         #expect(WaniTaskRules.contains(deleted, in: .trash, now: now, calendar: calendar))
         #expect(!WaniTaskRules.contains(deleted, in: .inbox, now: now, calendar: calendar))
+        #expect(WaniTaskRules.primaryList(for: today, now: now, calendar: calendar) == .today)
+        #expect(WaniTaskRules.primaryList(for: future, now: now, calendar: calendar) == .upcoming)
+        #expect(WaniTaskRules.primaryList(for: completed, now: now, calendar: calendar) == .logbook)
+        #expect(WaniTaskRules.primaryList(for: deleted, now: now, calendar: calendar) == .trash)
     }
 
     @Test("Search covers task content and hierarchy")

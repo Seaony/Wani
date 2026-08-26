@@ -18,9 +18,15 @@ struct WaniApp: App {
             let isRunningTests = ProcessInfo.processInfo.environment[
                 "XCTestConfigurationFilePath"
             ] != nil
+            #if DEBUG
+            let cloudSync = ProcessInfo.processInfo.arguments.contains("--cloud-sync")
+                && !isRunningTests
+            #else
+            let cloudSync = true
+            #endif
             modelContainer = try WaniPersistence.makeContainer(
                 inMemory: isRunningTests,
-                cloudSync: !isRunningTests
+                cloudSync: cloudSync
             )
         } catch {
             fatalError("Unable to initialize Wani storage: \(error)")
@@ -32,5 +38,7 @@ struct WaniApp: App {
             ContentView()
         }
         .modelContainer(modelContainer)
+        .windowStyle(.hiddenTitleBar)
+        .defaultSize(width: 1180, height: 790)
     }
 }
