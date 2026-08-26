@@ -45,6 +45,31 @@ enum WaniTaskRules {
         return result
     }
 
+    static func reorder(
+        _ todos: [WaniTodo],
+        moving movingID: UUID,
+        to targetID: UUID,
+        at date: Date = .now
+    ) -> Bool {
+        let orderedTodos = todos.sorted { lhs, rhs in
+            if lhs.sortOrder == rhs.sortOrder {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        let ids = orderedTodos.map(\.id)
+        let reordered = reorderedIDs(ids, moving: movingID, to: targetID)
+        guard reordered != ids else { return false }
+
+        let sortOrders = orderedTodos.map(\.sortOrder).sorted()
+        for (id, sortOrder) in zip(reordered, sortOrders) {
+            guard let todo = orderedTodos.first(where: { $0.id == id }) else { continue }
+            todo.sortOrder = sortOrder
+            todo.updatedAt = date
+        }
+        return true
+    }
+
     static func contains(
         _ todo: WaniTodo,
         in list: WaniSmartList,

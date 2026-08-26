@@ -867,6 +867,9 @@ struct ContentView: View {
                 },
                 moveToProject: { project, heading in
                     move(todo, to: project, heading: heading)
+                },
+                reorder: { movingID, targetID in
+                    reorderTodo(movingID, to: targetID, in: rows)
                 }
             )
         }
@@ -1477,6 +1480,18 @@ struct ContentView: View {
             guard let heading = projectHeadings.first(where: { $0.id == id }) else { continue }
             heading.sortOrder = Double(index)
             heading.updatedAt = updatedAt
+        }
+        saveChanges()
+        return true
+    }
+
+    private func reorderTodo(
+        _ movingID: UUID,
+        to targetID: UUID,
+        in rows: [WaniTodo]
+    ) -> Bool {
+        guard WaniTaskRules.reorder(rows, moving: movingID, to: targetID) else {
+            return false
         }
         saveChanges()
         return true

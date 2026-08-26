@@ -39,6 +39,27 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Reordering to-dos preserves the group's sort slots")
+    func reorderTodos() {
+        let first = WaniTodo(title: "First", sortOrder: 4)
+        let second = WaniTodo(title: "Second", sortOrder: 9)
+        let third = WaniTodo(title: "Third", sortOrder: 15)
+        let updatedAt = Date(timeIntervalSince1970: 1_800)
+
+        #expect(
+            WaniTaskRules.reorder(
+                [first, second, third],
+                moving: first.id,
+                to: third.id,
+                at: updatedAt
+            )
+        )
+        #expect(second.sortOrder == 4)
+        #expect(third.sortOrder == 9)
+        #expect(first.sortOrder == 15)
+        #expect([first, second, third].allSatisfy { $0.updatedAt == updatedAt })
+    }
+
     @Test("Global Quick Entry exposes distinct configurable shortcuts")
     func globalQuickEntryShortcuts() {
         let shortcuts = WaniQuickEntryShortcut.allCases

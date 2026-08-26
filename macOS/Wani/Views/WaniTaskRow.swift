@@ -21,6 +21,7 @@ struct WaniTaskRow: View {
     let moveToInbox: () -> Void
     let moveToArea: (WaniArea) -> Void
     let moveToProject: (WaniProject, WaniHeading?) -> Void
+    let reorder: (UUID, UUID) -> Bool
 
     @State private var checklistTitle = ""
     @State private var tagDraft = ""
@@ -73,6 +74,16 @@ struct WaniTaskRow: View {
                         }
                     }
                     .contentShape(Rectangle())
+                    .draggable("todo:\(todo.id.uuidString)")
+                    .dropDestination(for: String.self) { values, _ in
+                        guard
+                            let value = values.first(where: { $0.hasPrefix("todo:") }),
+                            let movingID = UUID(
+                                uuidString: String(value.dropFirst("todo:".count))
+                            )
+                        else { return false }
+                        return reorder(movingID, todo.id)
+                    }
                 }
                 .buttonStyle(.plain)
             }
