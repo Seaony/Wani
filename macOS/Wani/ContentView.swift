@@ -28,6 +28,8 @@ struct ContentView: View {
     @AppStorage("showDockBadge") private var showDockBadge = false
     @AppStorage("deadlineNotificationsEnabled") private var deadlineNotificationsEnabled = true
     @AppStorage("moveToLogbookAtMidnight") private var moveToLogbookAtMidnight = false
+    @AppStorage("globalQuickEntryShortcut") private var quickEntryShortcutRaw =
+        WaniQuickEntryShortcut.controlSpace.rawValue
 
     @State private var selection: WaniNavigationTarget = .smart(.today)
     @State private var expandedTodoID: UUID?
@@ -46,6 +48,7 @@ struct ContentView: View {
     @State private var batchMoveQuery = ""
     @State private var projectEditorOpen = false
     @State private var projectTagFilter: String?
+    @State private var quickEntryShortcutError = ""
 
     private var appearance: WaniAppearance {
         get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
@@ -65,6 +68,11 @@ struct ContentView: View {
     private var launchDestination: WaniLaunchDestination {
         get { WaniLaunchDestination(rawValue: launchDestinationRaw) ?? .today }
         nonmutating set { launchDestinationRaw = newValue.rawValue }
+    }
+
+    private var quickEntryShortcut: WaniQuickEntryShortcut {
+        get { WaniQuickEntryShortcut(rawValue: quickEntryShortcutRaw) ?? .controlSpace }
+        nonmutating set { quickEntryShortcutRaw = newValue.rawValue }
     }
 
     private var palette: WaniPalette {
@@ -131,6 +139,11 @@ struct ContentView: View {
                     showCounts: $showSidebarCounts,
                     showAreaLines: $showAreaLines,
                     quickEntryUsesCurrentList: $quickEntryUsesCurrentList,
+                    quickEntryShortcut: Binding(
+                        get: { quickEntryShortcut },
+                        set: { quickEntryShortcut = $0 }
+                    ),
+                    quickEntryShortcutError: quickEntryShortcutError,
                     launchDestination: Binding(
                         get: { launchDestination },
                         set: { launchDestination = $0 }
@@ -175,6 +188,7 @@ struct ContentView: View {
                 appliedLaunchDestination = true
             }
             updateDockBadge()
+            registerGlobalQuickEntry()
         }
         .onChange(of: showDockBadge) {
             updateDockBadge()
@@ -189,6 +203,16 @@ struct ContentView: View {
             clearTodoSelection()
             projectEditorOpen = false
             projectTagFilter = nil
+        }
+        .onChange(of: quickEntryShortcutRaw) {
+            registerGlobalQuickEntry()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .waniOpenQuickEntry)) { _ in
+            NSApp.activate(ignoringOtherApps: true)
+            settingsOpen = false
+            searchOpen = false
+            newListOpen = false
+            quickEntryOpen = true
         }
         .task {
             await syncNotifications()
@@ -1160,6 +1184,10 @@ struct ContentView: View {
     private func closeQuickEntry() {
         quickEntryOpen = false
         quickEntryTitle = ""
+    }
+
+    private func registerGlobalQuickEntry() {
+        quickEntryShortcutError = WaniGlobalHotKey.shared.register(quickEntryShortcut) ?? ""
     }
 
     private func closeSearch() {

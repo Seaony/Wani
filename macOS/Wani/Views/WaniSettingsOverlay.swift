@@ -24,6 +24,8 @@ struct WaniSettingsOverlay: View {
     @Binding var showCounts: Bool
     @Binding var showAreaLines: Bool
     @Binding var quickEntryUsesCurrentList: Bool
+    @Binding var quickEntryShortcut: WaniQuickEntryShortcut
+    let quickEntryShortcutError: String
     @Binding var launchDestination: WaniLaunchDestination
     @Binding var showMenuBarIcon: Bool
     @Binding var showDockBadge: Bool
@@ -236,7 +238,7 @@ struct WaniSettingsOverlay: View {
 
     private var quickEntryContent: some View {
         VStack(spacing: 13) {
-            settingRow("Quick Entry") {
+            settingRow("In-app Quick Entry") {
                 HStack(spacing: 7) {
                     Text("N")
                         .font(.system(size: 12.5))
@@ -247,6 +249,25 @@ struct WaniSettingsOverlay: View {
                     Text("anywhere in the app")
                         .font(.system(size: 11.5))
                         .foregroundStyle(palette.tertiaryText)
+                }
+            }
+
+            settingRow("Global Quick Entry", alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Picker("Global Quick Entry", selection: $quickEntryShortcut) {
+                        ForEach(WaniQuickEntryShortcut.allCases) { shortcut in
+                            Text(shortcut.title).tag(shortcut)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(width: 160)
+
+                    if !quickEntryShortcutError.isEmpty {
+                        Text(quickEntryShortcutError)
+                            .font(.system(size: 11.5))
+                            .foregroundStyle(.red)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
 

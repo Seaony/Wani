@@ -10,6 +10,14 @@ struct WaniTaskRulesTests {
         return calendar
     }
 
+    @Test("Global Quick Entry exposes distinct configurable shortcuts")
+    func globalQuickEntryShortcuts() {
+        let shortcuts = WaniQuickEntryShortcut.allCases
+        #expect(shortcuts.count == 3)
+        #expect(Set(shortcuts.map(\.rawValue)).count == shortcuts.count)
+        #expect(shortcuts.first?.title == "⌃Space")
+    }
+
     @Test("Smart lists classify tasks by lifecycle and date")
     func smartListClassification() {
         let now = date(2026, 8, 26, 12)
