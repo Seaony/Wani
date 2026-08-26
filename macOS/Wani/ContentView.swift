@@ -1607,6 +1607,7 @@ struct ContentView: View {
     private func moveSelectedTodos(to area: WaniArea) {
         for todo in selectedTodos {
             WaniTaskRules.move(todo, to: area)
+            syncReminder(for: todo, requestAuthorization: false)
         }
         saveChanges()
         clearTodoSelection()
@@ -1615,6 +1616,7 @@ struct ContentView: View {
     private func moveSelectedTodos(to project: WaniProject, heading: WaniHeading?) {
         for todo in selectedTodos {
             WaniTaskRules.move(todo, to: project, heading: heading)
+            syncReminder(for: todo, requestAuthorization: false)
         }
         saveChanges()
         clearTodoSelection()
@@ -1859,6 +1861,9 @@ struct ContentView: View {
         if let project = selectedProject {
             project.title = trimmedTitle.isEmpty ? "New Project" : trimmedTitle
             project.updatedAt = .now
+            for todo in todos where todo.project?.id == project.id {
+                syncReminder(for: todo, requestAuthorization: false)
+            }
         } else if let area = selectedArea {
             area.title = trimmedTitle.isEmpty ? "New Area" : trimmedTitle
             area.updatedAt = .now
@@ -2070,6 +2075,7 @@ struct ContentView: View {
 
     private func move(_ todo: WaniTodo, to area: WaniArea) {
         WaniTaskRules.move(todo, to: area)
+        syncReminder(for: todo, requestAuthorization: false)
         saveChanges()
     }
 
@@ -2079,6 +2085,7 @@ struct ContentView: View {
         heading: WaniHeading?
     ) {
         WaniTaskRules.move(todo, to: project, heading: heading)
+        syncReminder(for: todo, requestAuthorization: false)
         saveChanges()
     }
 

@@ -999,6 +999,25 @@ struct WaniTaskRulesTests {
         #expect(request?.dateComponents.day == 27)
         #expect(request?.dateComponents.hour == 9)
 
+        todo.title = "Updated review"
+        todo.notes = "Updated details"
+        let updatedRequest = WaniReminderScheduler.makeRequest(
+            for: todo,
+            now: now,
+            calendar: calendar
+        )
+        #expect(updatedRequest?.title == "Updated review")
+        #expect(updatedRequest?.body == "Updated details")
+
+        todo.notes = ""
+        let destination = WaniProject(title: "New project")
+        WaniTaskRules.move(todo, to: destination, at: now)
+        #expect(WaniReminderScheduler.makeRequest(
+            for: todo,
+            now: now,
+            calendar: calendar
+        )?.body == "New project")
+
         todo.schedule = .anytime
         todo.startDate = nil
         #expect(

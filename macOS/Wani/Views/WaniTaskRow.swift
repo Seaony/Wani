@@ -355,6 +355,7 @@ struct WaniTaskRow: View {
     private func touchTodoAndSave() {
         todo.updatedAt = .now
         saveChanges()
+        syncReminder()
     }
 
     private func syncReminder() {
