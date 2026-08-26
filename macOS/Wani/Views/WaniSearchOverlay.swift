@@ -90,6 +90,9 @@ struct WaniSearchOverlay: View {
         if todo.status == .open, todo.deletedAt == nil, let project = todo.project {
             return project.title
         }
+        if todo.status == .open, todo.deletedAt == nil, let area = todo.area {
+            return area.title
+        }
         return WaniTaskRules.primaryList(for: todo).title
     }
 }

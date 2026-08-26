@@ -80,6 +80,9 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.matches(todo, query: "garden"))
         #expect(WaniTaskRules.matches(todo, query: "personal"))
         #expect(!WaniTaskRules.matches(todo, query: "work"))
+
+        let areaTodo = WaniTodo(title: "Loose task", area: area)
+        #expect(WaniTaskRules.matches(areaTodo, query: "personal"))
     }
 
     @Test("Completing a repeating task creates the next occurrence")
@@ -230,11 +233,12 @@ struct WaniTaskRulesTests {
         let activeTodo = WaniTodo(title: "Active task", project: activeProject)
         let alreadyDeletedTodo = WaniTodo(title: "Deleted task", project: alreadyDeletedProject)
         alreadyDeletedTodo.deletedAt = earlierDeletion
+        let areaTodo = WaniTodo(title: "Area task", area: area)
 
         WaniTaskRules.moveAreaContentsToTrash(
             area,
             projects: [activeProject, alreadyDeletedProject, otherProject],
-            todos: [activeTodo, alreadyDeletedTodo],
+            todos: [activeTodo, alreadyDeletedTodo, areaTodo],
             at: deletedAt
         )
 
@@ -245,16 +249,25 @@ struct WaniTaskRulesTests {
         #expect(alreadyDeletedTodo.deletedAt == earlierDeletion)
         #expect(alreadyDeletedProject.area == nil)
         #expect(otherProject.deletedAt == nil)
+        #expect(areaTodo.deletedAt == deletedAt)
+        #expect(areaTodo.area == nil)
     }
 
     @Test("Moving tasks updates project heading and Inbox scheduling")
     func moveTask() {
         let now = date(2026, 8, 26, 12)
+        let area = WaniArea(title: "Personal")
         let project = WaniProject(title: "Launch")
         let heading = WaniHeading(title: "Polish", project: project)
         let todo = WaniTodo(title: "Move me", schedule: .inbox)
 
+        WaniTaskRules.move(todo, to: area, at: now)
+        #expect(todo.area?.id == area.id)
+        #expect(todo.project == nil)
+        #expect(todo.schedule == .anytime)
+
         WaniTaskRules.move(todo, to: project, heading: heading, at: now)
+        #expect(todo.area == nil)
         #expect(todo.project?.id == project.id)
         #expect(todo.heading?.id == heading.id)
         #expect(todo.schedule == .anytime)
@@ -263,6 +276,7 @@ struct WaniTaskRulesTests {
         WaniTaskRules.moveToInbox(todo, at: now.addingTimeInterval(60))
         #expect(todo.project == nil)
         #expect(todo.heading == nil)
+        #expect(todo.area == nil)
         #expect(todo.schedule == .inbox)
         #expect(todo.startDate == nil)
     }

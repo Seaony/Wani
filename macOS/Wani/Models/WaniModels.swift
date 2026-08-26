@@ -34,6 +34,9 @@ final class WaniArea {
     @Relationship(deleteRule: .nullify, inverse: \WaniProject.area)
     var projects: [WaniProject]? = []
 
+    @Relationship(deleteRule: .nullify, inverse: \WaniTodo.area)
+    var todos: [WaniTodo]? = []
+
     init(title: String, sortOrder: Double = 0) {
         self.title = title
         self.sortOrder = sortOrder
@@ -105,6 +108,7 @@ final class WaniTodo {
     var completedAt: Date?
     var canceledAt: Date?
     var deletedAt: Date?
+    var area: WaniArea?
     var project: WaniProject?
     var heading: WaniHeading?
 
@@ -141,6 +145,7 @@ final class WaniTodo {
         notes: String = "",
         schedule: WaniTaskSchedule = .inbox,
         startDate: Date? = nil,
+        area: WaniArea? = nil,
         project: WaniProject? = nil,
         heading: WaniHeading? = nil,
         sortOrder: Double = 0
@@ -149,6 +154,7 @@ final class WaniTodo {
         self.notes = notes
         self.scheduleRawValue = schedule.rawValue
         self.startDate = startDate
+        self.area = area
         self.project = project
         self.heading = heading
         self.sortOrder = sortOrder

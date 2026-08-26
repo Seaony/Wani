@@ -2,14 +2,21 @@ import SwiftUI
 
 struct WaniBatchMoveOverlay: View {
     let palette: WaniPalette
+    let areas: [WaniArea]
     let projects: [WaniProject]
     let headings: [WaniHeading]
     @Binding var query: String
     let moveToInbox: () -> Void
+    let moveToArea: (WaniArea) -> Void
     let moveToProject: (WaniProject, WaniHeading?) -> Void
     let dismiss: () -> Void
 
     @FocusState private var searchFocused: Bool
+
+    private var filteredAreas: [WaniArea] {
+        guard !normalizedQuery.isEmpty else { return areas }
+        return areas.filter { $0.title.localizedCaseInsensitiveContains(normalizedQuery) }
+    }
 
     private var filteredProjects: [WaniProject] {
         guard !normalizedQuery.isEmpty else { return projects }
@@ -61,6 +68,15 @@ struct WaniBatchMoveOverlay: View {
                             action: moveToInbox
                         )
 
+                        ForEach(filteredAreas) { area in
+                            destinationButton(
+                                title: area.title,
+                                subtitle: "Area",
+                                symbol: "cube.transparent",
+                                action: { moveToArea(area) }
+                            )
+                        }
+
                         ForEach(filteredProjects) { project in
                             destinationButton(
                                 title: project.title,
@@ -81,7 +97,10 @@ struct WaniBatchMoveOverlay: View {
                             }
                         }
 
-                        if filteredProjects.isEmpty && filteredHeadings.isEmpty {
+                        if filteredAreas.isEmpty
+                            && filteredProjects.isEmpty
+                            && filteredHeadings.isEmpty
+                        {
                             Text("No destinations found")
                                 .font(.system(size: 12.5))
                                 .foregroundStyle(palette.tertiaryText)

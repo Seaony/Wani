@@ -308,6 +308,7 @@ enum WaniTaskRules {
     ) {
         todo.project = project
         todo.heading = heading
+        todo.area = nil
         if todo.schedule == .inbox {
             todo.schedule = .anytime
         }
@@ -317,6 +318,7 @@ enum WaniTaskRules {
     static func moveToInbox(_ todo: WaniTodo, at date: Date = Date()) {
         todo.project = nil
         todo.heading = nil
+        todo.area = nil
         todo.schedule = .inbox
         todo.startDate = nil
         todo.isEvening = false
@@ -390,7 +392,7 @@ enum WaniTaskRules {
             todo.notes,
             todo.tagNames.joined(separator: " "),
             todo.project?.title ?? "",
-            todo.project?.area?.title ?? "",
+            todo.project?.area?.title ?? todo.area?.title ?? "",
         ]
 
         return values.contains { value in
@@ -439,6 +441,20 @@ enum WaniTaskRules {
         todo.updatedAt = date
     }
 
+    static func move(
+        _ todo: WaniTodo,
+        to area: WaniArea,
+        at date: Date = Date()
+    ) {
+        todo.area = area
+        todo.project = nil
+        todo.heading = nil
+        if todo.schedule == .inbox {
+            todo.schedule = .anytime
+        }
+        todo.updatedAt = date
+    }
+
     static func moveProjectToTrash(
         _ project: WaniProject,
         todos: [WaniTodo],
@@ -476,6 +492,13 @@ enum WaniTaskRules {
         todos: [WaniTodo],
         at date: Date = Date()
     ) {
+        for todo in todos where todo.area?.id == area.id {
+            if todo.deletedAt == nil {
+                moveToTrash(todo, at: date)
+            }
+            todo.area = nil
+        }
+
         for project in projects where project.area?.id == area.id {
             if project.deletedAt == nil {
                 moveProjectToTrash(project, todos: todos, at: date)
@@ -509,6 +532,7 @@ enum WaniTaskRules {
             notes: todo.notes,
             schedule: .date,
             startDate: nextDate,
+            area: todo.area,
             project: todo.project,
             heading: todo.heading,
             sortOrder: todo.sortOrder

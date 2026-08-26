@@ -254,8 +254,9 @@ struct WaniSidebar: View {
     private func areaOpenCount(_ area: WaniArea) -> Int {
         let projectIDs = Set(projects.filter { $0.area?.id == area.id }.map(\.id))
         return todos.filter {
-            guard let projectID = $0.project?.id else { return false }
-            return projectIDs.contains(projectID)
+            let belongsToArea = $0.area?.id == area.id
+                || $0.project.map { projectIDs.contains($0.id) } == true
+            return belongsToArea
                 && $0.deletedAt == nil
                 && $0.status == .open
         }.count

@@ -149,10 +149,12 @@ struct ContentView: View {
             if batchMoveOpen {
                 WaniBatchMoveOverlay(
                     palette: palette,
+                    areas: areas,
                     projects: activeProjects,
                     headings: activeHeadings,
                     query: $batchMoveQuery,
                     moveToInbox: moveSelectedToInbox,
+                    moveToArea: moveSelectedTodos,
                     moveToProject: moveSelectedTodos,
                     dismiss: closeBatchMove
                 )
@@ -395,7 +397,7 @@ struct ContentView: View {
             )
         case .area(let areaID):
             todos.filter { todo in
-                todo.project?.area?.id == areaID
+                (todo.area?.id == areaID || todo.project?.area?.id == areaID)
                     && todo.deletedAt == nil
                     && (todo.status == .open || WaniTaskRules.isAwaitingMidnightArchive(
                         todo,
@@ -599,9 +601,12 @@ struct ContentView: View {
     @ViewBuilder
     private var areaTaskContent: some View {
         let areaProjects = activeProjects.filter { $0.area?.id == selectedArea?.id }
-        if areaProjects.isEmpty {
+        let areaTodos = visibleTodos.filter { $0.area?.id == selectedArea?.id }
+        if areaProjects.isEmpty && areaTodos.isEmpty {
             emptyState
         } else {
+            taskRows(areaTodos)
+
             ForEach(areaProjects) { project in
                 Button {
                     selection = .project(project.id)
@@ -838,6 +843,7 @@ struct ContentView: View {
             WaniTaskRow(
                 todo: todo,
                 palette: palette,
+                areas: areas,
                 projects: activeProjects,
                 headings: activeHeadings,
                 density: density,
@@ -853,6 +859,9 @@ struct ContentView: View {
                 restore: { restore(todo) },
                 deletePermanently: { deletePermanently(todo) },
                 moveToInbox: { moveToInbox(todo) },
+                moveToArea: { area in
+                    move(todo, to: area)
+                },
                 moveToProject: { project, heading in
                     move(todo, to: project, heading: heading)
                 }
@@ -1065,7 +1074,7 @@ struct ContentView: View {
         case .smart(.upcoming): "Nothing is scheduled for the weeks ahead."
         case .smart(.logbook): "Completed to-dos collect here."
         case .smart(.trash): "Deleted projects and to-dos wait here until you remove them permanently."
-        case .area: "Create a project from the area menu to begin."
+        case .area: "Add a to-do directly, or create a project from the area menu."
         case .project: "Add the first to-do and the shape of the work appears."
         default: "Nothing parked in this list."
         }
@@ -1074,7 +1083,6 @@ struct ContentView: View {
     private var canAddToCurrentList: Bool {
         switch selection {
         case .smart(.logbook), .smart(.trash): false
-        case .area: false
         default: true
         }
     }
@@ -1242,6 +1250,14 @@ struct ContentView: View {
         clearTodoSelection()
     }
 
+    private func moveSelectedTodos(to area: WaniArea) {
+        for todo in selectedTodos {
+            WaniTaskRules.move(todo, to: area)
+        }
+        saveChanges()
+        clearTodoSelection()
+    }
+
     private func moveSelectedTodos(to project: WaniProject, heading: WaniHeading?) {
         for todo in selectedTodos {
             WaniTaskRules.move(todo, to: project, heading: heading)
@@ -1277,6 +1293,12 @@ struct ContentView: View {
             todo = WaniTodo(title: title, schedule: .anytime)
         case .smart(.someday):
             todo = WaniTodo(title: title, schedule: .someday)
+        case .area(let areaID):
+            todo = WaniTodo(
+                title: title,
+                schedule: .anytime,
+                area: areas.first { $0.id == areaID }
+            )
         case .project(let projectID):
             todo = WaniTodo(
                 title: title,
@@ -1365,6 +1387,8 @@ struct ContentView: View {
         let primaryList = WaniTaskRules.primaryList(for: todo)
         if todo.status == .open, todo.deletedAt == nil, let project = todo.project {
             selection = .project(project.id)
+        } else if todo.status == .open, todo.deletedAt == nil, let area = todo.area {
+            selection = .area(area.id)
         } else {
             selection = .smart(primaryList)
         }
@@ -1430,12 +1454,17 @@ struct ContentView: View {
     private func deleteSelectedArea() {
         guard let area = selectedArea else { return }
         let areaProjects = projects.filter { $0.area?.id == area.id }
+        let projectIDs = Set(areaProjects.map(\.id))
+        let areaTodos = todos.filter { todo in
+            todo.area?.id == area.id
+                || todo.project.map { projectIDs.contains($0.id) } == true
+        }
         WaniTaskRules.moveAreaContentsToTrash(
             area,
             projects: areaProjects,
             todos: todos
         )
-        for todo in todos where areaProjects.contains(where: { $0.id == todo.project?.id }) {
+        for todo in areaTodos {
             WaniReminderScheduler.cancel(todo)
         }
         modelContext.delete(area)
@@ -1518,6 +1547,11 @@ struct ContentView: View {
 
     private func moveToInbox(_ todo: WaniTodo) {
         WaniTaskRules.moveToInbox(todo)
+        saveChanges()
+    }
+
+    private func move(_ todo: WaniTodo, to area: WaniArea) {
+        WaniTaskRules.move(todo, to: area)
         saveChanges()
     }
 

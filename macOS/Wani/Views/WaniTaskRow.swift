@@ -5,6 +5,7 @@ struct WaniTaskRow: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var todo: WaniTodo
     let palette: WaniPalette
+    let areas: [WaniArea]
     let projects: [WaniProject]
     let headings: [WaniHeading]
     let density: WaniListDensity
@@ -18,6 +19,7 @@ struct WaniTaskRow: View {
     let restore: () -> Void
     let deletePermanently: () -> Void
     let moveToInbox: () -> Void
+    let moveToArea: (WaniArea) -> Void
     let moveToProject: (WaniProject, WaniHeading?) -> Void
 
     @State private var checklistTitle = ""
@@ -218,6 +220,15 @@ struct WaniTaskRow: View {
                 moveToInbox()
             }
 
+            if !areas.isEmpty {
+                Divider()
+                ForEach(areas) { area in
+                    Button(area.title, systemImage: "cube.transparent") {
+                        moveToArea(area)
+                    }
+                }
+            }
+
             if !projects.isEmpty {
                 Divider()
                 ForEach(projects) { project in
@@ -309,6 +320,11 @@ struct WaniTaskRow: View {
             }
             if let project = todo.project {
                 Text(project.title)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(palette.hover, in: Capsule())
+            } else if let area = todo.area {
+                Text(area.title)
                     .padding(.horizontal, 7)
                     .padding(.vertical, 2)
                     .background(palette.hover, in: Capsule())
