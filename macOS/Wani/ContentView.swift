@@ -48,6 +48,7 @@ struct ContentView: View {
     @State private var selectionAnchorID: UUID?
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
+    @State private var toolbarDateEditorOpen = false
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
     @FocusState private var headerTitleFocused: Bool
@@ -203,7 +204,11 @@ struct ContentView: View {
             clearTodoSelection()
             projectTagFilter = nil
             projectLogbookExpanded = false
+            toolbarDateEditorOpen = false
             closeHeadingComposer()
+        }
+        .onChange(of: expandedTodoID) {
+            toolbarDateEditorOpen = false
         }
         .onChange(of: quickEntryShortcutRaw) {
             registerGlobalQuickEntry()
@@ -1013,6 +1018,17 @@ struct ContentView: View {
         }
     }
 
+    private var focusedToolbarTodo: WaniTodo? {
+        guard
+            let expandedTodoID,
+            displayedTodoIDs.contains(expandedTodoID),
+            let todo = todos.first(where: { $0.id == expandedTodoID }),
+            todo.status == .open,
+            todo.deletedAt == nil
+        else { return nil }
+        return todo
+    }
+
     private var displayedTodoIDs: [UUID] {
         if selection == .smart(.logbook) {
             return logbookMonths.flatMap { $0.todos.map(\.id) }
@@ -1229,6 +1245,7 @@ struct ContentView: View {
                 quickEntryOpen = true
             }
             .keyboardShortcut("n", modifiers: [])
+            .disabled(!canAddToCurrentList)
             if selectedProject != nil {
                 toolbarButton("rectangle.stack.badge.plus", label: "New Heading") {
                     openHeadingComposer()
@@ -1238,11 +1255,29 @@ struct ContentView: View {
                 toolbarButton("plus.app", label: "Quick Entry") {
                     quickEntryOpen = true
                 }
+                .disabled(!canAddToCurrentList)
             }
             toolbarButton("calendar", label: "When") {
-                selection = .smart(.upcoming)
+                toolbarDateEditorOpen = true
             }
-            toolbarButton("arrow.right", label: "Move") { }
+            .keyboardShortcut("s", modifiers: .command)
+            .disabled(focusedToolbarTodo == nil)
+            .popover(isPresented: $toolbarDateEditorOpen, arrowEdge: .bottom) {
+                if let todo = focusedToolbarTodo {
+                    WaniTaskDateEditor(
+                        todo: todo,
+                        palette: palette,
+                        save: saveChanges,
+                        reminderChanged: { syncReminder(for: todo) }
+                    )
+                    .frame(width: 420)
+                    .padding(8)
+                    .background(palette.panel)
+                }
+            }
+            toolbarButton("arrow.right", label: "Move", action: openMoveForExpandedTodo)
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(focusedToolbarTodo == nil)
             toolbarButton("magnifyingglass", label: "Search") {
                 searchOpen = true
             }
@@ -1408,6 +1443,14 @@ struct ContentView: View {
     private func closeBatchMove() {
         batchMoveOpen = false
         batchMoveQuery = ""
+    }
+
+    private func openMoveForExpandedTodo() {
+        guard let todo = focusedToolbarTodo else { return }
+        selectedTodoIDs = [todo.id]
+        selectionAnchorID = todo.id
+        expandedTodoID = nil
+        batchMoveOpen = true
     }
 
     private func saveQuickEntry() {
@@ -1876,6 +1919,16 @@ struct ContentView: View {
     private func syncAllNotifications() {
         Task {
             await syncNotifications()
+        }
+    }
+
+    private func syncReminder(for todo: WaniTodo) {
+        Task {
+            await WaniReminderScheduler.sync(
+                todo,
+                requestAuthorization: true,
+                deadlineNotificationsEnabled: deadlineNotificationsEnabled
+            )
         }
     }
 
