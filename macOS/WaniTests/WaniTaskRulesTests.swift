@@ -1315,6 +1315,105 @@ struct WaniTaskRulesTests {
         #expect(scheduled.deadline == nil)
     }
 
+    @Test("Start date adjustments use today as a baseline and never move into the past")
+    func startDateAdjustments() {
+        let now = date(2026, 8, 26, 12)
+        let updatedAt = date(2026, 8, 26, 13)
+        let forward = WaniTodo(title: "Forward")
+        let backward = WaniTodo(title: "Backward")
+        let scheduled = WaniTodo(
+            title: "Scheduled",
+            schedule: .date,
+            startDate: date(2026, 8, 28, 0)
+        )
+        scheduled.reminderDate = date(2026, 8, 28, 15, 30)
+
+        WaniTaskRules.adjustStartDate(
+            forward,
+            byDays: 1,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+        WaniTaskRules.adjustStartDate(
+            backward,
+            byDays: -1,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+        WaniTaskRules.adjustStartDate(
+            scheduled,
+            byDays: 7,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+
+        #expect(forward.schedule == .date)
+        #expect(forward.startDate == date(2026, 8, 27, 0))
+        #expect(backward.startDate == date(2026, 8, 26, 0))
+        #expect(scheduled.startDate == date(2026, 9, 4, 0))
+        #expect(scheduled.reminderDate == date(2026, 9, 4, 15, 30))
+        #expect(scheduled.updatedAt == updatedAt)
+
+        WaniTaskRules.adjustStartDate(
+            scheduled,
+            byDays: -7,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+        #expect(scheduled.startDate == date(2026, 8, 28, 0))
+        #expect(scheduled.reminderDate == date(2026, 8, 28, 15, 30))
+    }
+
+    @Test("Deadline adjustments use today as a baseline and never move into the past")
+    func deadlineAdjustments() {
+        let now = date(2026, 8, 26, 12)
+        let updatedAt = date(2026, 8, 26, 13)
+        let forward = WaniTodo(title: "Forward")
+        let backward = WaniTodo(title: "Backward")
+        let deadline = WaniTodo(title: "Deadline")
+        deadline.deadline = date(2026, 8, 28, 17)
+
+        WaniTaskRules.adjustDeadline(
+            forward,
+            byDays: 1,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+        WaniTaskRules.adjustDeadline(
+            backward,
+            byDays: -1,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+        WaniTaskRules.adjustDeadline(
+            deadline,
+            byDays: 7,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+
+        #expect(forward.deadline == date(2026, 8, 27, 0))
+        #expect(backward.deadline == date(2026, 8, 26, 0))
+        #expect(deadline.deadline == date(2026, 9, 4, 0))
+        #expect(deadline.updatedAt == updatedAt)
+
+        WaniTaskRules.adjustDeadline(
+            deadline,
+            byDays: -7,
+            now: now,
+            at: updatedAt,
+            calendar: calendar
+        )
+        #expect(deadline.deadline == date(2026, 8, 28, 0))
+    }
+
     @Test("Reminder requests include stable identity and future date")
     func reminderRequest() {
         let now = date(2026, 8, 26, 12)

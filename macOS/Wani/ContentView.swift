@@ -1498,6 +1498,54 @@ struct ContentView: View {
             }
             .keyboardShortcut("o", modifiers: .command)
             .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Start Date +1 Day") {
+                adjustStartDates(byDays: 1)
+            }
+            .keyboardShortcut("]", modifiers: .control)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Start Date -1 Day") {
+                adjustStartDates(byDays: -1)
+            }
+            .keyboardShortcut("[", modifiers: .control)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Start Date +1 Week") {
+                adjustStartDates(byDays: 7)
+            }
+            .keyboardShortcut("]", modifiers: [.control, .shift])
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Start Date -1 Week") {
+                adjustStartDates(byDays: -7)
+            }
+            .keyboardShortcut("[", modifiers: [.control, .shift])
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Deadline +1 Day") {
+                adjustDeadlines(byDays: 1)
+            }
+            .keyboardShortcut(".", modifiers: .control)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Deadline -1 Day") {
+                adjustDeadlines(byDays: -1)
+            }
+            .keyboardShortcut(",", modifiers: .control)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Deadline +1 Week") {
+                adjustDeadlines(byDays: 7)
+            }
+            .keyboardShortcut(".", modifiers: [.control, .shift])
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Deadline -1 Week") {
+                adjustDeadlines(byDays: -7)
+            }
+            .keyboardShortcut(",", modifiers: [.control, .shift])
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
         }
         .frame(width: 0, height: 0)
         .opacity(0)
@@ -2089,6 +2137,44 @@ struct ContentView: View {
             isEvening: isEvening
         )
         syncReminder(for: todo, requestAuthorization: false)
+        saveChanges()
+    }
+
+    private func adjustStartDates(byDays days: Int) {
+        let commandTodos = selectedTodos.isEmpty
+            ? focusedToolbarTodo.map { [$0] } ?? []
+            : selectedTodos
+        let updatedAt = Date.now
+        for todo in commandTodos {
+            WaniTaskRules.adjustStartDate(
+                todo,
+                byDays: days,
+                now: updatedAt,
+                at: updatedAt
+            )
+            syncReminder(for: todo, requestAuthorization: false)
+        }
+        saveChanges()
+        selectedTodoIDs.formIntersection(displayedTodoIDs)
+        if let selectionAnchorID, !selectedTodoIDs.contains(selectionAnchorID) {
+            self.selectionAnchorID = displayedTodoIDs.first(where: selectedTodoIDs.contains)
+        }
+    }
+
+    private func adjustDeadlines(byDays days: Int) {
+        let commandTodos = selectedTodos.isEmpty
+            ? focusedToolbarTodo.map { [$0] } ?? []
+            : selectedTodos
+        let updatedAt = Date.now
+        for todo in commandTodos {
+            WaniTaskRules.adjustDeadline(
+                todo,
+                byDays: days,
+                now: updatedAt,
+                at: updatedAt
+            )
+            syncReminder(for: todo, requestAuthorization: false)
+        }
         saveChanges()
     }
 

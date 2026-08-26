@@ -570,6 +570,30 @@ enum WaniTaskRules {
         todo.updatedAt = date
     }
 
+    static func adjustStartDate(
+        _ todo: WaniTodo,
+        byDays days: Int,
+        now: Date = Date(),
+        at date: Date = Date(),
+        calendar: Calendar = .current
+    ) {
+        let today = calendar.startOfDay(for: now)
+        let currentDate = todo.startDate.map(calendar.startOfDay(for:)) ?? today
+        let adjustedDate = calendar.date(
+            byAdding: .day,
+            value: days,
+            to: currentDate
+        )!
+        schedule(
+            todo,
+            as: .date,
+            startDate: max(today, adjustedDate),
+            isEvening: todo.isEvening,
+            at: date,
+            calendar: calendar
+        )
+    }
+
     static func setRepeatFrequency(
         _ frequency: WaniRepeatFrequency,
         for todo: WaniTodo,
@@ -663,6 +687,28 @@ enum WaniTaskRules {
     ) {
         todo.deadline = deadline.map(calendar.startOfDay(for:))
         todo.updatedAt = date
+    }
+
+    static func adjustDeadline(
+        _ todo: WaniTodo,
+        byDays days: Int,
+        now: Date = Date(),
+        at date: Date = Date(),
+        calendar: Calendar = .current
+    ) {
+        let today = calendar.startOfDay(for: now)
+        let currentDate = todo.deadline.map(calendar.startOfDay(for:)) ?? today
+        let adjustedDate = calendar.date(
+            byAdding: .day,
+            value: days,
+            to: currentDate
+        )!
+        setDeadline(
+            todo,
+            to: max(today, adjustedDate),
+            at: date,
+            calendar: calendar
+        )
     }
 
     static func tags(from input: String) -> [String] {
