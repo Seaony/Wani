@@ -154,6 +154,7 @@ struct WaniTaskDateEditor: View {
                     ? Calendar.current.date(byAdding: .day, value: 7, to: todo.startDate ?? .now)
                     : nil
                 touchAndSave()
+                reminderChanged()
             }
         )
     }
@@ -161,7 +162,11 @@ struct WaniTaskDateEditor: View {
     private var deadlineBinding: Binding<Date> {
         Binding(
             get: { todo.deadline ?? .now },
-            set: { todo.deadline = $0; touchAndSave() }
+            set: {
+                todo.deadline = $0
+                touchAndSave()
+                reminderChanged()
+            }
         )
     }
 

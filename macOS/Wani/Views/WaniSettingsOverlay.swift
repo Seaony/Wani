@@ -27,6 +27,8 @@ struct WaniSettingsOverlay: View {
     @Binding var launchDestination: WaniLaunchDestination
     @Binding var showMenuBarIcon: Bool
     @Binding var showDockBadge: Bool
+    @Binding var deadlineNotificationsEnabled: Bool
+    @Binding var moveToLogbookAtMidnight: Bool
     let dismiss: () -> Void
 
     @State private var tab: Tab = .appearance
@@ -204,6 +206,28 @@ struct WaniSettingsOverlay: View {
                 }
                 .labelsHidden()
                 .frame(width: 150)
+            }
+
+            settingRow("Notifications") {
+                preferenceToggle(
+                    "Notify me about deadlines",
+                    isOn: $deadlineNotificationsEnabled
+                )
+            }
+
+            divider
+
+            settingRow("Completed items", alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    preferenceToggle(
+                        "Move to Logbook at midnight",
+                        isOn: $moveToLogbookAtMidnight
+                    )
+                    Text("Until then they stay visible inside their project.")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(palette.tertiaryText)
+                        .padding(.leading, 23)
+                }
             }
         }
         .padding(.horizontal, 26)

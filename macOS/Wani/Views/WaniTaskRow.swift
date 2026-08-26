@@ -8,6 +8,7 @@ struct WaniTaskRow: View {
     let projects: [WaniProject]
     let headings: [WaniHeading]
     let density: WaniListDensity
+    let deadlineNotificationsEnabled: Bool
     let isExpanded: Bool
     let toggleExpanded: () -> Void
     let toggleCompleted: () -> Void
@@ -280,7 +281,11 @@ struct WaniTaskRow: View {
 
     private func syncReminder() {
         Task {
-            await WaniReminderScheduler.sync(todo, requestAuthorization: true)
+            await WaniReminderScheduler.sync(
+                todo,
+                requestAuthorization: true,
+                deadlineNotificationsEnabled: deadlineNotificationsEnabled
+            )
         }
     }
 

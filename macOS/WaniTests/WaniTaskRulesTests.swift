@@ -237,6 +237,66 @@ struct WaniTaskRulesTests {
         )
     }
 
+    @Test("Deadline notifications fire at nine on the deadline date")
+    func deadlineRequest() {
+        let now = date(2026, 8, 26, 12)
+        let project = WaniProject(title: "Launch")
+        let todo = WaniTodo(title: "Ship", project: project)
+        todo.deadline = date(2026, 8, 28, 17)
+
+        let request = WaniReminderScheduler.makeDeadlineRequest(
+            for: todo,
+            enabled: true,
+            now: now,
+            calendar: calendar
+        )
+
+        #expect(request?.identifier == "wani.todo.\(todo.id.uuidString).deadline")
+        #expect(request?.body == "Deadline today · Launch")
+        #expect(request?.dateComponents.day == 28)
+        #expect(request?.dateComponents.hour == 9)
+        #expect(
+            WaniReminderScheduler.makeDeadlineRequest(
+                for: todo,
+                enabled: false,
+                now: now,
+                calendar: calendar
+            ) == nil
+        )
+    }
+
+    @Test("Midnight archive defers today's completed items")
+    func midnightArchive() {
+        let now = date(2026, 8, 26, 12)
+        let today = WaniTodo(title: "Today")
+        today.status = .completed
+        today.completedAt = date(2026, 8, 26, 9)
+        let yesterday = WaniTodo(title: "Yesterday")
+        yesterday.status = .completed
+        yesterday.completedAt = date(2026, 8, 25, 18)
+
+        #expect(WaniTaskRules.isAwaitingMidnightArchive(
+            today,
+            enabled: true,
+            now: now,
+            calendar: calendar
+        ))
+        #expect(!WaniTaskRules.contains(
+            today,
+            in: .logbook,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
+        ))
+        #expect(WaniTaskRules.contains(
+            yesterday,
+            in: .logbook,
+            now: now,
+            calendar: calendar,
+            deferCompletedUntilMidnight: true
+        ))
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,

@@ -17,7 +17,8 @@ enum WaniTaskRules {
         _ todo: WaniTodo,
         in list: WaniSmartList,
         now: Date = Date(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        deferCompletedUntilMidnight: Bool = false
     ) -> Bool {
         if list == .trash {
             return todo.deletedAt != nil
@@ -26,7 +27,13 @@ enum WaniTaskRules {
         guard todo.deletedAt == nil else { return false }
 
         if list == .logbook {
-            return todo.status != .open
+            guard todo.status != .open else { return false }
+            return !isAwaitingMidnightArchive(
+                todo,
+                enabled: deferCompletedUntilMidnight,
+                now: now,
+                calendar: calendar
+            )
         }
 
         guard todo.status == .open else { return false }
@@ -67,10 +74,19 @@ enum WaniTaskRules {
         _ todos: [WaniTodo],
         in list: WaniSmartList,
         now: Date = Date(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        deferCompletedUntilMidnight: Bool = false
     ) -> [WaniTodo] {
         todos
-            .filter { contains($0, in: list, now: now, calendar: calendar) }
+            .filter {
+                contains(
+                    $0,
+                    in: list,
+                    now: now,
+                    calendar: calendar,
+                    deferCompletedUntilMidnight: deferCompletedUntilMidnight
+                )
+            }
             .sorted { lhs, rhs in
                 if lhs.sortOrder == rhs.sortOrder {
                     return lhs.createdAt < rhs.createdAt
@@ -121,6 +137,21 @@ enum WaniTaskRules {
         guard !projectTodos.isEmpty else { return 0 }
         let completed = projectTodos.filter { $0.status == .completed }.count
         return Double(completed) / Double(projectTodos.count)
+    }
+
+    static func isAwaitingMidnightArchive(
+        _ todo: WaniTodo,
+        enabled: Bool,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Bool {
+        guard enabled, todo.deletedAt == nil, todo.status != .open else {
+            return false
+        }
+        guard let archivedAt = todo.completedAt ?? todo.canceledAt else {
+            return false
+        }
+        return calendar.isDate(archivedAt, inSameDayAs: now)
     }
 
     static func move(

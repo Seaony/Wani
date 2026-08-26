@@ -33,15 +33,53 @@ enum WaniReminderScheduler {
         )
     }
 
+    static func makeDeadlineRequest(
+        for todo: WaniTodo,
+        enabled: Bool,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> WaniReminderRequest? {
+        guard
+            enabled,
+            todo.status == .open,
+            todo.deletedAt == nil,
+            let deadline = todo.deadline,
+            let notificationDate = calendar.date(
+                bySettingHour: 9,
+                minute: 0,
+                second: 0,
+                of: deadline
+            ),
+            notificationDate > now
+        else { return nil }
+
+        return WaniReminderRequest(
+            identifier: deadlineIdentifier(for: todo),
+            title: todo.title,
+            body: todo.project.map { "Deadline today · \($0.title)" } ?? "Deadline today",
+            dateComponents: calendar.dateComponents(
+                [.year, .month, .day, .hour, .minute],
+                from: notificationDate
+            )
+        )
+    }
+
     static func sync(
         _ todo: WaniTodo,
-        requestAuthorization: Bool
+        requestAuthorization: Bool,
+        deadlineNotificationsEnabled: Bool = true
     ) async {
         let center = UNUserNotificationCenter.current()
-        let identifier = identifier(for: todo)
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        center.removePendingNotificationRequests(withIdentifiers: [
+            identifier(for: todo),
+            deadlineIdentifier(for: todo),
+        ])
 
-        guard let request = makeRequest(for: todo) else { return }
+        let requests = [
+            makeRequest(for: todo),
+            makeDeadlineRequest(for: todo, enabled: deadlineNotificationsEnabled),
+        ].compactMap { $0 }
+        guard !requests.isEmpty else { return }
 
         let settings = await center.notificationSettings()
         var authorized = settings.authorizationStatus == .authorized
@@ -53,29 +91,38 @@ enum WaniReminderScheduler {
 
         guard authorized else { return }
 
-        let content = UNMutableNotificationContent()
-        content.title = request.title
-        content.body = request.body
-        content.sound = .default
+        for request in requests {
+            let content = UNMutableNotificationContent()
+            content.title = request.title
+            content.body = request.body
+            content.sound = .default
 
-        let trigger = UNCalendarNotificationTrigger(
-            dateMatching: request.dateComponents,
-            repeats: false
-        )
-        try? await center.add(UNNotificationRequest(
-            identifier: request.identifier,
-            content: content,
-            trigger: trigger
-        ))
+            let trigger = UNCalendarNotificationTrigger(
+                dateMatching: request.dateComponents,
+                repeats: false
+            )
+            try? await center.add(UNNotificationRequest(
+                identifier: request.identifier,
+                content: content,
+                trigger: trigger
+            ))
+        }
     }
 
     static func cancel(_ todo: WaniTodo) {
         UNUserNotificationCenter.current().removePendingNotificationRequests(
-            withIdentifiers: [identifier(for: todo)]
+            withIdentifiers: [
+                identifier(for: todo),
+                deadlineIdentifier(for: todo),
+            ]
         )
     }
 
     private static func identifier(for todo: WaniTodo) -> String {
         "wani.todo.\(todo.id.uuidString)"
+    }
+
+    private static func deadlineIdentifier(for todo: WaniTodo) -> String {
+        "wani.todo.\(todo.id.uuidString).deadline"
     }
 }

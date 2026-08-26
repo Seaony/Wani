@@ -25,6 +25,8 @@ struct ContentView: View {
     @AppStorage("launchDestination") private var launchDestinationRaw = WaniLaunchDestination.today.rawValue
     @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("showDockBadge") private var showDockBadge = false
+    @AppStorage("deadlineNotificationsEnabled") private var deadlineNotificationsEnabled = true
+    @AppStorage("moveToLogbookAtMidnight") private var moveToLogbookAtMidnight = false
 
     @State private var selection: WaniNavigationTarget = .smart(.today)
     @State private var expandedTodoID: UUID?
@@ -128,6 +130,8 @@ struct ContentView: View {
                     ),
                     showMenuBarIcon: $showMenuBarIcon,
                     showDockBadge: $showDockBadge,
+                    deadlineNotificationsEnabled: $deadlineNotificationsEnabled,
+                    moveToLogbookAtMidnight: $moveToLogbookAtMidnight,
                     dismiss: { settingsOpen = false }
                 )
             }
@@ -149,10 +153,11 @@ struct ContentView: View {
         .onChange(of: todayCount) {
             updateDockBadge()
         }
+        .onChange(of: deadlineNotificationsEnabled) {
+            syncAllNotifications()
+        }
         .task {
-            for todo in todos where todo.reminderDate != nil {
-                await WaniReminderScheduler.sync(todo, requestAuthorization: false)
-            }
+            await syncNotifications()
         }
     }
 
@@ -239,10 +244,19 @@ struct ContentView: View {
     private var visibleTodos: [WaniTodo] {
         switch selection {
         case .smart(let list):
-            WaniTaskRules.tasks(todos, in: list)
+            WaniTaskRules.tasks(
+                todos,
+                in: list,
+                deferCompletedUntilMidnight: moveToLogbookAtMidnight
+            )
         case .project(let projectID):
             WaniTaskRules.projectTasks(todos, projectID: projectID)
-                .filter { $0.status == .open }
+                .filter {
+                    $0.status == .open || WaniTaskRules.isAwaitingMidnightArchive(
+                        $0,
+                        enabled: moveToLogbookAtMidnight
+                    )
+                }
         }
     }
 
@@ -309,6 +323,7 @@ struct ContentView: View {
                 projects: projects,
                 headings: headings,
                 density: density,
+                deadlineNotificationsEnabled: deadlineNotificationsEnabled,
                 isExpanded: expandedTodoID == todo.id,
                 toggleExpanded: {
                     expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
@@ -327,7 +342,11 @@ struct ContentView: View {
 
     private var smartListCounts: [WaniSmartList: Int] {
         Dictionary(uniqueKeysWithValues: WaniSmartList.allCases.map { list in
-            (list, WaniTaskRules.tasks(todos, in: list).count)
+            (list, WaniTaskRules.tasks(
+                todos,
+                in: list,
+                deferCompletedUntilMidnight: moveToLogbookAtMidnight
+            ).count)
         })
     }
 
@@ -357,6 +376,8 @@ struct ContentView: View {
         case .project(let id):
             let project = projects.first { $0.id == id }
             let progress = WaniTaskRules.projectProgress(todos, projectID: id)
+            let openCount = WaniTaskRules.projectTasks(todos, projectID: id)
+                .filter { $0.status == .open }.count
             let percentage = Int((progress * 100).rounded())
             let prefix: String
             if let areaTitle = project?.area?.title {
@@ -364,7 +385,7 @@ struct ContentView: View {
             } else {
                 prefix = ""
             }
-            return "\(prefix)\(visibleTodos.count) open · \(percentage)% complete"
+            return "\(prefix)\(openCount) open · \(percentage)% complete"
         }
     }
 
@@ -518,14 +539,22 @@ struct ContentView: View {
             if let next = WaniTaskRules.complete(todo) {
                 modelContext.insert(next)
                 Task {
-                    await WaniReminderScheduler.sync(next, requestAuthorization: false)
+                    await WaniReminderScheduler.sync(
+                        next,
+                        requestAuthorization: false,
+                        deadlineNotificationsEnabled: deadlineNotificationsEnabled
+                    )
                 }
             }
             WaniReminderScheduler.cancel(todo)
         } else {
             WaniTaskRules.reopen(todo)
             Task {
-                await WaniReminderScheduler.sync(todo, requestAuthorization: false)
+                await WaniReminderScheduler.sync(
+                    todo,
+                    requestAuthorization: false,
+                    deadlineNotificationsEnabled: deadlineNotificationsEnabled
+                )
             }
         }
         try? modelContext.save()
@@ -543,7 +572,11 @@ struct ContentView: View {
         expandedTodoID = nil
         try? modelContext.save()
         Task {
-            await WaniReminderScheduler.sync(todo, requestAuthorization: false)
+            await WaniReminderScheduler.sync(
+                todo,
+                requestAuthorization: false,
+                deadlineNotificationsEnabled: deadlineNotificationsEnabled
+            )
         }
     }
 
@@ -642,6 +675,22 @@ struct ContentView: View {
 
     private func updateDockBadge() {
         WaniDockBadge.update(enabled: showDockBadge, todayCount: todayCount)
+    }
+
+    private func syncAllNotifications() {
+        Task {
+            await syncNotifications()
+        }
+    }
+
+    private func syncNotifications() async {
+        for todo in todos {
+            await WaniReminderScheduler.sync(
+                todo,
+                requestAuthorization: false,
+                deadlineNotificationsEnabled: deadlineNotificationsEnabled
+            )
+        }
     }
 }
 
