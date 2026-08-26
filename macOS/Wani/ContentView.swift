@@ -41,6 +41,7 @@ struct ContentView: View {
     @State private var settingsOpen = false
     @State private var addingHeading = false
     @State private var newHeadingTitle = ""
+    @State private var groupingSelectionInNewHeading = false
     @State private var appliedLaunchDestination = false
     @State private var selectedTodoIDs: Set<UUID> = []
     @State private var selectionAnchorID: UUID?
@@ -1136,6 +1137,7 @@ struct ContentView: View {
                 toolbarButton("rectangle.stack.badge.plus", label: "New Heading") {
                     openHeadingComposer()
                 }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
             } else {
                 toolbarButton("plus.app", label: "Quick Entry") {
                     quickEntryOpen = true
@@ -1175,6 +1177,17 @@ struct ContentView: View {
             Button("Cancel", systemImage: "xmark", action: cancelSelectedTodos)
                 .keyboardShortcut("k", modifiers: [.command, .option])
                 .disabled(!selectedTodos.contains { $0.status == .open })
+
+            if canGroupSelectionInNewHeading {
+                Button {
+                    openHeadingComposer(groupingSelection: true)
+                } label: {
+                    Image(systemName: "rectangle.stack.badge.plus")
+                        .frame(width: 28, height: 28)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .option, .shift])
+                .accessibilityLabel("New Heading with Selection")
+            }
 
             Button {
                 batchMoveOpen = true
@@ -1660,12 +1673,36 @@ struct ContentView: View {
             sortOrder: (projectHeadings.map(\.sortOrder).max() ?? 0) + 1
         )
         modelContext.insert(heading)
+
+        let groupedSelection = groupingSelectionInNewHeading
+        if groupedSelection {
+            _ = WaniTaskRules.groupUnheadedTodos(
+                selectedTodos,
+                under: heading,
+                in: project
+            )
+        }
         saveChanges()
         closeHeadingComposer()
+        if groupedSelection {
+            clearTodoSelection()
+        }
     }
 
-    private func openHeadingComposer() {
+    private var canGroupSelectionInNewHeading: Bool {
+        guard
+            case .project(let projectID) = selection,
+            !selectedTodos.isEmpty
+        else { return false }
+
+        return selectedTodos.allSatisfy {
+            $0.project?.id == projectID && $0.heading == nil
+        }
+    }
+
+    private func openHeadingComposer(groupingSelection: Bool = false) {
         guard selectedProject != nil else { return }
+        groupingSelectionInNewHeading = groupingSelection
         addingHeading = true
         Task { @MainActor in
             await Task.yield()
@@ -1677,6 +1714,7 @@ struct ContentView: View {
         headingTitleFocused = false
         addingHeading = false
         newHeadingTitle = ""
+        groupingSelectionInNewHeading = false
     }
 
     private func moveToInbox(_ todo: WaniTodo) {

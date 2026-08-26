@@ -376,6 +376,27 @@ enum WaniTaskRules {
         todo.updatedAt = date
     }
 
+    @discardableResult
+    static func groupUnheadedTodos(
+        _ todos: [WaniTodo],
+        under heading: WaniHeading,
+        in project: WaniProject,
+        at date: Date = Date()
+    ) -> Bool {
+        guard
+            !todos.isEmpty,
+            heading.project?.id == project.id,
+            todos.allSatisfy({
+                $0.project?.id == project.id && $0.heading == nil
+            })
+        else { return false }
+
+        for todo in todos {
+            move(todo, to: project, heading: heading, at: date)
+        }
+        return true
+    }
+
     static func moveToInbox(_ todo: WaniTodo, at date: Date = Date()) {
         todo.project = nil
         todo.heading = nil

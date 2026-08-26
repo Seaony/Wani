@@ -392,6 +392,37 @@ struct WaniTaskRulesTests {
         #expect(todo.startDate == nil)
     }
 
+    @Test("A new heading groups only unheaded tasks from its project")
+    func headingGrouping() {
+        let now = date(2026, 8, 26, 12)
+        let project = WaniProject(title: "Launch")
+        let otherProject = WaniProject(title: "Other")
+        let heading = WaniHeading(title: "Polish", project: project)
+        let first = WaniTodo(title: "Review", schedule: .anytime, project: project)
+        let second = WaniTodo(title: "Ship", schedule: .anytime, project: project)
+        let other = WaniTodo(title: "Unrelated", schedule: .anytime, project: otherProject)
+
+        #expect(!WaniTaskRules.groupUnheadedTodos(
+            [first, other],
+            under: heading,
+            in: project,
+            at: now
+        ))
+        #expect(first.heading == nil)
+        #expect(other.heading == nil)
+
+        #expect(WaniTaskRules.groupUnheadedTodos(
+            [first, second],
+            under: heading,
+            in: project,
+            at: now
+        ))
+        #expect(first.heading?.id == heading.id)
+        #expect(second.heading?.id == heading.id)
+        #expect(first.updatedAt == now)
+        #expect(second.updatedAt == now)
+    }
+
     @Test("Tags are trimmed and deduplicated")
     func tagParsing() {
         #expect(
