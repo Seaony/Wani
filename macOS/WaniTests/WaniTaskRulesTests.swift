@@ -181,6 +181,43 @@ struct WaniTaskRulesTests {
         #expect(project.updatedAt == date(2026, 8, 26, 13))
     }
 
+    @Test("Project trash and restore preserve separately deleted tasks")
+    func projectTrashLifecycle() {
+        let deletedAt = date(2026, 8, 25, 12)
+        let projectDeletedAt = date(2026, 8, 26, 12)
+        let restoredAt = date(2026, 8, 26, 13)
+        let project = WaniProject(title: "Launch")
+        let active = WaniTodo(title: "Active", project: project)
+        let alreadyDeleted = WaniTodo(title: "Already deleted", project: project)
+        alreadyDeleted.deletedAt = deletedAt
+
+        WaniTaskRules.moveProjectToTrash(
+            project,
+            todos: [active, alreadyDeleted],
+            at: projectDeletedAt
+        )
+
+        #expect(project.deletedAt == projectDeletedAt)
+        #expect(active.deletedAt == projectDeletedAt)
+        #expect(alreadyDeleted.deletedAt == deletedAt)
+
+        WaniTaskRules.restoreProject(
+            project,
+            todos: [active, alreadyDeleted],
+            at: restoredAt
+        )
+
+        #expect(project.deletedAt == nil)
+        #expect(project.updatedAt == restoredAt)
+        #expect(active.deletedAt == nil)
+        #expect(active.updatedAt == restoredAt)
+        #expect(alreadyDeleted.deletedAt == deletedAt)
+
+        project.completedAt = restoredAt
+        project.deletedAt = projectDeletedAt
+        #expect(WaniTaskRules.completedProjectMonths([project], calendar: calendar).isEmpty)
+    }
+
     @Test("Moving tasks updates project heading and Inbox scheduling")
     func moveTask() {
         let now = date(2026, 8, 26, 12)

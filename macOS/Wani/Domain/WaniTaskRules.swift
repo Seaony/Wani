@@ -266,7 +266,9 @@ enum WaniTaskRules {
         _ projects: [WaniProject],
         calendar: Calendar = .current
     ) -> [WaniCompletedProjectMonth] {
-        let completedProjects = projects.filter { $0.completedAt != nil }
+        let completedProjects = projects.filter {
+            $0.completedAt != nil && $0.deletedAt == nil
+        }
         let grouped = Dictionary(grouping: completedProjects) { project in
             calendar.date(
                 from: calendar.dateComponents([.year, .month], from: project.completedAt!)
@@ -435,6 +437,37 @@ enum WaniTaskRules {
     static func restore(_ todo: WaniTodo, at date: Date = Date()) {
         todo.deletedAt = nil
         todo.updatedAt = date
+    }
+
+    static func moveProjectToTrash(
+        _ project: WaniProject,
+        todos: [WaniTodo],
+        at date: Date = Date()
+    ) {
+        project.deletedAt = date
+        project.updatedAt = date
+
+        for todo in todos where todo.project?.id == project.id && todo.deletedAt == nil {
+            todo.deletedAt = date
+            todo.updatedAt = date
+        }
+    }
+
+    static func restoreProject(
+        _ project: WaniProject,
+        todos: [WaniTodo],
+        at date: Date = Date()
+    ) {
+        let projectDeletedAt = project.deletedAt
+        project.deletedAt = nil
+        project.updatedAt = date
+
+        for todo in todos where
+            todo.project?.id == project.id && todo.deletedAt == projectDeletedAt
+        {
+            todo.deletedAt = nil
+            todo.updatedAt = date
+        }
     }
 
     private static func nextOccurrence(

@@ -246,6 +246,8 @@ struct ContentView: View {
                         upcomingTaskContent
                     } else if selection == .smart(.logbook) {
                         logbookTaskContent
+                    } else if selection == .smart(.trash) {
+                        trashTaskContent
                     } else if selection == .smart(.anytime) || selection == .smart(.someday) {
                         smartProjectTaskContent
                     } else if visibleTodos.isEmpty {
@@ -344,6 +346,12 @@ struct ContentView: View {
                             moveSelectedProject(to: area)
                         }
                     }
+                }
+
+                Divider()
+
+                Button("Move to Trash", systemImage: "trash", role: .destructive) {
+                    moveSelectedProjectToTrash()
                 }
             } label: {
                 Image(systemName: "ellipsis")
@@ -660,11 +668,11 @@ struct ContentView: View {
     }
 
     private var completedProjects: [WaniProject] {
-        projects.filter { $0.completedAt != nil }
+        projects.filter { $0.completedAt != nil && $0.deletedAt == nil }
     }
 
     private var activeProjects: [WaniProject] {
-        projects.filter { $0.completedAt == nil }
+        projects.filter { $0.completedAt == nil && $0.deletedAt == nil }
     }
 
     private var activeHeadings: [WaniHeading] {
@@ -681,6 +689,21 @@ struct ContentView: View {
 
     private var logbookMonthDates: [Date] {
         Set(logbookMonths.map(\.month) + completedProjectMonths.map(\.month)).sorted(by: >)
+    }
+
+    private var trashedProjects: [WaniProject] {
+        projects
+            .filter { $0.deletedAt != nil }
+            .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
+    }
+
+    private var standaloneTrashedTodos: [WaniTodo] {
+        WaniTaskRules.tasks(todos, in: .trash)
+            .filter { $0.project?.deletedAt == nil }
+    }
+
+    private var trashItemCount: Int {
+        trashedProjects.count + standaloneTrashedTodos.count
     }
 
     private func loggedProjectRow(_ project: WaniProject) -> some View {
@@ -712,6 +735,43 @@ struct ContentView: View {
                 .padding(.vertical, 2)
                 .background(palette.hover, in: Capsule())
         }
+        .padding(.horizontal, 11)
+        .padding(.vertical, density.rowPadding)
+    }
+
+    @ViewBuilder
+    private var trashTaskContent: some View {
+        if trashedProjects.isEmpty && standaloneTrashedTodos.isEmpty {
+            emptyState
+        } else {
+            ForEach(trashedProjects) { project in
+                trashedProjectRow(project)
+            }
+            taskRows(standaloneTrashedTodos)
+        }
+    }
+
+    private func trashedProjectRow(_ project: WaniProject) -> some View {
+        HStack(spacing: 11) {
+            Image(systemName: "circle")
+                .font(.system(size: 17))
+                .foregroundStyle(palette.tertiaryText)
+            Text(project.title)
+                .font(.system(size: 13.5))
+                .foregroundStyle(palette.text)
+            let childCount = todos.filter { $0.project?.id == project.id }.count
+            Text("\(childCount) \(childCount == 1 ? "to-do" : "to-dos")")
+                .font(.system(size: 11.5))
+                .foregroundStyle(palette.tertiaryText)
+            Spacer()
+            Button("Restore") {
+                restore(project)
+            }
+            Button("Delete", role: .destructive) {
+                deletePermanently(project)
+            }
+        }
+        .buttonStyle(.plain)
         .padding(.horizontal, 11)
         .padding(.vertical, density.rowPadding)
     }
@@ -803,6 +863,7 @@ struct ContentView: View {
             ).count)
         })
         counts[.logbook, default: 0] += completedProjects.count
+        counts[.trash] = trashItemCount
         return counts
     }
 
@@ -894,7 +955,7 @@ struct ContentView: View {
         case .smart(.anytime): return "Everything you could pick up now"
         case .smart(.someday): return "Kept warm for later"
         case .smart(.logbook): return "\(visibleTodos.count + completedProjects.count) completed"
-        case .smart(.trash): return visibleTodos.isEmpty ? "Empty" : "\(visibleTodos.count) deleted"
+        case .smart(.trash): return trashItemCount == 0 ? "Empty" : "\(trashItemCount) deleted"
         case .area(let id):
             let projectCount = activeProjects.filter { $0.area?.id == id }.count
             return "\(projectCount) \(projectCount == 1 ? "project" : "projects") · \(visibleTodos.count) open"
@@ -997,7 +1058,7 @@ struct ContentView: View {
         case .smart(.today): "Pull something in from Anytime, or capture a new thought."
         case .smart(.upcoming): "Nothing is scheduled for the weeks ahead."
         case .smart(.logbook): "Completed to-dos collect here."
-        case .smart(.trash): "Deleted to-dos wait here until you remove them permanently."
+        case .smart(.trash): "Deleted projects and to-dos wait here until you remove them permanently."
         case .area: "Create a project from the area menu to begin."
         case .project: "Add the first to-do and the shape of the work appears."
         default: "Nothing parked in this list."
@@ -1350,6 +1411,16 @@ struct ContentView: View {
         saveChanges()
     }
 
+    private func moveSelectedProjectToTrash() {
+        guard let project = selectedProject else { return }
+        WaniTaskRules.moveProjectToTrash(project, todos: todos)
+        for todo in todos where todo.project?.id == project.id {
+            WaniReminderScheduler.cancel(todo)
+        }
+        saveChanges()
+        selection = .smart(.trash)
+    }
+
     private func focusHeaderTitle() {
         Task { @MainActor in
             await Task.yield()
@@ -1371,6 +1442,33 @@ struct ContentView: View {
         WaniTaskRules.reopenProject(project)
         saveChanges()
         selection = .project(project.id)
+    }
+
+    private func restore(_ project: WaniProject) {
+        WaniTaskRules.restoreProject(project, todos: todos)
+        saveChanges()
+        for todo in todos where todo.project?.id == project.id && todo.deletedAt == nil {
+            Task {
+                await WaniReminderScheduler.sync(
+                    todo,
+                    requestAuthorization: false,
+                    deadlineNotificationsEnabled: deadlineNotificationsEnabled
+                )
+            }
+        }
+        selection = .project(project.id)
+    }
+
+    private func deletePermanently(_ project: WaniProject) {
+        for todo in todos where todo.project?.id == project.id {
+            WaniReminderScheduler.cancel(todo)
+            modelContext.delete(todo)
+        }
+        for heading in headings where heading.project?.id == project.id {
+            modelContext.delete(heading)
+        }
+        modelContext.delete(project)
+        saveChanges()
     }
 
     private func saveHeading() {
