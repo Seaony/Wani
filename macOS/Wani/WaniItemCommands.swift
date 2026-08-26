@@ -57,6 +57,7 @@ struct WaniItemCommands: Commands {
             Button("Deadline…") {
                 actions?.openDeadline()
             }
+            .keyboardShortcut("d", modifiers: [.command, .shift])
             .disabled(actions?.canEdit != true)
 
             Divider()
@@ -75,6 +76,7 @@ struct WaniItemCommands: Commands {
             Button("Repeat…") {
                 actions?.openRepeat()
             }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(actions?.canRepeat != true)
         }
     }

@@ -108,6 +108,16 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(todoButton(named: "Second Batch Task").waitForExistence(timeout: 2))
     }
 
+    func testDirectScheduleShortcut() throws {
+        createTodo(named: "Shortcut Schedule Task")
+
+        app.typeKey("a", modifierFlags: .command)
+        app.typeKey("o", modifierFlags: .command)
+
+        app.buttons["Someday"].click()
+        XCTAssertTrue(todoButton(named: "Shortcut Schedule Task").waitForExistence(timeout: 2))
+    }
+
     func testBatchTagsAreSearchable() throws {
         createTodo(named: "First Tagged Task")
         createTodo(named: "Second Tagged Task")

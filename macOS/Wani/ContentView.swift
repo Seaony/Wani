@@ -1430,6 +1430,38 @@ struct ContentView: View {
             navigationShortcut("Go to Anytime", key: "4", list: .anytime)
             navigationShortcut("Go to Someday", key: "5", list: .someday)
             navigationShortcut("Go to Logbook", key: "6", list: .logbook)
+
+            Button("Start Today") {
+                scheduleItemCommand(
+                    .date,
+                    startDate: Calendar.current.startOfDay(for: .now),
+                    isEvening: false
+                )
+            }
+            .keyboardShortcut("t", modifiers: .command)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Start This Evening") {
+                scheduleItemCommand(
+                    .date,
+                    startDate: Calendar.current.startOfDay(for: .now),
+                    isEvening: true
+                )
+            }
+            .keyboardShortcut("e", modifiers: .command)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Start Anytime") {
+                scheduleItemCommand(.anytime, startDate: nil, isEvening: false)
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
+
+            Button("Start Someday") {
+                scheduleItemCommand(.someday, startDate: nil, isEvening: false)
+            }
+            .keyboardShortcut("o", modifiers: .command)
+            .disabled(selectedTodos.isEmpty && focusedToolbarTodo == nil)
         }
         .frame(width: 0, height: 0)
         .opacity(0)
@@ -1816,6 +1848,31 @@ struct ContentView: View {
         }
         saveChanges()
         clearTodoSelection()
+    }
+
+    private func scheduleItemCommand(
+        _ schedule: WaniTaskSchedule,
+        startDate: Date?,
+        isEvening: Bool
+    ) {
+        if !selectedTodos.isEmpty {
+            scheduleSelectedTodos(
+                schedule,
+                startDate: startDate,
+                isEvening: isEvening
+            )
+            return
+        }
+
+        guard let todo = focusedToolbarTodo else { return }
+        WaniTaskRules.schedule(
+            todo,
+            as: schedule,
+            startDate: startDate,
+            isEvening: isEvening
+        )
+        syncReminder(for: todo, requestAuthorization: false)
+        saveChanges()
     }
 
     private func setReminderForSelectedTodos(_ reminderTime: Date?) {
