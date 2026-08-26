@@ -108,6 +108,28 @@ final class WaniUITests: XCTestCase {
         XCTAssertTrue(todoButton(named: "Second Batch Task").waitForExistence(timeout: 2))
     }
 
+    func testBatchTagsAreSearchable() throws {
+        createTodo(named: "First Tagged Task")
+        createTodo(named: "Second Tagged Task")
+
+        app.typeKey("a", modifierFlags: .command)
+        app.buttons["Tags"].click()
+
+        let tagField = app.textFields["Filter or add tag"]
+        XCTAssertTrue(tagField.waitForExistence(timeout: 2))
+        tagField.click()
+        app.typeText("Batch QA")
+        app.typeKey(.return, modifierFlags: [])
+        app.typeKey(.escape, modifierFlags: [])
+
+        app.typeKey("f", modifierFlags: .command)
+        let searchField = app.textFields["Search everything"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 2))
+        searchField.click()
+        app.typeText("Batch QA")
+        XCTAssertTrue(app.staticTexts["2 found"].waitForExistence(timeout: 2))
+    }
+
     private func createTodo(named title: String) {
         app.buttons["New To-Do"].click()
         let titleField = app.textFields["What's on your mind?"]

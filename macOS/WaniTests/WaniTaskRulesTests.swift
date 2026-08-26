@@ -746,6 +746,17 @@ struct WaniTaskRulesTests {
             WaniTaskRules.tags(from: " Work, home\nWORK,  errands ")
                 == ["Work", "home", "errands"]
         )
+
+        let todo = WaniTodo(title: "Tagged")
+        let updatedAt = date(2026, 8, 26, 12)
+        #expect(WaniTaskRules.setTags(
+            [" Work ", "home", "WORK"],
+            for: todo,
+            at: updatedAt
+        ))
+        #expect(todo.tagNames == ["Work", "home"])
+        #expect(todo.updatedAt == updatedAt)
+        #expect(!WaniTaskRules.setTags(todo.tagNames, for: todo))
     }
 
     @Test("Project tag filters preserve tag order and match without case sensitivity")

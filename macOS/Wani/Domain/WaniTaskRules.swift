@@ -632,6 +632,19 @@ enum WaniTaskRules {
             }
     }
 
+    @discardableResult
+    static func setTags(
+        _ tags: [String],
+        for todo: WaniTodo,
+        at date: Date = Date()
+    ) -> Bool {
+        let normalized = self.tags(from: tags.joined(separator: "\n"))
+        guard normalized != todo.tagNames else { return false }
+        todo.tagNames = normalized
+        todo.updatedAt = date
+        return true
+    }
+
     static func tags(in todos: [WaniTodo]) -> [String] {
         var seen: Set<String> = []
         return todos.flatMap(\.tagNames).filter { tag in

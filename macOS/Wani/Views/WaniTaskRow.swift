@@ -322,8 +322,10 @@ struct WaniTaskRow: View {
     }
 
     private func saveTags() {
-        todo.tagNames = WaniTaskRules.tags(from: tagDraft)
-        todo.updatedAt = .now
+        WaniTaskRules.setTags(
+            WaniTaskRules.tags(from: tagDraft),
+            for: todo
+        )
         tagDraft = todo.tagNames.joined(separator: ", ")
         saveChanges()
     }

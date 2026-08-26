@@ -50,6 +50,7 @@ struct ContentView: View {
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
     @State private var batchDateEditorOpen = false
+    @State private var batchTagEditorOpen = false
     @State private var toolbarDateEditorOpen = false
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
@@ -1451,24 +1452,56 @@ struct ContentView: View {
     }
 
     private var batchToolbar: some View {
+        ViewThatFits(in: .horizontal) {
+            batchToolbarContent(showsTitles: true)
+            batchToolbarContent(showsTitles: false)
+        }
+        .buttonStyle(.plain)
+        .font(.system(size: 12.5))
+        .foregroundStyle(palette.secondaryText)
+        .padding(.horizontal, 18)
+    }
+
+    private func batchToolbarContent(showsTitles: Bool) -> some View {
         HStack(spacing: 8) {
             Text("\(selectedTodoIDs.count) selected")
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(palette.secondaryText)
                 .padding(.trailing, 8)
+                .fixedSize()
 
-            Button("Copy", systemImage: "doc.on.doc", action: copySelectedTodos)
+            batchToolbarButton(
+                "Copy",
+                systemImage: "doc.on.doc",
+                showsTitle: showsTitles,
+                action: copySelectedTodos
+            )
                 .keyboardShortcut("c", modifiers: .command)
 
-            Button("Complete", systemImage: "checkmark", action: completeSelectedTodos)
+            batchToolbarButton(
+                "Complete",
+                systemImage: "checkmark",
+                showsTitle: showsTitles,
+                action: completeSelectedTodos
+            )
                 .keyboardShortcut("k", modifiers: .command)
                 .disabled(!selectedTodos.contains { $0.status == .open })
 
-            Button("Cancel", systemImage: "xmark", action: cancelSelectedTodos)
+            batchToolbarButton(
+                "Cancel",
+                systemImage: "xmark",
+                showsTitle: showsTitles,
+                action: cancelSelectedTodos
+            )
                 .keyboardShortcut("k", modifiers: [.command, .option])
                 .disabled(!selectedTodos.contains { $0.status == .open })
 
-            Button("Log Now", systemImage: "archivebox", action: logSelectedTodosNow)
+            batchToolbarButton(
+                "Log Now",
+                systemImage: "archivebox",
+                showsTitle: showsTitles,
+                action: logSelectedTodosNow
+            )
                 .keyboardShortcut("y", modifiers: [.command, .shift])
                 .disabled(!selectedTodos.contains {
                     WaniTaskRules.isAwaitingMidnightArchive(
@@ -1477,10 +1510,12 @@ struct ContentView: View {
                     )
                 })
 
-            Button {
+            batchToolbarButton(
+                "When",
+                systemImage: "calendar",
+                showsTitle: showsTitles
+            ) {
                 batchDateEditorOpen = true
-            } label: {
-                Label("When", systemImage: "calendar")
             }
             .keyboardShortcut("s", modifiers: .command)
             .popover(isPresented: $batchDateEditorOpen, arrowEdge: .bottom) {
@@ -1489,6 +1524,26 @@ struct ContentView: View {
                     apply: scheduleSelectedTodos
                 )
                 .frame(width: 420)
+                .padding(8)
+                .background(palette.panel)
+            }
+
+            batchToolbarButton(
+                "Tags",
+                systemImage: "tag",
+                showsTitle: showsTitles
+            ) {
+                batchTagEditorOpen = true
+            }
+            .popover(isPresented: $batchTagEditorOpen, arrowEdge: .bottom) {
+                WaniBatchTagEditor(
+                    palette: palette,
+                    knownTags: WaniTaskRules.tags(in: todos),
+                    selectedTagNames: selectedTodos.map(\.tagNames),
+                    setTag: setTagForSelectedTodos,
+                    clear: clearSelectedTags
+                )
+                .frame(width: 320)
                 .padding(8)
                 .background(palette.panel)
             }
@@ -1504,25 +1559,51 @@ struct ContentView: View {
                 .accessibilityLabel("New Heading with Selection")
             }
 
-            Button {
+            batchToolbarButton(
+                "Move",
+                systemImage: "arrow.right",
+                showsTitle: showsTitles
+            ) {
                 batchMoveOpen = true
-            } label: {
-                Label("Move", systemImage: "arrow.right")
             }
             .keyboardShortcut("m", modifiers: [.command, .shift])
 
-            Button("Trash", systemImage: "trash", action: trashSelectedTodos)
+            batchToolbarButton(
+                "Trash",
+                systemImage: "trash",
+                showsTitle: showsTitles,
+                action: trashSelectedTodos
+            )
                 .disabled(!selectedTodos.contains { $0.deletedAt == nil })
 
             Spacer()
 
-            Button("Deselect", action: clearTodoSelection)
+            batchToolbarButton(
+                "Deselect",
+                systemImage: "xmark.circle",
+                showsTitle: showsTitles,
+                action: clearTodoSelection
+            )
                 .keyboardShortcut("a", modifiers: [.command, .option])
         }
-        .buttonStyle(.plain)
-        .font(.system(size: 12.5))
-        .foregroundStyle(palette.secondaryText)
-        .padding(.horizontal, 18)
+    }
+
+    private func batchToolbarButton(
+        _ title: String,
+        systemImage: String,
+        showsTitle: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            if showsTitle {
+                Label(title, systemImage: systemImage)
+                    .fixedSize()
+            } else {
+                Image(systemName: systemImage)
+                    .frame(width: 28, height: 28)
+            }
+        }
+        .accessibilityLabel(title)
     }
 
     private func activate(_ todo: WaniTodo) {
@@ -1565,6 +1646,7 @@ struct ContentView: View {
         selectedTodoIDs.removeAll()
         selectionAnchorID = nil
         batchDateEditorOpen = false
+        batchTagEditorOpen = false
         closeBatchMove()
     }
 
@@ -1632,6 +1714,28 @@ struct ContentView: View {
         }
         saveChanges()
         clearTodoSelection()
+    }
+
+    private func setTagForSelectedTodos(_ tag: String, enabled: Bool) {
+        let updatedAt = Date.now
+        for todo in selectedTodos {
+            var tags = todo.tagNames.filter {
+                $0.caseInsensitiveCompare(tag) != .orderedSame
+            }
+            if enabled {
+                tags.append(tag)
+            }
+            WaniTaskRules.setTags(tags, for: todo, at: updatedAt)
+        }
+        saveChanges()
+    }
+
+    private func clearSelectedTags() {
+        let updatedAt = Date.now
+        for todo in selectedTodos {
+            WaniTaskRules.setTags([], for: todo, at: updatedAt)
+        }
+        saveChanges()
     }
 
     private func moveSelectedToInbox() {
