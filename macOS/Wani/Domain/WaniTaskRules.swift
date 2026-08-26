@@ -397,6 +397,22 @@ enum WaniTaskRules {
         return calendar.isDate(archivedAt, inSameDayAs: now)
     }
 
+    static func isProjectLogged(
+        _ todo: WaniTodo,
+        deferCompletedUntilMidnight: Bool,
+        now: Date = Date(),
+        calendar: Calendar = .current
+    ) -> Bool {
+        guard todo.status != .open, todo.deletedAt == nil else { return false }
+        if todo.heading?.archivedAt != nil { return true }
+        return !isAwaitingMidnightArchive(
+            todo,
+            enabled: deferCompletedUntilMidnight,
+            now: now,
+            calendar: calendar
+        )
+    }
+
     static func move(
         _ todo: WaniTodo,
         to project: WaniProject,

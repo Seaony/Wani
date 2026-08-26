@@ -710,6 +710,30 @@ struct WaniTaskRulesTests {
         ))
     }
 
+    @Test("Archiving a heading logs its closed tasks without waiting for midnight")
+    func archivedHeadingOverridesMidnightDeferral() {
+        let now = date(2026, 8, 26, 12)
+        let project = WaniProject(title: "Launch")
+        let heading = WaniHeading(title: "Polish", project: project)
+        let todo = WaniTodo(title: "Review", project: project, heading: heading)
+
+        WaniTaskRules.complete(todo, at: now)
+        #expect(!WaniTaskRules.isProjectLogged(
+            todo,
+            deferCompletedUntilMidnight: true,
+            now: now,
+            calendar: calendar
+        ))
+
+        #expect(WaniTaskRules.archiveHeading(heading, todos: [todo], at: now))
+        #expect(WaniTaskRules.isProjectLogged(
+            todo,
+            deferCompletedUntilMidnight: true,
+            now: now,
+            calendar: calendar
+        ))
+    }
+
     @Test("Range selection includes both endpoints in display order")
     func rangeSelection() {
         let ids = [UUID(), UUID(), UUID(), UUID()]

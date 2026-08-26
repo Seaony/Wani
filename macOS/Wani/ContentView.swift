@@ -478,9 +478,9 @@ struct ContentView: View {
         guard case .project(let projectID) = selection else { return [] }
         let logged = WaniTaskRules.projectTasks(todos, projectID: projectID)
             .filter {
-                $0.status != .open && !WaniTaskRules.isAwaitingMidnightArchive(
+                WaniTaskRules.isProjectLogged(
                     $0,
-                    enabled: moveToLogbookAtMidnight
+                    deferCompletedUntilMidnight: moveToLogbookAtMidnight
                 )
             }
         return WaniTaskRules.tasks(logged, matchingTag: activeProjectTagFilter)
