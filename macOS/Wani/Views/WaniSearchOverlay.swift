@@ -2,13 +2,37 @@ import SwiftUI
 
 struct WaniSearchOverlay: View {
     let palette: WaniPalette
+    let areas: [WaniArea]
+    let projects: [WaniProject]
     let todos: [WaniTodo]
     @Binding var query: String
-    let open: (WaniTodo) -> Void
+    let openArea: (WaniArea) -> Void
+    let openProject: (WaniProject) -> Void
+    let openTodo: (WaniTodo) -> Void
     let dismiss: () -> Void
     @FocusState private var isFocused: Bool
 
-    private var results: [WaniTodo] {
+    private var areaResults: [WaniArea] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return []
+        }
+        return areas
+            .filter { WaniTaskRules.matches($0, query: query) }
+            .prefix(20)
+            .map { $0 }
+    }
+
+    private var projectResults: [WaniProject] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return []
+        }
+        return projects
+            .filter { $0.deletedAt == nil && WaniTaskRules.matches($0, query: query) }
+            .prefix(20)
+            .map { $0 }
+    }
+
+    private var todoResults: [WaniTodo] {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return []
         }
@@ -16,6 +40,10 @@ struct WaniSearchOverlay: View {
             .filter { $0.deletedAt == nil && WaniTaskRules.matches($0, query: query) }
             .prefix(20)
             .map { $0 }
+    }
+
+    private var resultCount: Int {
+        areaResults.count + projectResults.count + todoResults.count
     }
 
     var body: some View {
@@ -31,7 +59,7 @@ struct WaniSearchOverlay: View {
                         .textFieldStyle(.plain)
                         .font(.system(size: 15.5))
                         .focused($isFocused)
-                    Text(query.isEmpty ? "⌘K" : "\(results.count) found")
+                    Text(query.isEmpty ? "⌘K" : "\(resultCount) found")
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(palette.tertiaryText)
@@ -40,7 +68,7 @@ struct WaniSearchOverlay: View {
 
                 Rectangle().fill(palette.line).frame(height: 1)
 
-                if results.isEmpty {
+                if resultCount == 0 {
                     Text(query.isEmpty ? "Search across every list, project and note." : "No matches")
                         .font(.system(size: 12.5))
                         .foregroundStyle(palette.tertiaryText)
@@ -49,27 +77,29 @@ struct WaniSearchOverlay: View {
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 1) {
-                            ForEach(results) { todo in
-                                Button {
-                                    open(todo)
-                                } label: {
-                                    HStack(spacing: 11) {
-                                        Circle()
-                                            .stroke(palette.tertiaryText, lineWidth: 1.5)
-                                            .frame(width: 13, height: 13)
-                                        Text(todo.title)
-                                            .font(.system(size: 13.5))
-                                            .foregroundStyle(palette.text)
-                                            .lineLimit(1)
-                                        Spacer()
-                                        Text(locationTitle(for: todo))
-                                            .font(.system(size: 11))
-                                            .foregroundStyle(palette.tertiaryText)
-                                    }
-                                    .padding(.horizontal, 11)
-                                    .frame(height: 38)
-                                }
-                                .buttonStyle(.plain)
+                            ForEach(areaResults) { area in
+                                resultRow(
+                                    title: area.title,
+                                    location: "Area",
+                                    symbol: "cube.transparent",
+                                    action: { openArea(area) }
+                                )
+                            }
+                            ForEach(projectResults) { project in
+                                resultRow(
+                                    title: project.title,
+                                    location: project.area?.title ?? "Project",
+                                    symbol: "circle",
+                                    action: { openProject(project) }
+                                )
+                            }
+                            ForEach(todoResults) { todo in
+                                resultRow(
+                                    title: todo.title,
+                                    location: locationTitle(for: todo),
+                                    symbol: "circle",
+                                    action: { openTodo(todo) }
+                                )
                             }
                         }
                         .padding(7)
@@ -84,6 +114,33 @@ struct WaniSearchOverlay: View {
         }
         .onAppear { isFocused = true }
         .onExitCommand(perform: dismiss)
+    }
+
+    private func resultRow(
+        title: String,
+        location: String,
+        symbol: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                Image(systemName: symbol)
+                    .font(.system(size: 13))
+                    .foregroundStyle(palette.tertiaryText)
+                    .frame(width: 13, height: 13)
+                Text(title)
+                    .font(.system(size: 13.5))
+                    .foregroundStyle(palette.text)
+                    .lineLimit(1)
+                Spacer()
+                Text(location)
+                    .font(.system(size: 11))
+                    .foregroundStyle(palette.tertiaryText)
+            }
+            .padding(.horizontal, 11)
+            .frame(height: 38)
+        }
+        .buttonStyle(.plain)
     }
 
     private func locationTitle(for todo: WaniTodo) -> String {

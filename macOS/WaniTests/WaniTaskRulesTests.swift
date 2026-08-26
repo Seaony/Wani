@@ -128,10 +128,12 @@ struct WaniTaskRulesTests {
         #expect(WaniTaskRules.primaryList(for: deleted, now: now, calendar: calendar) == .trash)
     }
 
-    @Test("Search covers task content and hierarchy")
+    @Test("Search covers tasks, projects, and areas")
     func searchCoverage() {
         let area = WaniArea(title: "Personal")
+        area.notes = "Home and family"
         let project = WaniProject(title: "Garden", area: area)
+        project.notes = "Spring planting"
         let todo = WaniTodo(
             title: "Water the fig tree",
             notes: "Use the rain barrel",
@@ -149,6 +151,13 @@ struct WaniTaskRulesTests {
 
         let areaTodo = WaniTodo(title: "Loose task", area: area)
         #expect(WaniTaskRules.matches(areaTodo, query: "personal"))
+        #expect(WaniTaskRules.matches(project, query: "garden"))
+        #expect(WaniTaskRules.matches(project, query: "planting"))
+        #expect(WaniTaskRules.matches(project, query: "personal"))
+        #expect(!WaniTaskRules.matches(project, query: "work"))
+        #expect(WaniTaskRules.matches(area, query: "personal"))
+        #expect(WaniTaskRules.matches(area, query: "family"))
+        #expect(!WaniTaskRules.matches(area, query: "work"))
     }
 
     @Test("Completing a repeating task creates the next occurrence")

@@ -115,9 +115,13 @@ struct ContentView: View {
             if searchOpen {
                 WaniSearchOverlay(
                     palette: palette,
+                    areas: areas,
+                    projects: projects,
                     todos: todos,
                     query: $searchQuery,
-                    open: openSearchResult,
+                    openArea: openSearchResult,
+                    openProject: openSearchResult,
+                    openTodo: openSearchResult,
                     dismiss: closeSearch
                 )
             }
@@ -1399,6 +1403,18 @@ struct ContentView: View {
             selection = .smart(primaryList)
         }
         expandedTodoID = todo.id
+        closeSearch()
+    }
+
+    private func openSearchResult(_ project: WaniProject) {
+        selection = .project(project.id)
+        expandedTodoID = nil
+        closeSearch()
+    }
+
+    private func openSearchResult(_ area: WaniArea) {
+        selection = .area(area.id)
+        expandedTodoID = nil
         closeSearch()
     }
 

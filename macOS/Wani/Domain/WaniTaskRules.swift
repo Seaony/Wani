@@ -426,16 +426,30 @@ enum WaniTaskRules {
     }
 
     static func matches(_ todo: WaniTodo, query: String) -> Bool {
-        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return true }
-
-        let values = [
+        matches([
             todo.title,
             todo.notes,
             todo.tagNames.joined(separator: " "),
             todo.project?.title ?? "",
             todo.project?.area?.title ?? todo.area?.title ?? "",
-        ]
+        ], query: query)
+    }
+
+    static func matches(_ project: WaniProject, query: String) -> Bool {
+        matches([
+            project.title,
+            project.notes,
+            project.area?.title ?? "",
+        ], query: query)
+    }
+
+    static func matches(_ area: WaniArea, query: String) -> Bool {
+        matches([area.title, area.notes], query: query)
+    }
+
+    private static func matches(_ values: [String], query: String) -> Bool {
+        let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return true }
 
         return values.contains { value in
             value.range(
