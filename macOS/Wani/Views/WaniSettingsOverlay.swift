@@ -116,6 +116,7 @@ struct WaniSettingsOverlay: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(item.rawValue)
+                .accessibilityIdentifier("settings-tab-\(item.rawValue)")
             }
         }
         .frame(maxWidth: .infinity)
