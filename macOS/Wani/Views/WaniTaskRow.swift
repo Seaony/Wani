@@ -13,6 +13,7 @@ struct WaniTaskRow: View {
     let isExpanded: Bool
     let toggleExpanded: () -> Void
     let toggleCompleted: () -> Void
+    let cancelTodo: () -> Void
     let moveToTrash: () -> Void
     let restore: () -> Void
     let deletePermanently: () -> Void
@@ -133,6 +134,12 @@ struct WaniTaskRow: View {
                     Button("Delete", action: deletePermanently)
                 } else {
                     moveMenu
+                    if todo.status == .open {
+                        Button(action: cancelTodo) {
+                            Image(systemName: "xmark.circle")
+                        }
+                        .accessibilityLabel("Cancel To-Do")
+                    }
                     Button(action: moveToTrash) {
                         Image(systemName: "trash")
                     }

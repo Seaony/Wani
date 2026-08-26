@@ -340,7 +340,8 @@ struct ContentView: View {
                 toggleExpanded: {
                     activate(todo)
                 },
-                toggleCompleted: { toggleCompleted(todo) },
+                toggleCompleted: { toggleStatus(todo) },
+                cancelTodo: { cancel(todo) },
                 moveToTrash: { moveToTrash(todo) },
                 restore: { restore(todo) },
                 deletePermanently: { deletePermanently(todo) },
@@ -566,6 +567,10 @@ struct ContentView: View {
                 .keyboardShortcut("k", modifiers: .command)
                 .disabled(!selectedTodos.contains { $0.status == .open })
 
+            Button("Cancel", systemImage: "xmark", action: cancelSelectedTodos)
+                .keyboardShortcut("k", modifiers: [.command, .option])
+                .disabled(!selectedTodos.contains { $0.status == .open })
+
             Button {
                 batchMoveOpen = true
             } label: {
@@ -639,6 +644,16 @@ struct ContentView: View {
         for todo in selectedTodos where todo.status == .open {
             toggleCompleted(todo)
         }
+        clearTodoSelection()
+    }
+
+    private func cancelSelectedTodos() {
+        for todo in selectedTodos where todo.status == .open {
+            WaniTaskRules.cancel(todo)
+            WaniReminderScheduler.cancel(todo)
+        }
+        saveChanges()
+        expandedTodoID = nil
         clearTodoSelection()
     }
 
@@ -735,6 +750,21 @@ struct ContentView: View {
             }
         }
         try? modelContext.save()
+    }
+
+    private func toggleStatus(_ todo: WaniTodo) {
+        if todo.status == .open, NSEvent.modifierFlags.contains(.option) {
+            cancel(todo)
+        } else {
+            toggleCompleted(todo)
+        }
+    }
+
+    private func cancel(_ todo: WaniTodo) {
+        WaniTaskRules.cancel(todo)
+        WaniReminderScheduler.cancel(todo)
+        expandedTodoID = nil
+        saveChanges()
     }
 
     private func moveToTrash(_ todo: WaniTodo) {
