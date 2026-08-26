@@ -1522,6 +1522,62 @@ struct WaniTaskRulesTests {
         ) == Set([ids[2]]))
     }
 
+    @Test("Arrow selection moves beyond the current selection and clamps at list edges")
+    func arrowSelectionMovement() {
+        let ids = [UUID(), UUID(), UUID(), UUID()]
+
+        #expect(WaniSelectionRules.movedID(
+            in: .next,
+            selectedIDs: [],
+            anchorID: nil,
+            extending: false,
+            in: ids
+        ) == ids[0])
+        #expect(WaniSelectionRules.movedID(
+            in: .previous,
+            selectedIDs: [ids[1], ids[2]],
+            anchorID: ids[1],
+            extending: false,
+            in: ids
+        ) == ids[0])
+        #expect(WaniSelectionRules.movedID(
+            in: .next,
+            selectedIDs: [ids[1], ids[2]],
+            anchorID: ids[1],
+            extending: false,
+            in: ids
+        ) == ids[3])
+        #expect(WaniSelectionRules.movedID(
+            in: .previous,
+            selectedIDs: [ids[0]],
+            anchorID: ids[0],
+            extending: false,
+            in: ids
+        ) == ids[0])
+    }
+
+    @Test("Shift arrow selection moves the endpoint opposite its anchor")
+    func extendingArrowSelection() {
+        let ids = [UUID(), UUID(), UUID(), UUID()]
+
+        #expect(WaniSelectionRules.movedID(
+            in: .next,
+            selectedIDs: [ids[1]],
+            anchorID: ids[1],
+            extending: true,
+            in: ids
+        ) == ids[2])
+        #expect(WaniSelectionRules.movedID(
+            in: .previous,
+            selectedIDs: [ids[1], ids[2]],
+            anchorID: ids[1],
+            extending: true,
+            in: ids
+        ) == ids[1])
+        #expect(WaniSelectionRules.boundaryID(in: .previous, in: ids) == ids[0])
+        #expect(WaniSelectionRules.boundaryID(in: .next, in: ids) == ids[3])
+    }
+
     private func date(
         _ year: Int,
         _ month: Int,

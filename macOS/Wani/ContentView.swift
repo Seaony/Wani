@@ -199,6 +199,9 @@ struct ContentView: View {
 
             navigationShortcuts
 
+            WaniKeyEventMonitor(handle: handleTaskListKeyEvent)
+                .frame(width: 0, height: 0)
+
         }
         .frame(minWidth: 760, minHeight: 520)
         .focusedSceneValue(
@@ -1752,6 +1755,78 @@ struct ContentView: View {
         closeBatchMove()
     }
 
+    private func handleTaskListKeyEvent(_ event: NSEvent) -> Bool {
+        guard
+            event.window == NSApp.keyWindow,
+            !quickEntryOpen,
+            !searchOpen,
+            !settingsOpen,
+            repeatEditorTodo == nil,
+            !batchMoveOpen,
+            !batchDateEditorOpen,
+            !batchDeadlineEditorOpen,
+            !batchTagEditorOpen,
+            !toolbarDateEditorOpen,
+            !(NSApp.keyWindow?.firstResponder is NSTextView)
+        else { return false }
+
+        let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        guard !modifiers.contains(.command), !modifiers.contains(.control) else { return false }
+
+        if event.specialKey == .carriageReturn || event.specialKey == .enter {
+            guard modifiers.isEmpty, selectedTodos.count == 1 else { return false }
+            openSelectedTodo()
+            return true
+        }
+
+        let direction: WaniSelectionDirection
+        switch event.specialKey {
+        case .upArrow:
+            direction = .previous
+        case .downArrow:
+            direction = .next
+        default:
+            return false
+        }
+
+        let extending = modifiers.contains(.shift)
+        let boundary = modifiers.contains(.option)
+
+        let targetID = boundary
+            ? WaniSelectionRules.boundaryID(in: direction, in: displayedTodoIDs)
+            : WaniSelectionRules.movedID(
+                in: direction,
+                selectedIDs: selectedTodoIDs,
+                anchorID: selectionAnchorID,
+                extending: extending,
+                in: displayedTodoIDs
+            )
+        guard let targetID else { return false }
+
+        if extending {
+            if selectionAnchorID == nil || selectedTodoIDs.isEmpty {
+                selectionAnchorID = targetID
+            }
+            selectedTodoIDs = WaniSelectionRules.range(
+                from: selectionAnchorID,
+                through: targetID,
+                in: displayedTodoIDs
+            )
+        } else {
+            selectedTodoIDs = [targetID]
+            selectionAnchorID = targetID
+        }
+        expandedTodoID = nil
+        return true
+    }
+
+    private func openSelectedTodo() {
+        guard selectedTodos.count == 1 else { return }
+        let todoID = selectedTodos[0].id
+        clearTodoSelection()
+        expandedTodoID = todoID
+    }
+
     private func copySelectedTodos() {
         let text = selectedTodos.map(\.title).joined(separator: "\n")
         guard !text.isEmpty else { return }
@@ -2616,6 +2691,53 @@ struct ContentView: View {
                     deadlineNotificationsEnabled: deadlineNotificationsEnabled
                 )
             }
+        }
+    }
+}
+
+private struct WaniKeyEventMonitor: NSViewRepresentable {
+    let handle: (NSEvent) -> Bool
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(handle: handle)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        context.coordinator.start()
+        return NSView()
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.handle = handle
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.stop()
+    }
+
+    final class Coordinator {
+        var handle: (NSEvent) -> Bool
+        private var monitor: Any?
+
+        init(handle: @escaping (NSEvent) -> Bool) {
+            self.handle = handle
+        }
+
+        func start() {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                self?.handle(event) == true ? nil : event
+            }
+        }
+
+        func stop() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+            monitor = nil
+        }
+
+        deinit {
+            stop()
         }
     }
 }
