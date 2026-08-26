@@ -146,6 +146,17 @@ enum WaniTaskRules {
         todo.updatedAt = date
     }
 
+    static func tags(from input: String) -> [String] {
+        var seen: Set<String> = []
+        return input
+            .split(whereSeparator: { $0 == "," || $0 == "\n" })
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { tag in
+                guard !tag.isEmpty else { return false }
+                return seen.insert(tag.lowercased()).inserted
+            }
+    }
+
     static func matches(_ todo: WaniTodo, query: String) -> Bool {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else { return true }

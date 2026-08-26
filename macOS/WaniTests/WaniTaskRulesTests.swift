@@ -162,6 +162,14 @@ struct WaniTaskRulesTests {
         #expect(todo.startDate == nil)
     }
 
+    @Test("Tags are trimmed and deduplicated")
+    func tagParsing() {
+        #expect(
+            WaniTaskRules.tags(from: " Work, home\nWORK,  errands ")
+                == ["Work", "home", "errands"]
+        )
+    }
+
     private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int) -> Date {
         calendar.date(from: DateComponents(
             timeZone: calendar.timeZone,

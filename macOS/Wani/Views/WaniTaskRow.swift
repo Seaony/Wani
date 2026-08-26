@@ -1,6 +1,8 @@
 import SwiftUI
+import SwiftData
 
 struct WaniTaskRow: View {
+    @Environment(\.modelContext) private var modelContext
     @Bindable var todo: WaniTodo
     let palette: WaniPalette
     let projects: [WaniProject]
@@ -13,6 +15,9 @@ struct WaniTaskRow: View {
     let deletePermanently: () -> Void
     let moveToInbox: () -> Void
     let moveToProject: (WaniProject, WaniHeading?) -> Void
+
+    @State private var checklistTitle = ""
+    @State private var tagDraft = ""
 
     var body: some View {
         VStack(spacing: 0) {
@@ -97,6 +102,9 @@ struct WaniTaskRow: View {
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 52, maxHeight: 130)
 
+            checklistEditor
+            tagEditor
+
             HStack {
                 Label(scheduleLabel, systemImage: scheduleSymbol)
                     .font(.system(size: 12.5))
@@ -115,6 +123,67 @@ struct WaniTaskRow: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(palette.tertiaryText)
+        }
+        .onAppear {
+            tagDraft = todo.tagNames.joined(separator: ", ")
+        }
+    }
+
+    private var checklistEditor: some View {
+        VStack(spacing: 0) {
+            ForEach(sortedChecklistItems) { item in
+                WaniChecklistRow(
+                    item: item,
+                    palette: palette,
+                    toggle: { toggleChecklistItem(item) },
+                    save: saveChanges,
+                    delete: { deleteChecklistItem(item) }
+                )
+            }
+
+            HStack(spacing: 10) {
+                Image(systemName: "plus.circle")
+                    .font(.system(size: 14))
+                    .foregroundStyle(palette.tertiaryText)
+                TextField("Add checklist item", text: $checklistTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
+                    .onSubmit(addChecklistItem)
+            }
+            .padding(.vertical, 7)
+            .overlay(alignment: .top) {
+                Rectangle().fill(palette.faintLine).frame(height: 1)
+            }
+        }
+    }
+
+    private var tagEditor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if !todo.tagNames.isEmpty {
+                HStack(spacing: 6) {
+                    ForEach(todo.tagNames, id: \.self) { tag in
+                        Text(tag)
+                            .font(.system(size: 11.5, weight: .medium))
+                            .foregroundStyle(palette.accent)
+                            .padding(.horizontal, 9)
+                            .padding(.vertical, 3)
+                            .background(palette.softAccent, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+
+            HStack(spacing: 8) {
+                Image(systemName: "tag")
+                    .foregroundStyle(palette.tertiaryText)
+                TextField("Tags, separated by commas", text: $tagDraft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12.5))
+                    .onSubmit(saveTags)
+                Button("Save", action: saveTags)
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(palette.accent)
+            }
         }
     }
 
@@ -145,6 +214,53 @@ struct WaniTaskRow: View {
         .menuStyle(.borderlessButton)
         .fixedSize()
         .accessibilityLabel("Move")
+    }
+
+    private var sortedChecklistItems: [WaniChecklistItem] {
+        (todo.checklistItems ?? []).sorted { lhs, rhs in
+            if lhs.sortOrder == rhs.sortOrder {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.sortOrder < rhs.sortOrder
+        }
+    }
+
+    private func addChecklistItem() {
+        let title = checklistTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return }
+        let item = WaniChecklistItem(
+            title: title,
+            sortOrder: (sortedChecklistItems.map(\.sortOrder).max() ?? 0) + 1
+        )
+        if todo.checklistItems == nil {
+            todo.checklistItems = []
+        }
+        todo.checklistItems?.append(item)
+        modelContext.insert(item)
+        checklistTitle = ""
+        saveChanges()
+    }
+
+    private func toggleChecklistItem(_ item: WaniChecklistItem) {
+        item.isCompleted.toggle()
+        item.updatedAt = .now
+        saveChanges()
+    }
+
+    private func deleteChecklistItem(_ item: WaniChecklistItem) {
+        modelContext.delete(item)
+        saveChanges()
+    }
+
+    private func saveTags() {
+        todo.tagNames = WaniTaskRules.tags(from: tagDraft)
+        todo.updatedAt = .now
+        tagDraft = todo.tagNames.joined(separator: ", ")
+        saveChanges()
+    }
+
+    private func saveChanges() {
+        try? modelContext.save()
     }
 
     @ViewBuilder
