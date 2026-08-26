@@ -52,6 +52,7 @@ struct ContentView: View {
     @State private var toolbarDateEditorOpen = false
     @State private var projectTagFilter: String?
     @State private var quickEntryShortcutError = ""
+    @State private var emptyTrashConfirmationOpen = false
     @FocusState private var headerTitleFocused: Bool
     @FocusState private var headingTitleFocused: Bool
 
@@ -225,6 +226,16 @@ struct ContentView: View {
         }
         .task {
             await syncNotifications()
+        }
+        .confirmationDialog(
+            "Empty Trash?",
+            isPresented: $emptyTrashConfirmationOpen,
+            titleVisibility: .visible
+        ) {
+            Button("Delete Permanently", role: .destructive, action: emptyTrash)
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("All projects and to-dos in the Trash will be permanently deleted.")
         }
     }
 
@@ -437,6 +448,21 @@ struct ContentView: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .accessibilityLabel("Area Actions")
+        } else if selection == .smart(.trash), trashItemCount > 0 {
+            Menu {
+                Button("Empty Trash…", systemImage: "trash.slash", role: .destructive) {
+                    emptyTrashConfirmationOpen = true
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(palette.tertiaryText)
+                    .frame(width: 28, height: 28)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("Trash Actions")
         }
     }
 
@@ -1868,6 +1894,11 @@ struct ContentView: View {
     }
 
     private func deletePermanently(_ project: WaniProject) {
+        deleteProjectPermanently(project)
+        saveChanges()
+    }
+
+    private func deleteProjectPermanently(_ project: WaniProject) {
         for todo in todos where todo.project?.id == project.id {
             WaniReminderScheduler.cancel(todo)
             modelContext.delete(todo)
@@ -1876,6 +1907,19 @@ struct ContentView: View {
             modelContext.delete(heading)
         }
         modelContext.delete(project)
+    }
+
+    private func emptyTrash() {
+        let projectsToDelete = trashedProjects
+        let todosToDelete = standaloneTrashedTodos
+
+        for todo in todosToDelete {
+            WaniReminderScheduler.cancel(todo)
+            modelContext.delete(todo)
+        }
+        for project in projectsToDelete {
+            deleteProjectPermanently(project)
+        }
         saveChanges()
     }
 
