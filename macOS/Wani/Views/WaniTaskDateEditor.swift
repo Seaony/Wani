@@ -229,6 +229,7 @@ struct WaniTaskDateEditor: View {
     private func schedule(on date: Date, isEvening: Bool = false) {
         WaniTaskRules.schedule(todo, as: .date, startDate: date, isEvening: isEvening)
         save()
+        reminderChanged()
     }
 
     private func setSchedule(_ schedule: WaniTaskSchedule) {

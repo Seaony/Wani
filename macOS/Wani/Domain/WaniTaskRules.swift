@@ -539,11 +539,26 @@ enum WaniTaskRules {
         as schedule: WaniTaskSchedule,
         startDate: Date? = nil,
         isEvening: Bool = false,
-        at date: Date = Date()
+        at date: Date = Date(),
+        calendar: Calendar = .current
     ) {
+        let existingReminderDate = todo.reminderDate
         todo.schedule = schedule
         if schedule == .date {
-            todo.startDate = startDate ?? date
+            let scheduledDate = startDate ?? date
+            todo.startDate = scheduledDate
+            if let existingReminderDate {
+                let reminderTime = calendar.dateComponents(
+                    [.hour, .minute, .second],
+                    from: existingReminderDate
+                )
+                todo.reminderDate = calendar.date(
+                    bySettingHour: reminderTime.hour ?? 0,
+                    minute: reminderTime.minute ?? 0,
+                    second: reminderTime.second ?? 0,
+                    of: scheduledDate
+                )
+            }
             todo.isEvening = isEvening
         } else {
             todo.startDate = nil

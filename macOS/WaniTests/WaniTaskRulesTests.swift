@@ -589,7 +589,18 @@ struct WaniTaskRulesTests {
         #expect(todo.isEvening)
         #expect(todo.updatedAt == now)
 
-        todo.reminderDate = tomorrow
+        todo.reminderDate = date(2026, 8, 27, 8)
+        let movedStartDate = date(2026, 8, 28, 9)
+        WaniTaskRules.schedule(
+            todo,
+            as: .date,
+            startDate: movedStartDate,
+            at: now,
+            calendar: calendar
+        )
+        #expect(todo.startDate == movedStartDate)
+        #expect(todo.reminderDate == date(2026, 8, 28, 8))
+
         WaniTaskRules.schedule(todo, as: .someday, at: now)
         #expect(todo.schedule == .someday)
         #expect(todo.startDate == nil)
