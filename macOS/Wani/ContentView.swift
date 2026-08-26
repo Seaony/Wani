@@ -44,6 +44,7 @@ struct ContentView: View {
     @State private var selectionAnchorID: UUID?
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
+    @State private var projectEditorOpen = false
 
     private var appearance: WaniAppearance {
         get { WaniAppearance(rawValue: appearanceRaw) ?? .light }
@@ -152,6 +153,16 @@ struct ContentView: View {
                     dismiss: closeBatchMove
                 )
             }
+
+            if projectEditorOpen, let project = selectedProject {
+                WaniProjectEditor(
+                    palette: palette,
+                    project: project,
+                    areas: areas,
+                    save: saveProjectDetails,
+                    dismiss: { projectEditorOpen = false }
+                )
+            }
         }
         .frame(minWidth: 760, minHeight: 520)
         .background(palette.background)
@@ -175,6 +186,7 @@ struct ContentView: View {
         }
         .onChange(of: selection) {
             clearTodoSelection()
+            projectEditorOpen = false
         }
         .task {
             await syncNotifications()
@@ -188,8 +200,17 @@ struct ContentView: View {
                 Button { } label: {
                     Image(systemName: "sidebar.left")
                 }
-                Button { } label: {
-                    Image(systemName: "ellipsis")
+                if selectedProject != nil {
+                    Button {
+                        projectEditorOpen = true
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .accessibilityLabel("Edit Project")
+                } else {
+                    Button { } label: {
+                        Image(systemName: "ellipsis")
+                    }
                 }
             }
             .buttonStyle(.plain)
@@ -274,6 +295,11 @@ struct ContentView: View {
     private var projectHeadings: [WaniHeading] {
         guard case .project(let projectID) = selection else { return [] }
         return headings.filter { $0.project?.id == projectID }
+    }
+
+    private var selectedProject: WaniProject? {
+        guard case .project(let projectID) = selection else { return nil }
+        return projects.first { $0.id == projectID }
     }
 
     @ViewBuilder
@@ -827,6 +853,16 @@ struct ContentView: View {
         selection = .project(project.id)
         expandedTodoID = nil
         newListOpen = false
+    }
+
+    private func saveProjectDetails(_ title: String, notes: String, areaID: UUID?) {
+        guard let project = selectedProject else { return }
+        project.title = title
+        project.notes = notes
+        project.area = areaID.flatMap { id in areas.first { $0.id == id } }
+        project.updatedAt = .now
+        saveChanges()
+        projectEditorOpen = false
     }
 
     private func saveHeading() {
