@@ -1,5 +1,21 @@
 # Wani 界面验收记录
 
+## 2026-08-27：iOS App
+
+使用 iPhone 17 Pro（iOS 26.5）模拟器和 Debug 内存存储，对照 `iOS App.dc.html` 完成前台验收；没有运行 UI 自动化。
+
+已使用 Computer Use 检查通过：
+
+- 根页面的 Quick Find、7 个智能列表、新待办徽标、可折叠 Area/Project、项目进度环、底部 Settings 与悬浮新增按钮。
+- Today 的新待办提示、无项目任务与项目任务分组；Upcoming 的连续日期、Tomorrow 文案、空日期与项目来源。
+- 项目页的进度环、Notes、开放任务以及 Show/Hide logged items。
+- 任务行的完成按钮、备注/检查清单/标签提示和内联展开编辑；检查清单状态可修改。
+- Quick Find 可按标题与备注搜索，并显示任务所属项目。
+- 快速新增表单可选择 Inbox、Today 或项目，输入后保存到当前列表。
+- Settings 的 System、Light、Dark，4 种强调色、列表密度和 General/Capture 设置；System 为默认选项，浅色与深色均按设计稿切换。
+
+验收中创建的临时任务位于内存存储，App 退出后不会进入正式数据。
+
 ## 2026-08-27：macOS 桌面小组件
 
 对照 `Desktop Widgets.dc.html` 完成以下 9 个桌面小组件：

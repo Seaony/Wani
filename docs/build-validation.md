@@ -1,5 +1,12 @@
 # Wani 后台构建与测试记录
 
+## 2026-08-27：iOS App
+
+- iOS Simulator 上的 `WaniTests` 4 项规则与存储隔离测试全部通过，覆盖智能列表计数、Today 与 Anytime 重叠语义、连续 Upcoming 日期、项目汇总以及 XCTest 内存存储选择。
+- iOS Simulator 无签名静态分析成功，没有产生源码诊断。
+- iOS Simulator 无签名 Release 构建成功并通过产品校验。
+- Debug 验收数据只在显式传入 `--seed-preview-data` 时写入；普通 Debug 与 Release 启动不会生成示例任务。
+
 ## 2026-08-27：macOS 桌面小组件
 
 - `WaniTests` 的 52 项单元测试全部通过；新增覆盖小组件的 Today、Upcoming、项目进度、月历标记与深链接分类。
