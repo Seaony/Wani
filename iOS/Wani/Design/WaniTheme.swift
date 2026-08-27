@@ -70,6 +70,26 @@ struct WaniPalette {
     }
 }
 
+/// Presentation for the shared smart lists. iOS uses the lighter outline symbols,
+/// so this stays on the platform side rather than in the shared domain.
+extension WaniSmartList {
+    var title: String {
+        rawValue.capitalized
+    }
+
+    var symbolName: String {
+        switch self {
+        case .inbox: "tray"
+        case .today: "star.fill"
+        case .upcoming: "calendar"
+        case .anytime: "square.3.layers.3d"
+        case .someday: "archivebox"
+        case .logbook: "checkmark.square"
+        case .trash: "trash"
+        }
+    }
+}
+
 extension Color {
     init(rgb: UInt32) {
         self.init(

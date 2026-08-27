@@ -418,6 +418,7 @@ private extension WaniWidgetSnapshot {
             return WaniWidgetTaskSnapshot(
                 id: UUID(),
                 title: title,
+                projectID: nil,
                 projectTitle: index.isMultiple(of: 2) ? "Mantis" : "Yesimart",
                 status: "open",
                 schedule: "date",
@@ -432,7 +433,7 @@ private extension WaniWidgetSnapshot {
                 sortOrder: Double(index)
             )
         }
-        return WaniWidgetSnapshot(generatedAt: now, tasks: tasks)
+        return WaniWidgetSnapshot(generatedAt: now, tasks: tasks, projects: [])
     }
 }
 

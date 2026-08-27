@@ -39,11 +39,13 @@ struct WaniBatchDateEditor: View {
                     displayedComponents: .date
                 )
                 .datePickerStyle(.field)
+                .waniPointingHand()
 
                 Button("Apply Date") {
                     applyDate(customDate)
                 }
                 .buttonStyle(.borderedProminent)
+                .waniPointingHand()
             }
 
             Divider().overlay(palette.faintLine)
@@ -54,7 +56,7 @@ struct WaniBatchDateEditor: View {
                 } label: {
                     Label("Add Reminder", systemImage: "bell")
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .foregroundStyle(palette.secondaryText)
 
                 Spacer()
@@ -62,7 +64,7 @@ struct WaniBatchDateEditor: View {
                 Button("Clear Reminders") {
                     applyReminder(nil)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(palette.accent)
             }
@@ -75,11 +77,13 @@ struct WaniBatchDateEditor: View {
                         displayedComponents: .hourAndMinute
                     )
                     .datePickerStyle(.field)
+                    .waniPointingHand()
 
                     Button("Apply Reminder") {
                         applyReminder(reminderTime)
                     }
                     .buttonStyle(.borderedProminent)
+                    .waniPointingHand()
                 }
             }
         }
@@ -104,7 +108,7 @@ struct WaniBatchDateEditor: View {
             .frame(height: 46)
             .background(palette.card, in: RoundedRectangle(cornerRadius: 7))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .accessibilityLabel("Schedule \(title)")
     }
 

@@ -138,12 +138,12 @@ struct ContentView: View {
         }
     }
 
-    private var projectMetrics: [UUID: WaniProjectMetrics] {
-        WaniTaskRules.projectMetrics(todos)
+    private var projectMetrics: [UUID: WaniProjectTally] {
+        WaniTaskRules.projectTallies(todos)
     }
 
     private var listCounts: [WaniSmartList: Int] {
-        WaniTaskRules.listCounts(todos)
+        WaniTaskRules.smartListCounts(todos)
     }
 
     private func listRoute(for todo: WaniTodo) -> WaniRoute {
@@ -171,14 +171,15 @@ struct ContentView: View {
         }
     }
 
-    private var widgetSnapshotRevision: [String] {
-        todos.map {
-            [
-                $0.id.uuidString,
-                $0.updatedAt.timeIntervalSinceReferenceDate.description,
-                $0.project?.title ?? "",
-            ].joined(separator: "|")
-        }
+    private var widgetSnapshotRevision: WaniSnapshotRevision {
+        WaniSnapshotRevision(
+            todoCount: todos.count,
+            projectCount: projects.count,
+            latestChange: max(
+                todos.lazy.map(\.updatedAt).max() ?? .distantPast,
+                projects.lazy.map(\.updatedAt).max() ?? .distantPast
+            )
+        )
     }
 
     private func refreshWidgetSnapshot() {
@@ -188,6 +189,7 @@ struct ContentView: View {
                 WaniWidgetTaskSnapshot(
                     id: $0.id,
                     title: $0.title,
+                    projectID: $0.project?.id,
                     projectTitle: $0.project?.title,
                     status: $0.status.rawValue,
                     schedule: $0.schedule.rawValue,
@@ -198,6 +200,16 @@ struct ContentView: View {
                     completedAt: $0.completedAt,
                     deletedAt: $0.deletedAt,
                     sortOrder: $0.sortOrder
+                )
+            },
+            projects: projects.map {
+                WaniWidgetProjectSnapshot(
+                    id: $0.id,
+                    title: $0.title,
+                    sortOrder: $0.sortOrder,
+                    completedAt: $0.completedAt,
+                    canceledAt: $0.canceledAt,
+                    deletedAt: $0.deletedAt
                 )
             }
         )

@@ -12,9 +12,11 @@ enum WaniSmartList: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-struct WaniUpcomingDay {
+struct WaniUpcomingDay: Identifiable {
     let date: Date
     let todos: [WaniTodo]
+
+    var id: Date { date }
 }
 
 struct WaniLogbookMonth {
@@ -25,6 +27,17 @@ struct WaniLogbookMonth {
 struct WaniArchivedProjectMonth {
     let month: Date
     let projects: [WaniProject]
+}
+
+struct WaniProjectTally: Equatable {
+    var open = 0
+    var completed = 0
+    /// Canceled to-dos are excluded from progress, matching `projectProgress`.
+    var uncanceled = 0
+
+    var progress: Double {
+        uncanceled == 0 ? 0 : Double(completed) / Double(uncanceled)
+    }
 }
 
 enum WaniTaskRules {
@@ -61,7 +74,7 @@ enum WaniTaskRules {
         let reordered = reorderedIDs(ids, moving: movingID, to: targetID)
         guard reordered != ids else { return false }
 
-        let sortOrders = orderedTodos.map(\.sortOrder).sorted()
+        let sortOrders = distinctSortOrders(orderedTodos.map(\.sortOrder))
         for (id, sortOrder) in zip(reordered, sortOrders) {
             guard let todo = orderedTodos.first(where: { $0.id == id }) else { continue }
             todo.sortOrder = sortOrder
@@ -86,13 +99,29 @@ enum WaniTaskRules {
         let reordered = reorderedIDs(ids, moving: movingID, to: targetID)
         guard reordered != ids else { return false }
 
-        let sortOrders = orderedItems.map(\.sortOrder).sorted()
+        let sortOrders = distinctSortOrders(orderedItems.map(\.sortOrder))
         for (id, sortOrder) in zip(reordered, sortOrders) {
             guard let item = orderedItems.first(where: { $0.id == id }) else { continue }
             item.sortOrder = sortOrder
             item.updatedAt = date
         }
         return true
+    }
+
+    /// Reordering reuses the group's existing sort slots. Slots that share a value
+    /// cannot express a new order on their own, because equal sort orders fall back
+    /// to `createdAt`, so shared slots are pushed apart before they are handed out.
+    static func distinctSortOrders(_ sortOrders: [Double]) -> [Double] {
+        var slots: [Double] = []
+        slots.reserveCapacity(sortOrders.count)
+        for sortOrder in sortOrders.sorted() {
+            guard let previous = slots.last else {
+                slots.append(sortOrder)
+                continue
+            }
+            slots.append(sortOrder > previous ? sortOrder : previous + 1)
+        }
+        return slots
     }
 
     static func contains(
@@ -189,6 +218,36 @@ enum WaniTaskRules {
                 }
                 return lhs.sortOrder < rhs.sortOrder
             }
+    }
+
+    /// Sidebar badges need every list's count at once. Asking `tasks(_:in:)` per list
+    /// walks the store once per list; this walks it once in total.
+    static func smartListCounts(
+        _ todos: [WaniTodo],
+        now: Date = Date(),
+        calendar: Calendar = .current,
+        deferCompletedUntilMidnight: Bool = false
+    ) -> [WaniSmartList: Int] {
+        var counts = Dictionary(
+            uniqueKeysWithValues: WaniSmartList.allCases.map { ($0, 0) }
+        )
+
+        for todo in todos {
+            for list in WaniSmartList.allCases {
+                guard contains(
+                    todo,
+                    in: list,
+                    now: now,
+                    calendar: calendar,
+                    deferCompletedUntilMidnight: deferCompletedUntilMidnight
+                ) else { continue }
+                // Every list but the Logbook badges outstanding work, so items that
+                // are only lingering until midnight must not be counted twice.
+                guard list == .logbook || todo.status == .open else { continue }
+                counts[list, default: 0] += 1
+            }
+        }
+        return counts
     }
 
     static func todayTasks(
@@ -338,6 +397,52 @@ enum WaniTaskRules {
         projectID: UUID
     ) -> [WaniTodo] {
         todos.filter { $0.project?.id == projectID && $0.deletedAt == nil }
+    }
+
+    /// The sidebar needs an open count and a progress ring for every project row.
+    /// Asking `projectTasks` per row walks the store twice per project; this tallies
+    /// every project in one pass.
+    static func projectTallies(_ todos: [WaniTodo]) -> [UUID: WaniProjectTally] {
+        var tallies: [UUID: WaniProjectTally] = [:]
+        for todo in todos {
+            guard todo.deletedAt == nil, let projectID = todo.project?.id else {
+                continue
+            }
+            var tally = tallies[projectID, default: WaniProjectTally()]
+            switch todo.status {
+            case .open:
+                tally.open += 1
+                tally.uncanceled += 1
+            case .completed:
+                tally.completed += 1
+                tally.uncanceled += 1
+            case .canceled:
+                break
+            }
+            tallies[projectID] = tally
+        }
+        return tallies
+    }
+
+    /// An area's badge counts its own loose to-dos plus everything in its projects.
+    static func openTodoCountsByArea(
+        _ todos: [WaniTodo],
+        projects: [WaniProject]
+    ) -> [UUID: Int] {
+        var areaIDsByProjectID: [UUID: UUID] = [:]
+        for project in projects {
+            guard let areaID = project.area?.id else { continue }
+            areaIDsByProjectID[project.id] = areaID
+        }
+
+        var counts: [UUID: Int] = [:]
+        for todo in todos where todo.deletedAt == nil && todo.status == .open {
+            guard let areaID = todo.project.flatMap({ areaIDsByProjectID[$0.id] })
+                ?? todo.area?.id
+            else { continue }
+            counts[areaID, default: 0] += 1
+        }
+        return counts
     }
 
     static func projectProgress(
@@ -804,10 +909,17 @@ enum WaniTaskRules {
         return next
     }
 
+    /// A store that has not been opened for a long time can have a large backlog of
+    /// due occurrences. Only the most recent ones are worth materialising: older
+    /// misses are walked through to keep the occurrence index and end conditions
+    /// correct, but they are never inserted.
+    static let maximumCaughtUpOccurrences = 60
+
     static func generateDueRegularOccurrences(
         from todo: WaniTodo,
         through date: Date = Date(),
-        calendar: Calendar = .current
+        calendar: Calendar = .current,
+        maximumOccurrences: Int = maximumCaughtUpOccurrences
     ) -> [WaniTodo] {
         guard
             todo.status == .open,
@@ -815,7 +927,8 @@ enum WaniTaskRules {
             todo.schedule == .date,
             todo.repeatFrequency != .none,
             !todo.repeatsAfterCompletion,
-            todo.repeatGeneratedNextStartDate == nil
+            todo.repeatGeneratedNextStartDate == nil,
+            maximumOccurrences > 0
         else { return [] }
 
         let tomorrow = calendar.date(
@@ -840,6 +953,9 @@ enum WaniTaskRules {
             source.repeatGeneratedNextStartDate = nextStartDate
             source.updatedAt = date
             occurrences.append(next)
+            if occurrences.count > maximumOccurrences {
+                occurrences.removeFirst()
+            }
             source = next
         }
 

@@ -22,12 +22,13 @@ struct WaniBatchDeadlineEditor: View {
                 displayedComponents: .date
             )
             .datePickerStyle(.field)
+            .waniPointingHand()
 
             HStack {
                 Button("Clear Deadlines") {
                     apply(nil)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(palette.accent)
 
@@ -37,6 +38,7 @@ struct WaniBatchDeadlineEditor: View {
                     apply(deadline)
                 }
                 .buttonStyle(.borderedProminent)
+                .waniPointingHand()
             }
         }
         .padding(12)

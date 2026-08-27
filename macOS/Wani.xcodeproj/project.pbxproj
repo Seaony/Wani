@@ -10,65 +10,6 @@
 		C3000000000000000000000E /* WaniWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = C30000000000000000000001 /* WaniWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
-/* Begin PBXFileReference section */
-		752E7896303EB9270029D56B /* Wani.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wani.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10000000000000000000001 /* WaniTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WaniTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		A20000000000000000000001 /* WaniUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WaniUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		C30000000000000000000001 /* WaniWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WaniWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-/* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		C3000000000000000000000F /* Exceptions for "Wani" folder in "Wani" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 752E7895303EB9270029D56B /* Wani */;
-		};
-		C30000000000000000000010 /* Exceptions for "WaniWidgets" folder in "WaniWidgets" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-				WaniWidgets.entitlements,
-			);
-			target = C30000000000000000000007 /* WaniWidgets */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		752E7898303EB9270029D56B /* Wani */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C3000000000000000000000F /* Exceptions for "Wani" folder in "Wani" target */,
-			);
-			path = Wani;
-			sourceTree = "<group>";
-		};
-		A10000000000000000000002 /* WaniTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = WaniTests;
-			sourceTree = "<group>";
-		};
-		A20000000000000000000002 /* WaniUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = WaniUITests;
-			sourceTree = "<group>";
-		};
-		C30000000000000000000002 /* WaniWidgets */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C30000000000000000000010 /* Exceptions for "WaniWidgets" folder in "WaniWidgets" target */,
-			);
-			path = WaniWidgets;
-			sourceTree = "<group>";
-		};
-		C30000000000000000000003 /* WaniShared */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = WaniShared;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
 /* Begin PBXContainerItemProxy section */
 		A1000000000000000000000A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -107,6 +48,64 @@
 		};
 /* End PBXCopyFilesBuildPhase section */
 
+/* Begin PBXFileReference section */
+		752E7896303EB9270029D56B /* Wani.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wani.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000001 /* WaniTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WaniTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000001 /* WaniUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WaniUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		C30000000000000000000001 /* WaniWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WaniWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		C3000000000000000000000F /* Exceptions for "Wani" folder in "Wani" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 752E7895303EB9270029D56B /* Wani */;
+		};
+		C30000000000000000000010 /* Exceptions for "WaniWidgets" folder in "WaniWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = C30000000000000000000007 /* WaniWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		752E7898303EB9270029D56B /* Wani */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C3000000000000000000000F /* Exceptions for "Wani" folder in "Wani" target */,
+			);
+			path = Wani;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000002 /* WaniTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WaniTests;
+			sourceTree = "<group>";
+		};
+		A20000000000000000000002 /* WaniUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WaniUITests;
+			sourceTree = "<group>";
+		};
+		C30000000000000000000002 /* WaniWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				C30000000000000000000010 /* Exceptions for "WaniWidgets" folder in "WaniWidgets" target */,
+			);
+			path = WaniWidgets;
+			sourceTree = "<group>";
+		};
+		C30000000000000000000003 /* Shared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ../Shared;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
 /* Begin PBXFrameworksBuildPhase section */
 		752E7893303EB9270029D56B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
@@ -144,7 +143,7 @@
 			children = (
 				752E7898303EB9270029D56B /* Wani */,
 				C30000000000000000000002 /* WaniWidgets */,
-				C30000000000000000000003 /* WaniShared */,
+				C30000000000000000000003 /* Shared */,
 				A10000000000000000000002 /* WaniTests */,
 				A20000000000000000000002 /* WaniUITests */,
 				752E7897303EB9270029D56B /* Products */,
@@ -181,7 +180,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				752E7898303EB9270029D56B /* Wani */,
-				C30000000000000000000003 /* WaniShared */,
+				C30000000000000000000003 /* Shared */,
 			);
 			name = Wani;
 			packageProductDependencies = (
@@ -250,7 +249,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				C30000000000000000000002 /* WaniWidgets */,
-				C30000000000000000000003 /* WaniShared */,
+				C30000000000000000000003 /* Shared */,
 			);
 			name = WaniWidgets;
 			packageProductDependencies = (

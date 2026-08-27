@@ -46,6 +46,16 @@ struct WaniWidgetDateMarks: Equatable {
     var deadline = false
 }
 
+/// Change token for deciding when to rewrite the widget snapshot. Sorting a full
+/// array of dates or building one string per to-do on every body evaluation is the
+/// wrong price for this; a count plus the newest timestamp moves whenever a row is
+/// added, removed or touched, and costs one pass with no allocation.
+struct WaniSnapshotRevision: Equatable {
+    let todoCount: Int
+    let projectCount: Int
+    let latestChange: Date
+}
+
 struct WaniWidgetSnapshot: Codable, Equatable {
     let generatedAt: Date
     let tasks: [WaniWidgetTaskSnapshot]

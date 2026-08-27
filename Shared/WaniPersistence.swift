@@ -16,6 +16,7 @@ enum WaniPersistence {
         environment: [String: String]
     ) -> Bool {
         arguments.contains("--ui-testing")
+            || arguments.contains("--in-memory")
             || environment["XCTestConfigurationFilePath"] != nil
     }
 

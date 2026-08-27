@@ -28,6 +28,7 @@ struct WaniHeadingRow: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .waniPointerFeedback(palette: palette)
             .opacity(isHovered ? 1 : 0)
             .accessibilityLabel("Heading Actions")
         }

@@ -34,6 +34,7 @@ struct WaniTaskDateEditor: View {
                 displayedComponents: .date
             )
             .datePickerStyle(.field)
+            .waniPointingHand()
 
             Divider().overlay(palette.faintLine)
 
@@ -49,6 +50,7 @@ struct WaniTaskDateEditor: View {
                 )
                 .labelsHidden()
                 .datePickerStyle(.field)
+                .waniPointingHand()
             }
 
             detailRow(
@@ -63,6 +65,7 @@ struct WaniTaskDateEditor: View {
                 )
                 .labelsHidden()
                 .datePickerStyle(.field)
+                .waniPointingHand()
             }
 
             HStack(spacing: 10) {
@@ -80,6 +83,7 @@ struct WaniTaskDateEditor: View {
                 }
                 .labelsHidden()
                 .frame(width: 112)
+                .waniPointingHand()
             }
 
             if todo.repeatFrequency != .none {
@@ -89,10 +93,12 @@ struct WaniTaskDateEditor: View {
                             .font(.system(size: 12))
                             .foregroundStyle(palette.secondaryText)
                     }
+                    .waniPointingHand()
                     Spacer()
                     Toggle("After completion", isOn: repeatAfterCompletionBinding)
                         .toggleStyle(.checkbox)
                         .font(.system(size: 12))
+                        .waniPointingHand()
                 }
             }
         }
@@ -118,7 +124,7 @@ struct WaniTaskDateEditor: View {
             .frame(height: 46)
             .background(palette.card, in: RoundedRectangle(cornerRadius: 7))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
     }
 
     private func detailRow<Content: View>(
@@ -134,6 +140,7 @@ struct WaniTaskDateEditor: View {
                     .foregroundStyle(palette.secondaryText)
             }
             .toggleStyle(.checkbox)
+            .waniPointingHand()
             Spacer()
             if enabled.wrappedValue {
                 content()

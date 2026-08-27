@@ -44,6 +44,7 @@ struct WaniBatchMoveOverlay: View {
             Color.black.opacity(0.24)
                 .ignoresSafeArea()
                 .onTapGesture(perform: dismiss)
+                .waniPointingHand()
 
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
@@ -144,7 +145,7 @@ struct WaniBatchMoveOverlay: View {
             .frame(height: 36)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .accessibilityLabel("\(title), \(subtitle)")
     }
 }

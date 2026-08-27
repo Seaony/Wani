@@ -6,7 +6,7 @@ struct WaniListView: View {
     let route: WaniRoute
     let projects: [WaniProject]
     let todos: [WaniTodo]
-    let projectMetrics: [UUID: WaniProjectMetrics]
+    let projectMetrics: [UUID: WaniProjectTally]
     let initiallyExpandedTodoID: UUID?
     let palette: WaniPalette
     let openProject: (UUID) -> Void

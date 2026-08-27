@@ -57,9 +57,9 @@
 			path = WaniWidgets;
 			sourceTree = "<group>";
 		};
-		E20000000000000000000003 /* WaniShared */ = {
+		E20000000000000000000003 /* Shared */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = WaniShared;
+			path = ../Shared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -125,7 +125,7 @@
 			children = (
 				75AE5980303F4B18002070BE /* Wani */,
 				E20000000000000000000002 /* WaniWidgets */,
-				E20000000000000000000003 /* WaniShared */,
+				E20000000000000000000003 /* Shared */,
 				D10000000000000000000002 /* WaniTests */,
 				75AE597F303F4B18002070BE /* Products */,
 			);
@@ -160,7 +160,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				75AE5980303F4B18002070BE /* Wani */,
-				E20000000000000000000003 /* WaniShared */,
+				E20000000000000000000003 /* Shared */,
 			);
 			name = Wani;
 			packageProductDependencies = (
@@ -206,7 +206,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				E20000000000000000000002 /* WaniWidgets */,
-				E20000000000000000000003 /* WaniShared */,
+				E20000000000000000000003 /* Shared */,
 			);
 			name = WaniWidgets;
 			packageProductDependencies = (

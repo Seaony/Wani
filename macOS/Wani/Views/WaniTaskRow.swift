@@ -53,7 +53,7 @@ struct WaniTaskRow: View {
                     }
                     .frame(width: 17, height: 17)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel(todo.status == .open ? "Complete" : "Reopen")
 
                 Button(action: toggleExpanded) {
@@ -89,7 +89,7 @@ struct WaniTaskRow: View {
                         return reorder(movingID, todo.id)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
             }
 
             if isExpanded {
@@ -141,7 +141,7 @@ struct WaniTaskRow: View {
                     todo: todo,
                     palette: palette,
                     save: saveChanges,
-                    reminderChanged: syncReminder,
+                    reminderChanged: { syncReminder() },
                     recurrenceChanged: recurrenceChanged
                 )
             }
@@ -179,7 +179,7 @@ struct WaniTaskRow: View {
                     .accessibilityLabel("Move to Trash")
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .foregroundStyle(palette.tertiaryText)
         }
         .onAppear {
@@ -240,7 +240,7 @@ struct WaniTaskRow: View {
                     .font(.system(size: 12.5))
                     .onSubmit(saveTags)
                 Button("Save", action: saveTags)
-                    .buttonStyle(.plain)
+                    .buttonStyle(.waniInteractive(palette))
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(palette.accent)
             }
@@ -282,6 +282,7 @@ struct WaniTaskRow: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        .waniPointerFeedback(palette: palette)
         .accessibilityLabel("Move")
     }
 
@@ -367,14 +368,16 @@ struct WaniTaskRow: View {
     private func touchTodoAndSave() {
         todo.updatedAt = .now
         saveChanges()
-        syncReminder()
+        // Typing only changes what a pending notification says, so it must never be
+        // the moment the system permission prompt appears.
+        syncReminder(requestAuthorization: false)
     }
 
-    private func syncReminder() {
+    private func syncReminder(requestAuthorization: Bool = true) {
         Task {
             await WaniReminderScheduler.sync(
                 todo,
-                requestAuthorization: true,
+                requestAuthorization: requestAuthorization,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled
             )
         }

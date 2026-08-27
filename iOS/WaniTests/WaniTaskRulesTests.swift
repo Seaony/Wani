@@ -23,6 +23,36 @@ struct WaniTaskRulesTests {
         #expect(!WaniPersistence.usesEphemeralStore(arguments: [], environment: [:]))
     }
 
+    @Test("iOS shares the macOS model and CloudKit container")
+    func sharedDataLayer() throws {
+        #expect(
+            WaniPersistence.cloudKitContainerIdentifier == "iCloud.com.seaony.wani.Wani"
+        )
+        // The full model, not the reduced one iOS used to carry: headings, areas on a
+        // to-do, cancellation, reminders and repeat rules all have to round-trip or
+        // macOS changes would be dropped on sync.
+        let entities = Set(WaniPersistence.schema.entities.map(\.name))
+        #expect(entities == [
+            "WaniArea",
+            "WaniProject",
+            "WaniHeading",
+            "WaniTodo",
+            "WaniChecklistItem",
+        ])
+
+        let todo = WaniTodo(title: "Round trip", schedule: .anytime)
+        todo.heading = WaniHeading(title: "Heading")
+        todo.area = WaniArea(title: "Personal")
+        todo.reminderDate = date(2026, 8, 27, 9)
+        todo.repeatFrequency = .weekly
+        WaniTaskRules.cancel(todo, at: date(2026, 8, 27, 10))
+
+        #expect(todo.heading?.title == "Heading")
+        #expect(todo.area?.title == "Personal")
+        #expect(todo.canceledAt == date(2026, 8, 27, 10))
+        #expect(todo.repeatFrequency == .weekly)
+    }
+
     @Test("List counts preserve Today and Anytime overlap")
     func listCounts() {
         let now = date(2026, 8, 27, 12)
@@ -42,7 +72,7 @@ struct WaniTaskRulesTests {
         let deleted = WaniTodo(title: "Deleted", schedule: .anytime)
         deleted.deletedAt = now
 
-        let counts = WaniTaskRules.listCounts(
+        let counts = WaniTaskRules.smartListCounts(
             [today, upcoming, inbox, logged, deleted],
             now: now,
             calendar: calendar
@@ -56,8 +86,8 @@ struct WaniTaskRulesTests {
         #expect(counts[.trash] == 1)
     }
 
-    @Test("Project metrics are built in one task pass")
-    func projectMetrics() {
+    @Test("Project tallies are built in one task pass")
+    func projectTallies() {
         let project = WaniProject(title: "Mantis")
         let open = WaniTodo(title: "Open", schedule: .anytime, project: project)
         let completed = WaniTodo(title: "Done", schedule: .anytime, project: project)
@@ -65,12 +95,12 @@ struct WaniTaskRulesTests {
         let deleted = WaniTodo(title: "Deleted", schedule: .anytime, project: project)
         deleted.deletedAt = .now
 
-        let metrics = WaniTaskRules.projectMetrics([open, completed, deleted])[project.id]
+        let tally = WaniTaskRules.projectTallies([open, completed, deleted])[project.id]
 
-        #expect(metrics?.total == 2)
-        #expect(metrics?.open == 1)
-        #expect(metrics?.completed == 1)
-        #expect(metrics?.progress == 0.5)
+        #expect(tally?.uncanceled == 2)
+        #expect(tally?.open == 1)
+        #expect(tally?.completed == 1)
+        #expect(tally?.progress == 0.5)
     }
 
     @Test("Upcoming returns continuous days including empty dates")
@@ -84,9 +114,9 @@ struct WaniTaskRulesTests {
 
         let days = WaniTaskRules.upcomingDays(
             [scheduled],
-            count: 3,
             now: now,
-            calendar: calendar
+            calendar: calendar,
+            previewDayCount: 3
         )
 
         #expect(days.count == 3)
@@ -116,7 +146,8 @@ struct WaniTaskRulesTests {
         )
         let snapshot = WaniWidgetSnapshot(
             generatedAt: now,
-            tasks: [today, completed, upcoming]
+            tasks: [today, completed, upcoming],
+            projects: []
         )
 
         #expect(snapshot.todayTasks(now: now, calendar: calendar).map(\.title) == ["Today"])
@@ -148,6 +179,7 @@ struct WaniTaskRulesTests {
         WaniWidgetTaskSnapshot(
             id: UUID(),
             title: title,
+            projectID: nil,
             projectTitle: nil,
             status: status.rawValue,
             schedule: startDate == nil ? WaniTaskSchedule.inbox.rawValue : WaniTaskSchedule.date.rawValue,

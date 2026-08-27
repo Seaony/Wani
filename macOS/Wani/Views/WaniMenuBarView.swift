@@ -5,10 +5,17 @@ import SwiftUI
 struct WaniMenuBarView: View {
     @Environment(\.openWindow) private var openWindow
     @Query(sort: \WaniTodo.sortOrder) private var todos: [WaniTodo]
+    @AppStorage("moveToLogbookAtMidnight") private var moveToLogbookAtMidnight = false
     @State private var dateReference = Date.now
 
+    /// Shares the sidebar's counting path so the menu bar cannot disagree with the
+    /// main window when items linger in their list until midnight.
     private var todayCount: Int {
-        WaniTaskRules.tasks(todos, in: .today, now: dateReference).count
+        WaniTaskRules.smartListCounts(
+            todos,
+            now: dateReference,
+            deferCompletedUntilMidnight: moveToLogbookAtMidnight
+        )[.today] ?? 0
     }
 
     var body: some View {

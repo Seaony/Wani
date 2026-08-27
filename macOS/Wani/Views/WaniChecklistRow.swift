@@ -27,7 +27,7 @@ struct WaniChecklistRow: View {
                 }
                 .frame(width: 14, height: 14)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .accessibilityLabel(item.isCompleted ? "Reopen checklist item" : "Complete checklist item")
 
             TextField("Checklist item", text: itemTitleBinding)
@@ -40,7 +40,7 @@ struct WaniChecklistRow: View {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .foregroundStyle(palette.tertiaryText)
             .accessibilityLabel("Delete checklist item")
         }

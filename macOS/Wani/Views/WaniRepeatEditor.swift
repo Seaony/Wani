@@ -90,6 +90,7 @@ struct WaniRepeatEditor: View {
             Color.black.opacity(0.24)
                 .ignoresSafeArea()
                 .onTapGesture(perform: dismiss)
+                .waniPointingHand()
 
             VStack(spacing: 0) {
                 HStack {
@@ -110,6 +111,7 @@ struct WaniRepeatEditor: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
+                    .waniPointingHand()
 
                     HStack(spacing: 10) {
                         Text("Every")
@@ -121,6 +123,7 @@ struct WaniRepeatEditor: View {
                                 .foregroundStyle(palette.text)
                                 .frame(minWidth: 18)
                         }
+                        .waniPointingHand()
                         Picker("Frequency", selection: $frequency) {
                             ForEach(repeatFrequencies, id: \.self) { frequency in
                                 Text(frequency.unitTitle(interval).capitalized).tag(frequency)
@@ -128,6 +131,7 @@ struct WaniRepeatEditor: View {
                         }
                         .labelsHidden()
                         .frame(width: 120)
+                        .waniPointingHand()
                         Spacer()
                         Text(afterCompletion ? "after the previous item is completed" : "on schedule")
                             .font(.system(size: 11.5))
@@ -161,6 +165,7 @@ struct WaniRepeatEditor: View {
                         )
                         .labelsHidden()
                         .datePickerStyle(.field)
+                        .waniPointingHand()
                     }
 
                     optionRow(
@@ -175,6 +180,7 @@ struct WaniRepeatEditor: View {
                         )
                         .labelsHidden()
                         .datePickerStyle(.field)
+                        .waniPointingHand()
                     }
                 }
                 .padding(18)
@@ -184,7 +190,7 @@ struct WaniRepeatEditor: View {
                 HStack(spacing: 10) {
                     Spacer()
                     Button("Cancel", action: dismiss)
-                        .buttonStyle(.plain)
+                        .buttonStyle(.waniInteractive(palette))
                         .keyboardShortcut(.cancelAction)
                         .foregroundStyle(palette.secondaryText)
                     Button("Save") {
@@ -208,6 +214,7 @@ struct WaniRepeatEditor: View {
                         ))
                     }
                     .buttonStyle(.borderedProminent)
+                    .waniPointingHand()
                     .accessibilityLabel("Save Repeat")
                 }
                 .padding(.horizontal, 18)
@@ -250,7 +257,7 @@ struct WaniRepeatEditor: View {
                             in: RoundedRectangle(cornerRadius: 6)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel("Repeat on \(Calendar.current.weekdaySymbols[weekday - 1])")
             }
             Spacer()
@@ -283,6 +290,7 @@ struct WaniRepeatEditor: View {
             }
             .labelsHidden()
             .frame(width: 100)
+            .waniPointingHand()
 
             switch endCondition {
             case .never:
@@ -293,6 +301,7 @@ struct WaniRepeatEditor: View {
                         .font(.system(size: 12))
                         .foregroundStyle(palette.secondaryText)
                 }
+                .waniPointingHand()
             case .onDate:
                 DatePicker(
                     "Repeat End Date",
@@ -301,6 +310,7 @@ struct WaniRepeatEditor: View {
                 )
                 .labelsHidden()
                 .datePickerStyle(.field)
+                .waniPointingHand()
             }
         }
     }
@@ -355,6 +365,7 @@ struct WaniRepeatEditor: View {
                         }
                         .labelsHidden()
                         .frame(width: 108)
+                        .waniPointingHand()
                     }
 
                     Picker("Ordinal", selection: $rule.ordinal) {
@@ -364,6 +375,7 @@ struct WaniRepeatEditor: View {
                     }
                     .labelsHidden()
                     .frame(width: 82)
+                    .waniPointingHand()
 
                     Picker("Day Type", selection: weekdayBinding($rule)) {
                         Text("Day").tag(Int?.none)
@@ -373,6 +385,7 @@ struct WaniRepeatEditor: View {
                     }
                     .labelsHidden()
                     .frame(width: 112)
+                    .waniPointingHand()
 
                     Spacer()
 
@@ -382,7 +395,7 @@ struct WaniRepeatEditor: View {
                         } label: {
                             Image(systemName: "minus.circle")
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.waniInteractive(palette))
                         .foregroundStyle(palette.tertiaryText)
                         .accessibilityLabel("Remove Repeat Date")
                     }
@@ -391,7 +404,7 @@ struct WaniRepeatEditor: View {
                         Button(action: addDateRule) {
                             Image(systemName: "plus.circle")
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.waniInteractive(palette))
                         .foregroundStyle(palette.accent)
                         .accessibilityLabel("Add Repeat Date")
                     }
@@ -464,6 +477,7 @@ struct WaniRepeatEditor: View {
                     .foregroundStyle(palette.secondaryText)
             }
             .toggleStyle(.checkbox)
+            .waniPointingHand()
             Spacer()
             if enabled.wrappedValue {
                 content()

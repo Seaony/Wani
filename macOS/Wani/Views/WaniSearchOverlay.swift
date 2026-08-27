@@ -13,38 +13,53 @@ struct WaniSearchOverlay: View {
     let dismiss: () -> Void
     @FocusState private var isFocused: Bool
 
-    private var areaResults: [WaniArea] {
+    private static let shownPerCategory = 20
+
+    private var areaMatches: [WaniArea] {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return []
         }
-        return areas
-            .filter { WaniTaskRules.matches($0, query: query) }
-            .prefix(20)
-            .map { $0 }
+        return areas.filter { WaniTaskRules.matches($0, query: query) }
+    }
+
+    private var projectMatches: [WaniProject] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return []
+        }
+        return projects.filter {
+            $0.deletedAt == nil && WaniTaskRules.matches($0, query: query)
+        }
+    }
+
+    private var todoMatches: [WaniTodo] {
+        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return []
+        }
+        return todos.filter {
+            $0.deletedAt == nil && WaniTaskRules.matches($0, query: query)
+        }
+    }
+
+    private var areaResults: [WaniArea] {
+        Array(areaMatches.prefix(Self.shownPerCategory))
     }
 
     private var projectResults: [WaniProject] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
-        }
-        return projects
-            .filter { $0.deletedAt == nil && WaniTaskRules.matches($0, query: query) }
-            .prefix(20)
-            .map { $0 }
+        Array(projectMatches.prefix(Self.shownPerCategory))
     }
 
     private var todoResults: [WaniTodo] {
-        guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return []
-        }
-        return todos
-            .filter { $0.deletedAt == nil && WaniTaskRules.matches($0, query: query) }
-            .prefix(20)
-            .map { $0 }
+        Array(todoMatches.prefix(Self.shownPerCategory))
     }
 
+    /// Counts every match, not just the listed ones, so the header cannot report
+    /// "20 found" when the store holds two hundred.
     private var resultCount: Int {
-        areaResults.count + projectResults.count + todoResults.count
+        areaMatches.count + projectMatches.count + todoMatches.count
+    }
+
+    private var hiddenResultCount: Int {
+        resultCount - (areaResults.count + projectResults.count + todoResults.count)
     }
 
     var body: some View {
@@ -52,6 +67,7 @@ struct WaniSearchOverlay: View {
             Color.black.opacity(0.24)
                 .ignoresSafeArea()
                 .onTapGesture(perform: dismiss)
+                .waniPointingHand()
 
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
@@ -103,6 +119,14 @@ struct WaniSearchOverlay: View {
                                     action: { openTodo(todo) }
                                 )
                             }
+                            if hiddenResultCount > 0 {
+                                Text("\(hiddenResultCount) more — keep typing to narrow it down")
+                                    .font(.system(size: 11.5))
+                                    .foregroundStyle(palette.tertiaryText)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 11)
+                                    .frame(height: 30)
+                            }
                         }
                         .padding(7)
                     }
@@ -148,7 +172,7 @@ struct WaniSearchOverlay: View {
             .padding(.horizontal, 11)
             .frame(height: 38)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
     }
 
     private func openFirstResult() {

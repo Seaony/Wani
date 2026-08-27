@@ -4,8 +4,9 @@ struct WaniSidebar: View {
     let palette: WaniPalette
     let areas: [WaniArea]
     let projects: [WaniProject]
-    let todos: [WaniTodo]
     let counts: [WaniSmartList: Int]
+    let projectTallies: [UUID: WaniProjectTally]
+    let areaOpenCounts: [UUID: Int]
     let showCounts: Bool
     let showAreaLines: Bool
     @Binding var selection: WaniNavigationTarget
@@ -41,7 +42,7 @@ struct WaniSidebar: View {
                 .frame(height: 30)
                 .background(palette.hover, in: RoundedRectangle(cornerRadius: 8))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .accessibilityLabel("Search")
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
@@ -87,6 +88,7 @@ struct WaniSidebar: View {
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
                 .fixedSize()
+                .waniPointerFeedback(palette: palette)
                 .accessibilityLabel("New List")
                 .font(.system(size: 12.5))
                 .foregroundStyle(palette.secondaryText)
@@ -95,7 +97,7 @@ struct WaniSidebar: View {
                     Image(systemName: "slider.horizontal.3")
                         .foregroundStyle(palette.tertiaryText)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel("Settings")
             }
             .padding(.horizontal, 18)
@@ -111,7 +113,7 @@ struct WaniSidebar: View {
             HStack(spacing: 10) {
                 Image(systemName: list.symbolName)
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(list.symbolColor)
+                    .foregroundStyle(list == .trash ? palette.tertiaryText : list.symbolColor)
                     .frame(width: 20, height: 20)
                     .accessibilityHidden(true)
                 Text(list.title)
@@ -131,7 +133,7 @@ struct WaniSidebar: View {
                 in: RoundedRectangle(cornerRadius: 8)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .accessibilityLabel(list.title)
         .accessibilityValue(selection == .smart(list) ? "Selected" : "")
     }
@@ -150,7 +152,7 @@ struct WaniSidebar: View {
                         .font(.system(size: 9, weight: .bold))
                         .rotationEffect(.degrees(collapsedAreaIDs.contains(area.id) ? 0 : 90))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel(collapsedAreaIDs.contains(area.id) ? "Expand Area" : "Collapse Area")
 
                 Button {
@@ -160,7 +162,7 @@ struct WaniSidebar: View {
                         .font(.system(size: 10.5, weight: .bold))
                         .tracking(1.2)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel(area.title)
                 .accessibilityValue(selection == .area(area.id) ? "Selected" : "")
 
@@ -171,7 +173,7 @@ struct WaniSidebar: View {
                 } else {
                     Spacer(minLength: 0)
                 }
-                let count = areaOpenCount(area)
+                let count = areaOpenCounts[area.id] ?? 0
                 if showCounts, count > 0 {
                     Text(count.formatted())
                         .font(.system(size: 11))
@@ -232,8 +234,7 @@ struct WaniSidebar: View {
                 Text(project.title)
                     .font(.system(size: 13.5))
                 Spacer()
-                let openCount = WaniTaskRules.projectTasks(todos, projectID: project.id)
-                    .filter { $0.status == .open }.count
+                let openCount = projectTallies[project.id]?.open ?? 0
                 if showCounts, openCount > 0 {
                     Text(openCount.formatted())
                         .font(.system(size: 12))
@@ -256,13 +257,13 @@ struct WaniSidebar: View {
                 return reorderProject(movingID, project.id)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .accessibilityLabel(project.title)
         .accessibilityValue(selection == .project(project.id) ? "Selected" : "")
     }
 
     private func progressRing(for project: WaniProject) -> some View {
-        let progress = WaniTaskRules.projectProgress(todos, projectID: project.id)
+        let progress = projectTallies[project.id]?.progress ?? 0
         return ZStack {
             Circle().stroke(palette.line, lineWidth: 2)
             Circle()
@@ -271,17 +272,6 @@ struct WaniSidebar: View {
                 .rotationEffect(.degrees(-90))
         }
         .frame(width: 14, height: 14)
-    }
-
-    private func areaOpenCount(_ area: WaniArea) -> Int {
-        let projectIDs = Set(projects.filter { $0.area?.id == area.id }.map(\.id))
-        return todos.filter {
-            let belongsToArea = $0.area?.id == area.id
-                || $0.project.map { projectIDs.contains($0.id) } == true
-            return belongsToArea
-                && $0.deletedAt == nil
-                && $0.status == .open
-        }.count
     }
 
     private var divider: some View {

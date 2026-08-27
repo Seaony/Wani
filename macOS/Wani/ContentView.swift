@@ -107,8 +107,12 @@ struct ContentView: View {
                         palette: palette,
                         areas: areas,
                         projects: activeProjects,
-                        todos: todos,
                         counts: smartListCounts,
+                        projectTallies: WaniTaskRules.projectTallies(todos),
+                        areaOpenCounts: WaniTaskRules.openTodoCountsByArea(
+                            todos,
+                            projects: projects
+                        ),
                         showCounts: showSidebarCounts,
                         showAreaLines: showAreaLines,
                         selection: $selection,
@@ -184,6 +188,9 @@ struct ContentView: View {
                     apply: applyRepeatConfiguration,
                     dismiss: closeRepeatEditor
                 )
+                // The editor seeds its @State from the to-do in init, so switching
+                // to-dos has to be a new identity or the old draft would stick.
+                .id(todo.id)
             }
 
             if batchMoveOpen {
@@ -217,6 +224,8 @@ struct ContentView: View {
                 canDuplicate: !duplicateCommandTodos.isEmpty,
                 canRepeat: repeatCommandTodo != nil,
                 canSaveAndClose: focusedToolbarTodo != nil,
+                canTrash: selectedTodos.contains { $0.deletedAt == nil }
+                    || focusedToolbarTodo != nil,
                 openWhen: openWhenCommand,
                 openMove: openMoveCommand,
                 openTags: openTagsCommand,
@@ -227,11 +236,13 @@ struct ContentView: View {
                 duplicate: duplicateItemCommand,
                 saveAndClose: saveAndCloseItemCommand,
                 complete: completeItemCommand,
-                cancel: cancelItemCommand
+                cancel: cancelItemCommand,
+                moveToTrash: trashItemCommand
             )
         )
         .background(palette.background)
         .tint(palette.accent)
+        .buttonStyle(.waniInteractive(palette))
         .preferredColorScheme(appearance.colorScheme)
         .onAppear {
             if !appliedLaunchDestination {
@@ -307,7 +318,7 @@ struct ContentView: View {
                 .keyboardShortcut("/", modifiers: .command)
                 .accessibilityLabel(sidebarVisible ? "Hide Sidebar" : "Show Sidebar")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .foregroundStyle(palette.tertiaryText)
             .padding(.horizontal, 16)
             .frame(height: 46)
@@ -365,7 +376,7 @@ struct ContentView: View {
             Rectangle().fill(palette.faintLine).frame(height: 1)
 
             Group {
-                if selectedTodoIDs.isEmpty {
+                if selectedTodos.isEmpty {
                     standardToolbar
                 } else {
                     batchToolbar
@@ -474,6 +485,7 @@ struct ContentView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .waniPointerFeedback(palette: palette)
             .accessibilityLabel("Project Actions")
         } else if selectedArea != nil {
             Menu {
@@ -493,6 +505,7 @@ struct ContentView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .waniPointerFeedback(palette: palette)
             .accessibilityLabel("Area Actions")
         } else if selection == .smart(.trash), trashItemCount > 0 {
             Menu {
@@ -508,6 +521,7 @@ struct ContentView: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .waniPointerFeedback(palette: palette)
             .accessibilityLabel("Trash Actions")
         }
     }
@@ -631,7 +645,7 @@ struct ContentView: View {
                 .padding(.vertical, 4)
                 .background(isSelected ? palette.softAccent : Color.clear, in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette, cornerRadius: 12))
         .accessibilityLabel("Filter by \(title)")
     }
 
@@ -753,25 +767,30 @@ struct ContentView: View {
 
     @ViewBuilder
     private var smartProjectTaskContent: some View {
-        if visibleTodos.isEmpty {
+        let listTodos = visibleTodos
+        if listTodos.isEmpty {
             emptyState
         } else {
-            let ungrouped = visibleTodos.filter { $0.project == nil && $0.area == nil }
-            taskRows(ungrouped)
+            // Grouping once keeps this off the (areas + projects) × to-dos path that
+            // re-filtering `visibleTodos` inside each ForEach would take.
+            let byArea = Dictionary(grouping: listTodos.filter { $0.project == nil }) {
+                $0.area?.id
+            }
+            let byProject = Dictionary(
+                grouping: listTodos.filter { $0.project != nil }
+            ) { $0.project?.id }
+
+            taskRows(byArea[nil] ?? [])
 
             ForEach(areas) { area in
-                let areaTodos = visibleTodos.filter {
-                    $0.project == nil && $0.area?.id == area.id
-                }
-                if !areaTodos.isEmpty {
+                if let areaTodos = byArea[area.id], !areaTodos.isEmpty {
                     smartAreaHeader(area)
                     taskRows(areaTodos)
                 }
             }
 
             ForEach(activeProjects) { project in
-                let projectTodos = visibleTodos.filter { $0.project?.id == project.id }
-                if !projectTodos.isEmpty {
+                if let projectTodos = byProject[project.id], !projectTodos.isEmpty {
                     smartProjectHeader(project)
                     taskRows(projectTodos)
                 }
@@ -782,7 +801,11 @@ struct ContentView: View {
     @ViewBuilder
     private var areaTaskContent: some View {
         let areaProjects = activeProjects.filter { $0.area?.id == selectedArea?.id }
-        let areaTodos = visibleTodos.filter { $0.area?.id == selectedArea?.id }
+        let listTodos = visibleTodos
+        let areaTodos = listTodos.filter { $0.area?.id == selectedArea?.id }
+        let byProject = Dictionary(grouping: listTodos.filter { $0.project != nil }) {
+            $0.project?.id
+        }
         if areaProjects.isEmpty && areaTodos.isEmpty {
             emptyState
         } else {
@@ -795,10 +818,10 @@ struct ContentView: View {
                     smartProjectHeader(project)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel(project.title)
 
-                taskRows(visibleTodos.filter { $0.project?.id == project.id })
+                taskRows(byProject[project.id] ?? [])
             }
         }
     }
@@ -908,9 +931,14 @@ struct ContentView: View {
             .sorted { ($0.deletedAt ?? .distantPast) > ($1.deletedAt ?? .distantPast) }
     }
 
+    /// To-dos deleted along with their project are represented by the project's own
+    /// row. One deleted on its own beforehand is not, and `restoreProject` will not
+    /// bring it back either, so it has to keep its own row here.
     private var standaloneTrashedTodos: [WaniTodo] {
-        WaniTaskRules.tasks(todos, in: .trash)
-            .filter { $0.project?.deletedAt == nil }
+        WaniTaskRules.tasks(todos, in: .trash).filter { todo in
+            guard let projectDeletedAt = todo.project?.deletedAt else { return true }
+            return todo.deletedAt != projectDeletedAt
+        }
     }
 
     private var trashItemCount: Int {
@@ -928,7 +956,7 @@ struct ContentView: View {
                     .font(.system(size: 17))
                     .foregroundStyle(palette.accent)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .accessibilityLabel("Reopen Project")
 
             Text(project.title)
@@ -984,7 +1012,7 @@ struct ContentView: View {
                 deletePermanently(project)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .padding(.horizontal, 11)
         .padding(.vertical, density.rowPadding)
     }
@@ -995,11 +1023,11 @@ struct ContentView: View {
             emptyState
         }
 
-        let ungrouped = filteredProjectTodos.filter { $0.heading == nil }
-        taskRows(ungrouped)
+        let byHeading = Dictionary(grouping: filteredProjectTodos) { $0.heading?.id }
+        taskRows(byHeading[nil] ?? [])
 
         ForEach(projectHeadings) { heading in
-            let headingTodos = filteredProjectTodos.filter { $0.heading?.id == heading.id }
+            let headingTodos = byHeading[heading.id] ?? []
             WaniHeadingRow(
                 heading: heading,
                 palette: palette,
@@ -1043,15 +1071,18 @@ struct ContentView: View {
                 .padding(.horizontal, 11)
                 .frame(height: 40)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if projectLogbookExpanded {
-                taskRows(projectLoggedTodos.filter { $0.heading == nil })
+                let loggedByHeading = Dictionary(grouping: projectLoggedTodos) {
+                    $0.heading?.id
+                }
+                taskRows(loggedByHeading[nil] ?? [])
 
                 ForEach(projectLoggedHeadings) { heading in
                     loggedHeadingRow(heading)
-                    taskRows(projectLoggedTodos.filter { $0.heading?.id == heading.id })
+                    taskRows(loggedByHeading[heading.id] ?? [])
                 }
             }
         }
@@ -1072,7 +1103,7 @@ struct ContentView: View {
                 Button("Reopen") {
                     reopen(heading)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(palette.accent)
             }
@@ -1124,18 +1155,11 @@ struct ContentView: View {
     }
 
     private var smartListCounts: [WaniSmartList: Int] {
-        var counts = Dictionary(uniqueKeysWithValues: WaniSmartList.allCases.map { list in
-            let listTodos = WaniTaskRules.tasks(
-                todos,
-                in: list,
-                now: dateReference,
-                deferCompletedUntilMidnight: moveToLogbookAtMidnight
-            )
-            let count = list == .logbook
-                ? listTodos.count
-                : listTodos.filter { $0.status == .open }.count
-            return (list, count)
-        })
+        var counts = WaniTaskRules.smartListCounts(
+            todos,
+            now: dateReference,
+            deferCompletedUntilMidnight: moveToLogbookAtMidnight
+        )
         counts[.logbook, default: 0] += archivedProjects.count
         counts[.trash] = trashItemCount
         return counts
@@ -1146,7 +1170,8 @@ struct ContentView: View {
     }
 
     private var selectedTodos: [WaniTodo] {
-        displayedTodoIDs.compactMap { id in
+        guard !selectedTodoIDs.isEmpty else { return [] }
+        return displayedTodoIDs.compactMap { id in
             todos.first { $0.id == id && selectedTodoIDs.contains(id) }
         }
     }
@@ -1204,14 +1229,16 @@ struct ContentView: View {
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
             ).map(\.todos)
         case .smart(.anytime), .smart(.someday):
-            let ungrouped = visibleTodos.filter { $0.project == nil && $0.area == nil }
-            let areaSections = areas.map { area in
-                visibleTodos.filter { $0.project == nil && $0.area?.id == area.id }
+            let listTodos = visibleTodos
+            let byArea = Dictionary(grouping: listTodos.filter { $0.project == nil }) {
+                $0.area?.id
             }
-            let projectSections = activeProjects.map { project in
-                visibleTodos.filter { $0.project?.id == project.id }
-            }
-            sections = [ungrouped] + areaSections + projectSections
+            let byProject = Dictionary(
+                grouping: listTodos.filter { $0.project != nil }
+            ) { $0.project?.id }
+            let areaSections = areas.map { byArea[$0.id] ?? [] }
+            let projectSections = activeProjects.map { byProject[$0.id] ?? [] }
+            sections = [byArea[nil] ?? []] + areaSections + projectSections
         case .smart(.logbook):
             sections = logbookMonths.map(\.todos)
         case .smart(.trash):
@@ -1219,22 +1246,26 @@ struct ContentView: View {
         case .smart(.inbox):
             sections = [visibleTodos]
         case .area(let areaID):
-            let areaTodos = visibleTodos.filter { $0.area?.id == areaID }
-            let areaProjects = activeProjects.filter { $0.area?.id == areaID }
-            let projectSections = areaProjects.map { project in
-                visibleTodos.filter { $0.project?.id == project.id }
-            }
+            let listTodos = visibleTodos
+            let areaTodos = listTodos.filter { $0.area?.id == areaID }
+            let byProject = Dictionary(
+                grouping: listTodos.filter { $0.project != nil }
+            ) { $0.project?.id }
+            let projectSections = activeProjects
+                .filter { $0.area?.id == areaID }
+                .map { byProject[$0.id] ?? [] }
             sections = [areaTodos] + projectSections
         case .project:
-            let ungrouped = filteredProjectTodos.filter { $0.heading == nil }
-            let headingSections = projectHeadings.map { heading in
-                filteredProjectTodos.filter { $0.heading?.id == heading.id }
-            }
-            var projectSections = [ungrouped] + headingSections
+            let byHeading = Dictionary(grouping: filteredProjectTodos) { $0.heading?.id }
+            var projectSections = [byHeading[nil] ?? []]
+                + projectHeadings.map { byHeading[$0.id] ?? [] }
             if projectLogbookExpanded {
-                projectSections.append(projectLoggedTodos.filter { $0.heading == nil })
-                projectSections.append(contentsOf: projectLoggedHeadings.map { heading in
-                    projectLoggedTodos.filter { $0.heading?.id == heading.id }
+                let loggedByHeading = Dictionary(grouping: projectLoggedTodos) {
+                    $0.heading?.id
+                }
+                projectSections.append(loggedByHeading[nil] ?? [])
+                projectSections.append(contentsOf: projectLoggedHeadings.map {
+                    loggedByHeading[$0.id] ?? []
                 })
             }
             sections = projectSections
@@ -1343,6 +1374,7 @@ struct ContentView: View {
 
     private var pageSymbolColor: Color {
         switch selection {
+        case .smart(.trash): palette.tertiaryText
         case .smart(let list): list.symbolColor
         case .area: palette.accent
         case .project: palette.accent
@@ -1395,7 +1427,7 @@ struct ContentView: View {
                 Button("Capture something") {
                     quickEntryOpen = true
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(.white)
                 .padding(.horizontal, 16)
@@ -1449,7 +1481,7 @@ struct ContentView: View {
                 .foregroundStyle(palette.secondaryText)
                 .frame(width: 36, height: 32)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .accessibilityLabel(label)
     }
 
@@ -1468,6 +1500,10 @@ struct ContentView: View {
                 searchOpen = true
             }
             .keyboardShortcut("f", modifiers: .command)
+
+            Button("Select All", action: selectAllTodos)
+                .keyboardShortcut("a", modifiers: .command)
+                .disabled(displayedTodoIDs.isEmpty)
 
             navigationShortcut("Go to Inbox", key: "1", list: .inbox)
             navigationShortcut("Go to Today", key: "2", list: .today)
@@ -1615,13 +1651,6 @@ struct ContentView: View {
             toolbarButton("magnifyingglass", label: "Search") {
                 searchOpen = true
             }
-
-            Button("Select All", action: selectAllTodos)
-                .buttonStyle(.plain)
-                .keyboardShortcut("a", modifiers: .command)
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .accessibilityHidden(true)
         }
     }
 
@@ -1630,7 +1659,7 @@ struct ContentView: View {
             batchToolbarContent(showsTitles: true)
             batchToolbarContent(showsTitles: false)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .font(.system(size: 12.5))
         .foregroundStyle(palette.secondaryText)
         .padding(.horizontal, 18)
@@ -1638,7 +1667,7 @@ struct ContentView: View {
 
     private func batchToolbarContent(showsTitles: Bool) -> some View {
         HStack(spacing: 8) {
-            Text("\(selectedTodoIDs.count) selected")
+            Text("\(selectedTodos.count) selected")
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(palette.secondaryText)
                 .padding(.trailing, 8)
@@ -2285,6 +2314,15 @@ struct ContentView: View {
         }
     }
 
+    private func trashItemCommand() {
+        if selectedTodos.isEmpty {
+            guard let todo = focusedToolbarTodo else { return }
+            moveToTrash(todo)
+        } else {
+            trashSelectedTodos()
+        }
+    }
+
     private func cancelItemCommand() {
         if selectedTodos.isEmpty {
             if let todo = focusedToolbarTodo {
@@ -2652,7 +2690,11 @@ struct ContentView: View {
         }
         modelContext.delete(area)
         saveChanges()
-        selection = areaProjects.isEmpty ? .smart(.today) : .smart(.trash)
+        // Loose to-dos land in the Trash just like projects do, so an area that only
+        // held to-dos must not send you somewhere that shows none of them.
+        selection = areaProjects.isEmpty && areaTodos.isEmpty
+            ? .smart(.today)
+            : .smart(.trash)
     }
 
     private func focusHeaderTitle() {
@@ -2710,8 +2752,11 @@ struct ContentView: View {
     private func restore(_ project: WaniProject) {
         WaniTaskRules.restoreProject(project, todos: todos)
         saveChanges()
-        for todo in todos where todo.project?.id == project.id && todo.deletedAt == nil {
-            Task {
+        let restoredTodos = todos.filter {
+            $0.project?.id == project.id && $0.deletedAt == nil
+        }
+        Task {
+            for todo in restoredTodos {
                 await WaniReminderScheduler.sync(
                     todo,
                     requestAuthorization: false,
@@ -2742,7 +2787,12 @@ struct ContentView: View {
 
     private func emptyTrash() {
         let projectsToDelete = trashedProjects
-        let todosToDelete = standaloneTrashedTodos
+        let projectIDs = Set(projectsToDelete.map(\.id))
+        // A to-do trashed before its project now has its own row, so skip it here and
+        // let deleteProjectPermanently sweep it exactly once.
+        let todosToDelete = standaloneTrashedTodos.filter { todo in
+            todo.project.map { !projectIDs.contains($0.id) } ?? true
+        }
 
         for todo in todosToDelete {
             WaniReminderScheduler.cancel(todo)
@@ -2845,8 +2895,15 @@ struct ContentView: View {
         widgetQuickEntryDestination = nil
     }
 
-    private var widgetSnapshotRevision: [Date] {
-        (todos.map(\.updatedAt) + projects.map(\.updatedAt)).sorted()
+    private var widgetSnapshotRevision: WaniSnapshotRevision {
+        WaniSnapshotRevision(
+            todoCount: todos.count,
+            projectCount: projects.count,
+            latestChange: max(
+                todos.lazy.map(\.updatedAt).max() ?? .distantPast,
+                projects.lazy.map(\.updatedAt).max() ?? .distantPast
+            )
+        )
     }
 
     private func refreshWidgetSnapshot() {
@@ -2993,8 +3050,8 @@ struct ContentView: View {
         }
         saveChanges()
 
-        for todo in generated {
-            Task {
+        Task {
+            for todo in generated {
                 await WaniReminderScheduler.sync(
                     todo,
                     requestAuthorization: false,

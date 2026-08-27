@@ -130,6 +130,10 @@ final class WaniTodo {
     var canceledAt: Date?
     var loggedAt: Date?
     var deletedAt: Date?
+    /// Set when a to-do is captured and cleared once it has been looked at. iOS
+    /// badges these; macOS ignores the flag but must carry it so the two platforms
+    /// share one CloudKit schema.
+    var isNew: Bool = false
     var area: WaniArea?
     var project: WaniProject?
     var heading: WaniHeading?

@@ -1,5 +1,31 @@
 # Wani iCloud 验收记录
 
+## 2026-08-27：iOS 接入共享数据层与同一 CloudKit 容器
+
+此前 iOS 是一个独立 App：自带一套精简 SwiftData 模型（无 Heading、无 `WaniTodo.area`、无 `canceledAt`/`reminderDate`/全部 repeat 字段），store 名 `Wani-iOS`，且 `cloudKitDatabase: .none`，与 macOS 之间不共享任何数据。
+
+本次改为：
+
+- 新建仓库根目录 `Shared/`，收纳 `WaniModels.swift`、`WaniTaskRules.swift`、`WaniPersistence.swift`、`WaniWidgetSnapshot.swift`，两个工程通过各自的文件夹同步组共同引用同一份文件。iOS 侧的四份副本已删除。
+- iOS `Wani.entitlements` 增加 `iCloud.com.seaony.wani.Wani` 容器、CloudKit 服务与 ubiquity KV store 标识。
+- iOS `WaniApp` 与 macOS 采用同一套启动规则：Debug 默认本地存储，仅 `--cloud-sync` 时启用 CloudKit；Release 启用。
+- 共享模型新增 `WaniTodo.isNew`（iOS 的新待办徽标使用，macOS 不展示但必须携带，否则两端 schema 不一致）。
+
+已完成的后台验证：
+
+- macOS 与 iOS 两个工程的 Debug、Release 构建，以及各自的 `WaniTests`（macOS 59 项、iOS 7 项）。
+- `iOS/WaniTests` 新增 `sharedDataLayer()` 契约测试，断言 iOS 使用同一 CloudKit 容器标识，且 schema 含全部 5 个实体、Heading/area/取消/提醒/重复字段可正常读写。
+
+**尚未验证，不得视为通过**：
+
+- 真实签名下 macOS ↔ iOS 的跨端双向同步。阻塞原因与下方 2026-08-26 记录相同（Personal Team 不支持 iCloud capability）。
+- 共享 schema 新增 `isNew` 字段对既有本地 store 的迁移：本机 macOS 既有数据未做迁移实测。CloudKit 侧因为从未真正建过 schema，暂无生产环境影响。
+
+需要注意的数据影响：
+
+- iOS 的 store 名由 `Wani-iOS` 变为与 macOS 一致的 `Wani`。旧 store 文件不会被读取，等于 iOS 端本地数据从空开始。iOS target 建立于 2026-08-27，此前只在模拟器上用内存存储和演示数据验收过，判断无真实数据风险；若某台真机上存有需要保留的 iOS 数据，需要改回沿用 `Wani-iOS` 并依赖 SwiftData 轻量迁移。
+- iOS 的 Upcoming 计数改用共享规则后，会把「只有截止日期、没有开始日期」的任务也计入。这与 iOS Upcoming 列表实际渲染的内容一致（列表本来就用共享的 `upcomingDays`），修正了此前计数与列表对不上的问题，但 iOS 上的角标数字会变。
+
 ## 2026-08-26：签名能力阻塞
 
 工程已经配置以下 CloudKit 基础：

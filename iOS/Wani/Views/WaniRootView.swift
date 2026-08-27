@@ -4,7 +4,7 @@ struct WaniRootView: View {
     let areas: [WaniArea]
     let projects: [WaniProject]
     let todos: [WaniTodo]
-    let projectMetrics: [UUID: WaniProjectMetrics]
+    let projectMetrics: [UUID: WaniProjectTally]
     let listCounts: [WaniSmartList: Int]
     let palette: WaniPalette
     let open: (WaniRoute) -> Void

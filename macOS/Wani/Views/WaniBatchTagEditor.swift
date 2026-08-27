@@ -21,7 +21,7 @@ struct WaniBatchTagEditor: View {
                     .focused($queryFocused)
                     .onSubmit(addQueryTag)
                 Button("Clear", action: clear)
-                    .buttonStyle(.plain)
+                    .buttonStyle(.waniInteractive(palette))
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(palette.accent)
                     .disabled(selectedTagNames.allSatisfy(\.isEmpty))
@@ -47,7 +47,7 @@ struct WaniBatchTagEditor: View {
                                 .frame(height: 34)
                                 .contentShape(Rectangle())
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.waniInteractive(palette))
                         .accessibilityLabel("Add tag \(normalizedQuery)")
                     } else if filteredTags.isEmpty {
                         Text("No tags yet")
@@ -103,7 +103,7 @@ struct WaniBatchTagEditor: View {
             .frame(height: 34)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .accessibilityLabel("Tag \(tag)")
         .accessibilityValue(isOn ? "Selected" : (isMixed ? "Mixed" : "Not Selected"))
     }

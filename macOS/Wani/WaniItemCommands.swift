@@ -7,6 +7,7 @@ struct WaniItemCommandActions {
     let canDuplicate: Bool
     let canRepeat: Bool
     let canSaveAndClose: Bool
+    let canTrash: Bool
     let openWhen: () -> Void
     let openMove: () -> Void
     let openTags: () -> Void
@@ -18,6 +19,7 @@ struct WaniItemCommandActions {
     let saveAndClose: () -> Void
     let complete: () -> Void
     let cancel: () -> Void
+    let moveToTrash: () -> Void
 }
 
 private struct WaniItemCommandActionsKey: FocusedValueKey {
@@ -35,6 +37,10 @@ struct WaniItemCommands: Commands {
     @FocusedValue(\.waniItemCommandActions) private var actions
 
     var body: some Commands {
+        // The default WindowGroup "New Window" item claims ⌘N in the File menu, and a
+        // menu key equivalent wins over the in-window New To-Do shortcut.
+        CommandGroup(replacing: .newItem) { }
+
         CommandGroup(replacing: .pasteboard) {
             Button("Cut") {
                 NSApp.sendAction(#selector(NSText.cut(_:)), to: nil, from: nil)
@@ -110,6 +116,15 @@ struct WaniItemCommands: Commands {
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(actions?.canRepeat != true)
+
+            Divider()
+
+            // Replacing the pasteboard group drops the system Delete item, which left
+            // no menu path to this app's destructive action.
+            Button("Move to Trash", role: .destructive) {
+                actions?.moveToTrash()
+            }
+            .disabled(actions?.canTrash != true)
         }
     }
 }

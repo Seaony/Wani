@@ -13,6 +13,7 @@ struct WaniQuickEntry: View {
             Color.black.opacity(0.24)
                 .ignoresSafeArea()
                 .onTapGesture(perform: dismiss)
+                .waniPointingHand()
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("QUICK ENTRY")
@@ -42,7 +43,7 @@ struct WaniQuickEntry: View {
                         .foregroundStyle(palette.tertiaryText)
                     Spacer()
                     Button("Save", action: save)
-                        .buttonStyle(.plain)
+                        .buttonStyle(.waniInteractive(palette))
                         .font(.system(size: 12.5, weight: .medium))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 15)

@@ -297,6 +297,64 @@ struct WaniTaskRulesTests {
         #expect([first, second, third].allSatisfy { $0.updatedAt == updatedAt })
     }
 
+    @Test("Reordering separates to-dos that share a sort slot")
+    func reorderTodosSharingSortOrder() {
+        let first = WaniTodo(title: "First", sortOrder: 1)
+        let second = WaniTodo(title: "Second", sortOrder: 1)
+        let third = WaniTodo(title: "Third", sortOrder: 3)
+        first.createdAt = date(2026, 8, 26, 9)
+        second.createdAt = date(2026, 8, 26, 10)
+        third.createdAt = date(2026, 8, 26, 11)
+
+        #expect(
+            WaniTaskRules.reorder(
+                [first, second, third],
+                moving: third.id,
+                to: first.id
+            )
+        )
+
+        let ordered = [first, second, third].sorted { lhs, rhs in
+            if lhs.sortOrder == rhs.sortOrder {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        #expect(ordered.map(\.title) == ["Third", "First", "Second"])
+    }
+
+    @Test("Reordering checklist items separates items that share a sort slot")
+    func reorderChecklistItemsSharingSortOrder() {
+        let first = WaniChecklistItem(title: "First", sortOrder: 2)
+        let second = WaniChecklistItem(title: "Second", sortOrder: 2)
+        let third = WaniChecklistItem(title: "Third", sortOrder: 2)
+        first.createdAt = date(2026, 8, 26, 9)
+        second.createdAt = date(2026, 8, 26, 10)
+        third.createdAt = date(2026, 8, 26, 11)
+
+        #expect(WaniTaskRules.reorderChecklistItems(
+            [first, second, third],
+            moving: third.id,
+            to: first.id
+        ))
+
+        let ordered = [first, second, third].sorted { lhs, rhs in
+            if lhs.sortOrder == rhs.sortOrder {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.sortOrder < rhs.sortOrder
+        }
+        #expect(ordered.map(\.title) == ["Third", "First", "Second"])
+    }
+
+    @Test("Shared sort slots are pushed apart without disturbing distinct slots")
+    func distinctSortOrders() {
+        #expect(WaniTaskRules.distinctSortOrders([4, 9, 15]) == [4, 9, 15])
+        #expect(WaniTaskRules.distinctSortOrders([1, 1, 3]) == [1, 2, 3])
+        #expect(WaniTaskRules.distinctSortOrders([2, 2, 2]) == [2, 3, 4])
+        #expect(WaniTaskRules.distinctSortOrders([]).isEmpty)
+    }
+
     @Test("Reordering checklist items preserves the checklist's sort slots")
     func reorderChecklistItems() {
         let first = WaniChecklistItem(title: "First", sortOrder: 2)
@@ -527,6 +585,143 @@ struct WaniTaskRulesTests {
         #expect(next?.tagNames == ["Review"])
         #expect(next?.checklistItems?.first?.isCompleted == false)
         #expect(todo.repeatGeneratedNextStartDate == next?.startDate)
+    }
+
+    @Test("Batched smart list counts agree with counting each list on its own")
+    func smartListCountsMatchPerListCounting() {
+        let now = date(2026, 8, 27, 12)
+        let project = WaniProject(title: "Mantis")
+        let inbox = WaniTodo(title: "Inbox", schedule: .inbox)
+        let today = WaniTodo(
+            title: "Today",
+            schedule: .date,
+            startDate: date(2026, 8, 27, 0)
+        )
+        let upcoming = WaniTodo(
+            title: "Upcoming",
+            schedule: .date,
+            startDate: date(2026, 8, 30, 0)
+        )
+        let anytime = WaniTodo(title: "Anytime", schedule: .anytime, project: project)
+        let someday = WaniTodo(title: "Someday", schedule: .someday)
+        let done = WaniTodo(title: "Done", schedule: .anytime)
+        WaniTaskRules.complete(done, at: date(2026, 8, 26, 10), calendar: calendar)
+        let trashed = WaniTodo(title: "Trashed", schedule: .anytime)
+        WaniTaskRules.moveToTrash(trashed, at: date(2026, 8, 26, 11))
+        let todos = [inbox, today, upcoming, anytime, someday, done, trashed]
+
+        for deferred in [false, true] {
+            let batched = WaniTaskRules.smartListCounts(
+                todos,
+                now: now,
+                calendar: calendar,
+                deferCompletedUntilMidnight: deferred
+            )
+            for list in WaniSmartList.allCases {
+                let listTodos = WaniTaskRules.tasks(
+                    todos,
+                    in: list,
+                    now: now,
+                    calendar: calendar,
+                    deferCompletedUntilMidnight: deferred
+                )
+                let expected = list == .logbook
+                    ? listTodos.count
+                    : listTodos.filter { $0.status == .open }.count
+                #expect(batched[list] == expected)
+            }
+        }
+    }
+
+    @Test("Batched project tallies agree with per-project counting")
+    func projectTalliesMatchPerProjectCounting() {
+        let first = WaniProject(title: "Mantis")
+        let second = WaniProject(title: "Wani")
+        let open = WaniTodo(title: "Open", project: first)
+        let completed = WaniTodo(title: "Completed", project: first)
+        WaniTaskRules.complete(completed, at: date(2026, 8, 26, 10), calendar: calendar)
+        let canceled = WaniTodo(title: "Canceled", project: first)
+        WaniTaskRules.cancel(canceled, at: date(2026, 8, 26, 11))
+        let trashed = WaniTodo(title: "Trashed", project: first)
+        WaniTaskRules.moveToTrash(trashed, at: date(2026, 8, 26, 12))
+        let loose = WaniTodo(title: "Loose")
+        let todos = [open, completed, canceled, trashed, loose]
+
+        let tallies = WaniTaskRules.projectTallies(todos)
+
+        for project in [first, second] {
+            let projectTodos = WaniTaskRules.projectTasks(todos, projectID: project.id)
+            #expect(
+                tallies[project.id]?.open ?? 0
+                    == projectTodos.filter { $0.status == .open }.count
+            )
+            #expect(
+                tallies[project.id]?.progress ?? 0
+                    == WaniTaskRules.projectProgress(todos, projectID: project.id)
+            )
+        }
+        // Canceled to-dos leave progress at 1/2, not 1/3, and the trashed one is gone.
+        #expect(tallies[first.id] == WaniProjectTally(open: 1, completed: 1, uncanceled: 2))
+    }
+
+    @Test("Area counts include loose to-dos and everything in the area's projects")
+    func areaOpenCounts() {
+        let area = WaniArea(title: "Personal")
+        let other = WaniArea(title: "Work")
+        let project = WaniProject(title: "Mantis", area: area)
+        let looseInArea = WaniTodo(title: "Loose", area: area)
+        let inProject = WaniTodo(title: "In project", project: project)
+        let completed = WaniTodo(title: "Completed", project: project)
+        WaniTaskRules.complete(completed, at: date(2026, 8, 26, 10), calendar: calendar)
+        let trashed = WaniTodo(title: "Trashed", area: area)
+        WaniTaskRules.moveToTrash(trashed, at: date(2026, 8, 26, 11))
+        let unfiled = WaniTodo(title: "Unfiled")
+
+        let counts = WaniTaskRules.openTodoCountsByArea(
+            [looseInArea, inProject, completed, trashed, unfiled],
+            projects: [project]
+        )
+
+        #expect(counts[area.id] == 2)
+        #expect(counts[other.id] == nil)
+    }
+
+    @Test("A long backlog of due repeats only materialises the most recent ones")
+    func regularRepeatBacklogIsCapped() {
+        let now = date(2026, 8, 26, 12)
+        let todo = WaniTodo(
+            title: "Daily review",
+            schedule: .date,
+            startDate: date(2024, 8, 26, 9)
+        )
+        todo.repeatFrequency = .daily
+
+        let generated = WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: now,
+            calendar: calendar,
+            maximumOccurrences: 5
+        )
+
+        // Two years of daily misses collapse to the five newest occurrences,
+        // ending on today rather than inserting ~730 to-dos.
+        #expect(generated.count == 5)
+        #expect(generated.map(\.startDate) == [
+            date(2026, 8, 22, 9),
+            date(2026, 8, 23, 9),
+            date(2026, 8, 24, 9),
+            date(2026, 8, 25, 9),
+            date(2026, 8, 26, 9),
+        ])
+        // The source still points at the first missed occurrence, so the backlog
+        // is not walked again on the next launch.
+        #expect(todo.repeatGeneratedNextStartDate == date(2024, 8, 27, 9))
+        #expect(WaniTaskRules.generateDueRegularOccurrences(
+            from: todo,
+            through: now,
+            calendar: calendar,
+            maximumOccurrences: 5
+        ).isEmpty)
     }
 
     @Test("Regular repeats generate due copies without completing earlier copies")

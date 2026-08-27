@@ -45,6 +45,7 @@ struct WaniSettingsOverlay: View {
             Color.black.opacity(0.24)
                 .ignoresSafeArea()
                 .onTapGesture(perform: dismiss)
+                .waniPointingHand()
 
             VStack(spacing: 0) {
                 titleBar
@@ -84,7 +85,7 @@ struct WaniSettingsOverlay: View {
                 Circle().fill(Color(red: 0.94, green: 0.40, blue: 0.36))
                     .frame(width: 12, height: 12)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.waniInteractive(palette))
             .accessibilityLabel("Close Settings")
             Circle().fill(palette.line).frame(width: 12, height: 12)
             Circle().fill(palette.line).frame(width: 12, height: 12)
@@ -119,7 +120,7 @@ struct WaniSettingsOverlay: View {
                         in: RoundedRectangle(cornerRadius: 6)
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel(item.rawValue)
                 .accessibilityIdentifier("settings-tab-\(item.rawValue)")
             }
@@ -157,7 +158,7 @@ struct WaniSettingsOverlay: View {
                                     }
                                 }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.waniInteractive(palette))
                         .accessibilityLabel(item.title)
                     }
                 }
@@ -181,6 +182,7 @@ struct WaniSettingsOverlay: View {
                 .labelsHidden()
                 .pickerStyle(.segmented)
                 .frame(width: 250)
+                .waniPointingHand()
             }
         }
         .padding(.horizontal, 26)
@@ -214,6 +216,7 @@ struct WaniSettingsOverlay: View {
                 }
                 .labelsHidden()
                 .frame(width: 150)
+                .waniPointingHand()
             }
 
             settingRow("Notifications") {
@@ -267,6 +270,7 @@ struct WaniSettingsOverlay: View {
                     }
                     .labelsHidden()
                     .frame(width: 160)
+                    .waniPointingHand()
 
                     if !quickEntryShortcutError.isEmpty {
                         Text(quickEntryShortcutError)
@@ -349,7 +353,7 @@ struct WaniSettingsOverlay: View {
                 Button("Check Again") {
                     cloudSyncMonitor.refreshAccountStatus()
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.waniInteractive(palette))
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(palette.accent)
             }
@@ -400,7 +404,7 @@ struct WaniSettingsOverlay: View {
                     .stroke(appearance == item ? palette.accent : palette.line, lineWidth: appearance == item ? 2 : 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.waniInteractive(palette))
         .accessibilityLabel(item.title)
     }
 
@@ -425,6 +429,7 @@ struct WaniSettingsOverlay: View {
             .font(.system(size: 13))
             .foregroundStyle(palette.text)
             .tint(palette.accent)
+            .waniPointingHand()
     }
 
     private var launchAtLoginBinding: Binding<Bool> {

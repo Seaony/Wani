@@ -18,7 +18,19 @@ struct WaniApp: App {
                 arguments: ProcessInfo.processInfo.arguments,
                 environment: ProcessInfo.processInfo.environment
             )
-            modelContainer = try WaniPersistence.makeContainer(inMemory: inMemory)
+            // Mirrors the macOS launch rules: Debug stays on the local store unless
+            // --cloud-sync is passed, so an unsigned simulator run never fails on a
+            // CloudKit container it cannot reach.
+            #if DEBUG
+            let enablesCloudSync = ProcessInfo.processInfo.arguments.contains("--cloud-sync")
+                && !inMemory
+            #else
+            let enablesCloudSync = true
+            #endif
+            modelContainer = try WaniPersistence.makeContainer(
+                inMemory: inMemory,
+                cloudSync: enablesCloudSync
+            )
         } catch {
             fatalError("Unable to initialize Wani storage: \(error)")
         }
