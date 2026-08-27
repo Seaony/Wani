@@ -38,7 +38,14 @@
 
 设计稿已在 Dia 中逐项检查；实现包含对应的小、中、大尺寸、浅深色自适应、任务完成与延期入口、快速录入入口，以及由主应用导出到 App Group 的只读快照。后台构建、测试与静态分析结果见 [后台构建与测试记录](build-validation.md)。
 
-尚未完成系统桌面上的视觉与交互验收：Xcode Canvas 和可安装小组件都需要有效签名，而当前 Personal Team 不支持项目已有的 iCloud capability。已使用 Xcode 前台实际触发并确认该错误，不能将这一项视为通过；继续条件见 [iCloud 验收记录](icloud-validation.md)。
+已使用 Computer Use 完成系统桌面验收：
+
+- 使用仅保留 App Sandbox 与 App Group 的临时 Debug 签名配置启动 Wani，未修改工程签名配置。
+- 系统小组件图库识别并展示全部 9 种 Wani 配置；首屏与底部预览的尺寸、暖色卡片、强调色、排版和样例内容均与设计稿对应。
+- Next Up 已实际加入桌面并读取主应用导出的 App Group 快照，当前无 Today 任务时正确显示 `Nothing left today` 与 `Enjoy the quiet` 空状态。
+- 验收产生的临时桌面小组件已全部移除，原有桌面布局未保留测试组件。
+
+正式 iCloud 签名与 CloudKit 双实例同步仍受当前 Personal Team capability 限制，继续条件见 [iCloud 验收记录](icloud-validation.md)。
 
 ## 2026-08-26：人工检查
 

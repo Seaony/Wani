@@ -14,9 +14,10 @@
 因此以下验收尚未执行，不能视为通过：
 
 - 签名版本连接用户私有 CloudKit 数据库
-- 主应用与 `WaniWidgets.appex` 使用 App Group 交换快照，以及小组件安装到系统桌面后的显示和深链接交互
 - 两个独立实例之间新增、编辑、完成、删除和恢复的双向同步
 - 离线修改后恢复联网的自动合并与同步
+
+桌面小组件本身已使用临时 Debug entitlement 单独完成系统验收：该配置移除 iCloud、保留 App Sandbox 与 App Group，签名构建成功；系统图库识别全部 9 种配置，Next Up 实际加入桌面后能够读取主应用导出的 App Group 快照。此结果只证明本地小组件与 App Group 路径，不代表正式 iCloud 签名或 CloudKit 同步通过。
 
 继续验收需要先在 Xcode 中选择支持 iCloud capability 的开发团队，并确保该团队能够为上述 Bundle ID 和 CloudKit 容器签发 provisioning profile。完成后重新执行签名 Release 构建，再进行双实例实测。
 
