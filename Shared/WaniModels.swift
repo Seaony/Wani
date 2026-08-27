@@ -40,6 +40,7 @@ final class WaniArea {
     var id: UUID = UUID()
     var title: String = ""
     var notes: String = ""
+    var symbolName: String = "cube.transparent"
     var sortOrder: Double = 0
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
@@ -50,8 +51,13 @@ final class WaniArea {
     @Relationship(deleteRule: .nullify, inverse: \WaniTodo.area)
     var todos: [WaniTodo]? = []
 
-    init(title: String, sortOrder: Double = 0) {
+    init(
+        title: String,
+        symbolName: String = "cube.transparent",
+        sortOrder: Double = 0
+    ) {
         self.title = title
+        self.symbolName = symbolName
         self.sortOrder = sortOrder
     }
 }

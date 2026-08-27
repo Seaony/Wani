@@ -179,6 +179,11 @@ struct WaniSettingsView: View {
                 Button("Manage…") {
                     WaniStartupService.openManagement()
                 }
+                .buttonStyle(.waniInteractive(
+                    palette,
+                    horizontalPadding: 7,
+                    verticalPadding: 5
+                ))
             }
 
             Toggle("Show icon in the menu bar", isOn: $showMenuBarIcon)
@@ -347,6 +352,11 @@ struct WaniSettingsView: View {
             Button("Check Again") {
                 cloudSyncMonitor.refreshAccountStatus()
             }
+            .buttonStyle(.waniInteractive(
+                palette,
+                horizontalPadding: 7,
+                verticalPadding: 5
+            ))
         }
     }
 

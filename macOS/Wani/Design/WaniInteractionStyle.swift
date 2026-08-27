@@ -5,9 +5,13 @@ struct WaniInteractiveButtonStyle: ButtonStyle {
     let palette: WaniPalette
     var cornerRadius: CGFloat = 8
     var showsHoverBackground = true
+    var horizontalPadding: CGFloat = 0
+    var verticalPadding: CGFloat = 0
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
             .waniPointerFeedback(
                 palette: palette,
                 cornerRadius: cornerRadius,
@@ -21,12 +25,16 @@ extension ButtonStyle where Self == WaniInteractiveButtonStyle {
     static func waniInteractive(
         _ palette: WaniPalette,
         cornerRadius: CGFloat = 8,
-        showsHoverBackground: Bool = true
+        showsHoverBackground: Bool = true,
+        horizontalPadding: CGFloat = 0,
+        verticalPadding: CGFloat = 0
     ) -> WaniInteractiveButtonStyle {
         WaniInteractiveButtonStyle(
             palette: palette,
             cornerRadius: cornerRadius,
-            showsHoverBackground: showsHoverBackground
+            showsHoverBackground: showsHoverBackground,
+            horizontalPadding: horizontalPadding,
+            verticalPadding: verticalPadding
         )
     }
 }

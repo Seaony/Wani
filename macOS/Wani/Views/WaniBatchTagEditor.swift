@@ -21,7 +21,11 @@ struct WaniBatchTagEditor: View {
                     .focused($queryFocused)
                     .onSubmit(addQueryTag)
                 Button("Clear", action: clear)
-                    .buttonStyle(.waniInteractive(palette))
+                    .buttonStyle(.waniInteractive(
+                        palette,
+                        horizontalPadding: 7,
+                        verticalPadding: 5
+                    ))
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(palette.accent)
                     .disabled(selectedTagNames.allSatisfy(\.isEmpty))

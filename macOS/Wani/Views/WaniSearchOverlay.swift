@@ -100,7 +100,7 @@ struct WaniSearchOverlay: View {
                                 resultRow(
                                     title: area.title,
                                     location: "Area",
-                                    symbol: "cube.transparent",
+                                    symbol: area.symbolName,
                                     action: { openArea(area) }
                                 )
                             }

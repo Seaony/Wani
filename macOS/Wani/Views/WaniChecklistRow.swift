@@ -26,6 +26,7 @@ struct WaniChecklistRow: View {
                     }
                 }
                 .frame(width: 14, height: 14)
+                .padding(5)
             }
             .buttonStyle(.waniInteractive(palette))
             .accessibilityLabel(item.isCompleted ? "Reopen checklist item" : "Complete checklist item")
@@ -39,6 +40,7 @@ struct WaniChecklistRow: View {
             Button(action: delete) {
                 Image(systemName: "xmark")
                     .font(.system(size: 9, weight: .semibold))
+                    .frame(width: 24, height: 24)
             }
             .buttonStyle(.waniInteractive(palette))
             .foregroundStyle(palette.tertiaryText)

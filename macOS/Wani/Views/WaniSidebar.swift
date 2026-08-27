@@ -6,18 +6,21 @@ struct WaniSidebar: View {
     let projects: [WaniProject]
     let counts: [WaniSmartList: Int]
     let projectTallies: [UUID: WaniProjectTally]
-    let areaOpenCounts: [UUID: Int]
     let showCounts: Bool
     let showAreaLines: Bool
     @Binding var selection: WaniNavigationTarget
     let openSearch: () -> Void
     let createArea: () -> Void
     let createProject: () -> Void
+    let updateAreaSymbol: (WaniArea, String) -> Void
     let reorderArea: (UUID, UUID) -> Bool
     let reorderProject: (UUID, UUID) -> Bool
+    let moveTodoToArea: (UUID, WaniArea) -> Bool
+    let moveTodoToProject: (UUID, WaniProject) -> Bool
     let openSettings: () -> Void
 
     @State private var collapsedAreaIDs: Set<UUID> = []
+    @State private var symbolPickerAreaID: UUID?
 
     private let primaryLists: [WaniSmartList] = [
         .inbox, .today, .upcoming, .anytime, .someday,
@@ -52,13 +55,13 @@ struct WaniSidebar: View {
                         smartListRow(list)
                     }
 
-                    divider
+                    sectionSpacing
 
                     ForEach(archiveLists) { list in
                         smartListRow(list)
                     }
 
-                    divider
+                    sectionSpacing
 
                     ForEach(areas) { area in
                         areaSection(area)
@@ -83,6 +86,8 @@ struct WaniSidebar: View {
                     Button("New Area", systemImage: "cube.transparent", action: createArea)
                 } label: {
                     Label("New List", systemImage: "plus")
+                        .padding(.horizontal, 6)
+                        .frame(height: 28)
                 }
                 .menuStyle(.borderlessButton)
                 .menuIndicator(.hidden)
@@ -95,6 +100,7 @@ struct WaniSidebar: View {
                 Button(action: openSettings) {
                     Image(systemName: "slider.horizontal.3")
                         .foregroundStyle(palette.tertiaryText)
+                        .frame(width: 28, height: 28)
                 }
                 .buttonStyle(.waniInteractive(palette))
                 .accessibilityLabel("Settings")
@@ -157,20 +163,35 @@ struct WaniSidebar: View {
         VStack(spacing: 1) {
             HStack(spacing: 6) {
                 Button {
-                    withAnimation(WaniMotion.standard) {
-                        if collapsedAreaIDs.contains(area.id) {
-                            collapsedAreaIDs.remove(area.id)
-                        } else {
-                            collapsedAreaIDs.insert(area.id)
-                        }
-                    }
+                    symbolPickerAreaID = area.id
                 } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .rotationEffect(.degrees(collapsedAreaIDs.contains(area.id) ? 0 : 90))
+                    Image(systemName: area.symbolName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(width: 26, height: 26)
                 }
                 .buttonStyle(.waniInteractive(palette))
-                .accessibilityLabel(collapsedAreaIDs.contains(area.id) ? "Expand Area" : "Collapse Area")
+                .accessibilityLabel("Change \(area.title) Icon")
+                .popover(
+                    isPresented: Binding(
+                        get: { symbolPickerAreaID == area.id },
+                        set: { isPresented in
+                            if !isPresented, symbolPickerAreaID == area.id {
+                                symbolPickerAreaID = nil
+                            }
+                        }
+                    ),
+                    arrowEdge: .leading
+                ) {
+                    WaniSymbolPicker(
+                        palette: palette,
+                        selectedSymbol: area.symbolName,
+                        select: { symbol in
+                            updateAreaSymbol(area, symbol)
+                            symbolPickerAreaID = nil
+                        },
+                        dismiss: { symbolPickerAreaID = nil }
+                    )
+                }
 
                 Button {
                     selection = .area(area.id)
@@ -181,7 +202,9 @@ struct WaniSidebar: View {
                 }
                 .buttonStyle(.waniInteractive(
                     palette,
-                    showsHoverBackground: selection != .area(area.id)
+                    showsHoverBackground: selection != .area(area.id),
+                    horizontalPadding: 4,
+                    verticalPadding: 3
                 ))
                 .accessibilityLabel(area.title)
                 .accessibilityValue(selection == .area(area.id) ? "Selected" : "")
@@ -193,11 +216,23 @@ struct WaniSidebar: View {
                 } else {
                     Spacer(minLength: 0)
                 }
-                let count = areaOpenCounts[area.id] ?? 0
-                if showCounts, count > 0 {
-                    Text(count.formatted())
-                        .font(.system(size: 11))
+
+                Button {
+                    withAnimation(WaniMotion.standard) {
+                        if collapsedAreaIDs.contains(area.id) {
+                            collapsedAreaIDs.remove(area.id)
+                        } else {
+                            collapsedAreaIDs.insert(area.id)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .rotationEffect(.degrees(collapsedAreaIDs.contains(area.id) ? 0 : 90))
+                        .frame(width: 26, height: 26)
                 }
+                .buttonStyle(.waniInteractive(palette))
+                .accessibilityLabel(collapsedAreaIDs.contains(area.id) ? "Expand Area" : "Collapse Area")
             }
             .foregroundStyle(palette.tertiaryText)
             .padding(.horizontal, 8)
@@ -210,6 +245,9 @@ struct WaniSidebar: View {
             .contentShape(Rectangle())
             .draggable("area:\(area.id.uuidString)")
             .dropDestination(for: String.self) { values, _ in
+                if let todoID = draggedID(in: values, prefix: "todo:") {
+                    return moveTodoToArea(todoID, area)
+                }
                 guard let movingID = draggedID(in: values, prefix: "area:") else {
                     return false
                 }
@@ -273,6 +311,9 @@ struct WaniSidebar: View {
             .contentShape(Rectangle())
             .draggable("project:\(project.id.uuidString)")
             .dropDestination(for: String.self) { values, _ in
+                if let todoID = draggedID(in: values, prefix: "todo:") {
+                    return moveTodoToProject(todoID, project)
+                }
                 guard let movingID = draggedID(in: values, prefix: "project:") else {
                     return false
                 }
@@ -300,12 +341,9 @@ struct WaniSidebar: View {
         .frame(width: 14, height: 14)
     }
 
-    private var divider: some View {
-        Rectangle()
-            .fill(palette.line)
-            .frame(height: 1)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
+    private var sectionSpacing: some View {
+        Color.clear
+            .frame(height: 15)
     }
 
     private func draggedID(in values: [String], prefix: String) -> UUID? {

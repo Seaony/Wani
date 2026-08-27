@@ -2,33 +2,29 @@ import SwiftUI
 import SwiftData
 
 struct WaniTaskRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
     @Bindable var todo: WaniTodo
     let palette: WaniPalette
-    let areas: [WaniArea]
-    let projects: [WaniProject]
-    let headings: [WaniHeading]
     let density: WaniListDensity
     let deadlineNotificationsEnabled: Bool
     let isSelected: Bool
     let isExpanded: Bool
     let toggleExpanded: () -> Void
+    let finishTitleEditing: () -> Void
     let toggleCompleted: () -> Void
-    let cancelTodo: () -> Void
     let canLogNow: Bool
     let logNow: () -> Void
-    let moveToTrash: () -> Void
     let restore: () -> Void
     let deletePermanently: () -> Void
-    let moveToInbox: () -> Void
-    let moveToArea: (WaniArea) -> Void
-    let moveToProject: (WaniProject, WaniHeading?) -> Void
     let reorder: (UUID, UUID) -> Bool
     let recurrenceChanged: () -> Void
 
     @State private var checklistTitle = ""
     @State private var tagDraft = ""
     @State private var dateEditorOpen = false
+    @State private var isHovered = false
+    @FocusState private var titleFieldFocused: Bool
     @FocusState private var checklistFieldFocused: Bool
 
     var body: some View {
@@ -53,43 +49,60 @@ struct WaniTaskRow: View {
                     }
                     .frame(width: 17, height: 17)
                 }
-                .buttonStyle(.waniInteractive(palette))
+                .buttonStyle(.waniInteractive(palette, showsHoverBackground: false))
                 .accessibilityLabel(todo.status == .open ? "Complete" : "Reopen")
 
-                Button(action: toggleExpanded) {
-                    HStack(alignment: .firstTextBaseline, spacing: 9) {
-                        Text(todo.title)
-                            .font(.system(size: 13.5))
-                            .foregroundStyle(
-                                todo.status == .open
-                                    ? palette.text
-                                    : palette.tertiaryText
-                            )
-                            .strikethrough(todo.status != .open)
-                            .multilineTextAlignment(.leading)
-                        if let dateLabel {
-                            Text(dateLabel)
-                                .font(.system(size: 11.5))
-                                .foregroundStyle(palette.accent)
+                if isExpanded {
+                    TextField("New To-Do", text: todoTitleBinding)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(
+                            todo.status == .open
+                                ? palette.text
+                                : palette.tertiaryText
+                        )
+                        .strikethrough(todo.status != .open)
+                        .focused($titleFieldFocused)
+                        .onSubmit(finishTitleEditing)
+                        .onAppear {
+                            Task { @MainActor in
+                                titleFieldFocused = true
+                            }
                         }
-                        Spacer()
-                        if !isExpanded {
+                } else {
+                    Button(action: toggleExpanded) {
+                        HStack(alignment: .firstTextBaseline, spacing: 9) {
+                            Text(displayTitle)
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundStyle(
+                                    todo.status == .open && hasTitle
+                                        ? palette.text
+                                        : palette.tertiaryText
+                                )
+                                .strikethrough(todo.status != .open)
+                                .multilineTextAlignment(.leading)
+                            if let dateLabel {
+                                Text(dateLabel)
+                                    .font(.system(size: 11.5))
+                                    .foregroundStyle(palette.accent)
+                            }
+                            Spacer()
                             badges
                         }
+                        .contentShape(Rectangle())
+                        .draggable("todo:\(todo.id.uuidString)")
+                        .dropDestination(for: String.self) { values, _ in
+                            guard
+                                let value = values.first(where: { $0.hasPrefix("todo:") }),
+                                let movingID = UUID(
+                                    uuidString: String(value.dropFirst("todo:".count))
+                                )
+                            else { return false }
+                            return reorder(movingID, todo.id)
+                        }
                     }
-                    .contentShape(Rectangle())
-                    .draggable("todo:\(todo.id.uuidString)")
-                    .dropDestination(for: String.self) { values, _ in
-                        guard
-                            let value = values.first(where: { $0.hasPrefix("todo:") }),
-                            let movingID = UUID(
-                                uuidString: String(value.dropFirst("todo:".count))
-                            )
-                        else { return false }
-                        return reorder(movingID, todo.id)
-                    }
+                    .buttonStyle(.waniInteractive(palette, showsHoverBackground: false))
                 }
-                .buttonStyle(.waniInteractive(palette))
             }
 
             if isExpanded {
@@ -101,33 +114,46 @@ struct WaniTaskRow: View {
         }
         .padding(.horizontal, isExpanded ? 16 : 11)
         .padding(.vertical, isExpanded ? 14 : density.rowPadding)
-        .background(
-            isExpanded ? palette.card : (isSelected ? palette.softAccent : Color.clear),
-            in: RoundedRectangle(cornerRadius: 10)
-        )
+        .background {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(
+                    isExpanded
+                        ? palette.card
+                        : (isSelected
+                            ? palette.softAccent
+                            : (isHovered ? palette.hover : Color.clear))
+                )
+                .shadow(
+                    color: isExpanded
+                        ? .black.opacity(colorScheme == .dark ? 0.18 : 0.08)
+                        : .clear,
+                    radius: isExpanded ? 10 : 0,
+                    y: isExpanded ? 3 : 0
+                )
+        }
         .overlay {
             if isExpanded || isSelected {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(isSelected ? palette.accent.opacity(0.45) : palette.line, lineWidth: 0.5)
             }
         }
+        .zIndex(isExpanded ? 1 : 0)
         .animation(WaniMotion.standard, value: isExpanded)
         .animation(WaniMotion.quick, value: isSelected)
+        .animation(WaniMotion.quick, value: isHovered)
         .animation(WaniMotion.quick, value: todo.status)
+        .onHover { isHovered = $0 }
         .onChange(of: isExpanded) { _, expanded in
             if !expanded {
                 dateEditorOpen = false
             }
         }
+        .onTapGesture { }
         .accessibilityValue(isSelected ? "Selected" : "")
     }
 
     private var expandedEditor: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TextField("To-do", text: todoTitleBinding)
-                .textFieldStyle(.plain)
-                .font(.system(size: 14, weight: .medium))
-
             TextEditor(text: todoNotesBinding)
                 .font(.system(size: 13))
                 .foregroundStyle(palette.secondaryText)
@@ -169,7 +195,6 @@ struct WaniTaskRow: View {
                     Button("Restore", action: restore)
                     Button("Delete", action: deletePermanently)
                 } else {
-                    moveMenu
                     if canLogNow {
                         Button(action: logNow) {
                             Image(systemName: "archivebox")
@@ -177,19 +202,13 @@ struct WaniTaskRow: View {
                         .keyboardShortcut("y", modifiers: [.command, .shift])
                         .accessibilityLabel("Move to Logbook Now")
                     }
-                    if todo.status == .open {
-                        Button(action: cancelTodo) {
-                            Image(systemName: "xmark.circle")
-                        }
-                        .accessibilityLabel("Cancel To-Do")
-                    }
-                    Button(action: moveToTrash) {
-                        Image(systemName: "trash")
-                    }
-                    .accessibilityLabel("Move to Trash")
                 }
             }
-            .buttonStyle(.waniInteractive(palette))
+            .buttonStyle(.waniInteractive(
+                palette,
+                horizontalPadding: 7,
+                verticalPadding: 5
+            ))
             .foregroundStyle(palette.tertiaryText)
         }
         .onAppear {
@@ -253,51 +272,16 @@ struct WaniTaskRow: View {
                     .font(.system(size: 12.5))
                     .onSubmit(saveTags)
                 Button("Save", action: saveTags)
-                    .buttonStyle(.waniInteractive(palette))
+                    .buttonStyle(.waniInteractive(
+                        palette,
+                        horizontalPadding: 7,
+                        verticalPadding: 5
+                    ))
                     .font(.system(size: 11.5, weight: .medium))
                     .foregroundStyle(palette.accent)
             }
         }
         .animation(WaniMotion.standard, value: todo.tagNames)
-    }
-
-    private var moveMenu: some View {
-        Menu {
-            Button("Inbox", systemImage: "tray") {
-                moveToInbox()
-            }
-
-            if !areas.isEmpty {
-                Divider()
-                ForEach(areas) { area in
-                    Button(area.title, systemImage: "cube.transparent") {
-                        moveToArea(area)
-                    }
-                }
-            }
-
-            if !projects.isEmpty {
-                Divider()
-                ForEach(projects) { project in
-                    Menu(project.title) {
-                        Button("No Heading") {
-                            moveToProject(project, nil)
-                        }
-                        ForEach(headings.filter { $0.project?.id == project.id }) { heading in
-                            Button(heading.title) {
-                                moveToProject(project, heading)
-                            }
-                        }
-                    }
-                }
-            }
-        } label: {
-            Image(systemName: "arrow.right")
-        }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
-        .waniPointerFeedback(palette: palette)
-        .accessibilityLabel("Move")
     }
 
     private var sortedChecklistItems: [WaniChecklistItem] {
@@ -440,6 +424,14 @@ struct WaniTaskRow: View {
             return nil
         }
         return startDate.formatted(.dateTime.month(.abbreviated).day())
+    }
+
+    private var hasTitle: Bool {
+        !todo.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var displayTitle: String {
+        hasTitle ? todo.title : "New To-Do"
     }
 
     private var scheduleLabel: String {

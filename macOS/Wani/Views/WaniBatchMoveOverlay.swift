@@ -73,7 +73,7 @@ struct WaniBatchMoveOverlay: View {
                             destinationButton(
                                 title: area.title,
                                 subtitle: "Area",
-                                symbol: "cube.transparent",
+                                symbol: area.symbolName,
                                 action: { moveToArea(area) }
                             )
                         }

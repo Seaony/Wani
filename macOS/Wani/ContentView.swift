@@ -40,6 +40,7 @@ struct ContentView: View {
     @State private var sidebarVisible = true
     @State private var sidebarWidth: Double
     @State private var expandedTodoID: UUID?
+    @State private var inlineNewTodoID: UUID?
     @State private var quickEntryOpen = false
     @State private var quickEntryTitle = ""
     @State private var quickEntryInsertionAfterTodoID: UUID?
@@ -125,18 +126,17 @@ struct ContentView: View {
                         projects: activeProjects,
                         counts: smartListCounts,
                         projectTallies: WaniTaskRules.projectTallies(todos),
-                        areaOpenCounts: WaniTaskRules.openTodoCountsByArea(
-                            todos,
-                            projects: projects
-                        ),
                         showCounts: showSidebarCounts,
                         showAreaLines: showAreaLines,
                         selection: $selection,
                         openSearch: { searchOpen = true },
                         createArea: createArea,
                         createProject: createProject,
+                        updateAreaSymbol: updateAreaSymbol,
                         reorderArea: reorderArea,
                         reorderProject: reorderProject,
+                        moveTodoToArea: moveTodo,
+                        moveTodoToProject: moveTodo,
                         openSettings: { openSettings() }
                     )
                     .frame(width: sidebarWidth)
@@ -301,8 +301,13 @@ struct ContentView: View {
             toolbarDateEditorOpen = false
             closeHeadingComposer()
         }
-        .onChange(of: expandedTodoID) {
+        .onChange(of: expandedTodoID) { previousID, currentID in
             toolbarDateEditorOpen = false
+            if let inlineNewTodoID,
+               previousID == inlineNewTodoID,
+               currentID != inlineNewTodoID {
+                finishInlineTodoCreation(inlineNewTodoID)
+            }
         }
         .onChange(of: quickEntryShortcutRaw) {
             registerGlobalQuickEntry()
@@ -339,6 +344,7 @@ struct ContentView: View {
                     sidebarVisible.toggle()
                 } label: {
                     Image(systemName: "sidebar.left")
+                        .frame(width: 28, height: 28)
                 }
                 .keyboardShortcut("/", modifiers: .command)
                 .accessibilityLabel(sidebarVisible ? "Hide Sidebar" : "Show Sidebar")
@@ -397,6 +403,7 @@ struct ContentView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 24)
             }
+            .onTapGesture(perform: collapseExpandedTodo)
 
             Rectangle().fill(palette.sidebarDivider).frame(height: 1)
 
@@ -1028,6 +1035,7 @@ struct ContentView: View {
                     : "xmark.circle.fill")
                     .font(.system(size: 17))
                     .foregroundStyle(palette.accent)
+                    .frame(width: 26, height: 26)
             }
             .buttonStyle(.waniInteractive(palette))
             .accessibilityLabel("Reopen Project")
@@ -1085,7 +1093,11 @@ struct ContentView: View {
                 deletePermanently(project)
             }
         }
-        .buttonStyle(.waniInteractive(palette))
+        .buttonStyle(.waniInteractive(
+            palette,
+            horizontalPadding: 7,
+            verticalPadding: 5
+        ))
         .padding(.horizontal, 11)
         .padding(.vertical, density.rowPadding)
     }
@@ -1182,7 +1194,11 @@ struct ContentView: View {
                 Button("Reopen") {
                     reopen(heading)
                 }
-                .buttonStyle(.waniInteractive(palette))
+                .buttonStyle(.waniInteractive(
+                    palette,
+                    horizontalPadding: 7,
+                    verticalPadding: 5
+                ))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(palette.accent)
             }
@@ -1197,9 +1213,6 @@ struct ContentView: View {
             WaniTaskRow(
                 todo: todo,
                 palette: palette,
-                areas: areas,
-                projects: activeProjects,
-                headings: activeHeadings,
                 density: density,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled,
                 isSelected: selectedTodoIDs.contains(todo.id),
@@ -1207,23 +1220,17 @@ struct ContentView: View {
                 toggleExpanded: {
                     activate(todo)
                 },
+                finishTitleEditing: {
+                    finishInlineTodoCreation(todo.id)
+                },
                 toggleCompleted: { toggleStatus(todo) },
-                cancelTodo: { cancel(todo) },
                 canLogNow: WaniTaskRules.isAwaitingMidnightArchive(
                     todo,
                     enabled: moveToLogbookAtMidnight
                 ),
                 logNow: { logNow(todo) },
-                moveToTrash: { moveToTrash(todo) },
                 restore: { restore(todo) },
                 deletePermanently: { deletePermanently(todo) },
-                moveToInbox: { moveToInbox(todo) },
-                moveToArea: { area in
-                    move(todo, to: area)
-                },
-                moveToProject: { project, heading in
-                    move(todo, to: project, heading: heading)
-                },
                 reorder: { movingID, targetID in
                     reorderTodo(movingID, to: targetID, in: rows)
                 },
@@ -1470,7 +1477,7 @@ struct ContentView: View {
     private var pageSymbol: String {
         switch selection {
         case .smart(let list): list.symbolName
-        case .area: "cube.transparent"
+        case .area: selectedArea?.symbolName ?? "cube.transparent"
         case .project: "circle"
         }
     }
@@ -1527,15 +1534,17 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 290)
             if canAddToCurrentList {
-                Button("Capture something") {
-                    quickEntryOpen = true
+                Button {
+                    createInlineTodo()
+                } label: {
+                    Text("Capture something")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(palette.accent, in: RoundedRectangle(cornerRadius: 9))
                 }
-                .buttonStyle(.waniInteractive(palette))
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(palette.accent, in: RoundedRectangle(cornerRadius: 9))
+                .buttonStyle(.waniInteractive(palette, showsHoverBackground: false))
                 .padding(.top, 14)
             }
         }
@@ -1591,7 +1600,7 @@ struct ContentView: View {
     private var navigationShortcuts: some View {
         VStack {
             Button("New To-Do") {
-                quickEntryOpen = true
+                createInlineTodo()
             }
             .keyboardShortcut("n", modifiers: .command)
             .disabled(!canAddToCurrentList)
@@ -1714,7 +1723,7 @@ struct ContentView: View {
     private var standardToolbar: some View {
         HStack(spacing: 4) {
             toolbarButton("plus", label: "New To-Do") {
-                quickEntryOpen = true
+                createInlineTodo()
             }
             .keyboardShortcut("n", modifiers: [])
             .disabled(!canAddToCurrentList)
@@ -1919,6 +1928,8 @@ struct ContentView: View {
             if showsTitle {
                 Label(title, systemImage: systemImage)
                     .fixedSize()
+                    .padding(.horizontal, 7)
+                    .frame(height: 28)
             } else {
                 Image(systemName: systemImage)
                     .frame(width: 28, height: 28)
@@ -1931,28 +1942,41 @@ struct ContentView: View {
         let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
 
         if modifiers.contains(.shift) {
-            selectedTodoIDs.formUnion(WaniSelectionRules.range(
-                from: selectionAnchorID,
-                through: todo.id,
-                in: displayedTodoIDs
-            ))
-            expandedTodoID = nil
+            withAnimation(WaniMotion.standard) {
+                selectedTodoIDs.formUnion(WaniSelectionRules.range(
+                    from: selectionAnchorID,
+                    through: todo.id,
+                    in: displayedTodoIDs
+                ))
+                expandedTodoID = nil
+            }
             return
         }
 
         if modifiers.contains(.command) {
-            if selectedTodoIDs.contains(todo.id) {
-                selectedTodoIDs.remove(todo.id)
-            } else {
-                selectedTodoIDs.insert(todo.id)
+            withAnimation(WaniMotion.standard) {
+                if selectedTodoIDs.contains(todo.id) {
+                    selectedTodoIDs.remove(todo.id)
+                } else {
+                    selectedTodoIDs.insert(todo.id)
+                }
+                selectionAnchorID = todo.id
+                expandedTodoID = nil
             }
-            selectionAnchorID = todo.id
-            expandedTodoID = nil
             return
         }
 
-        clearTodoSelection()
-        expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
+        withAnimation(WaniMotion.standard) {
+            clearTodoSelection()
+            expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
+        }
+    }
+
+    private func collapseExpandedTodo() {
+        guard expandedTodoID != nil else { return }
+        withAnimation(WaniMotion.standard) {
+            expandedTodoID = nil
+        }
     }
 
     private func selectAllTodos() {
@@ -1989,7 +2013,15 @@ struct ContentView: View {
 
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
         if modifiers.isEmpty, event.charactersIgnoringModifiers == " " {
-            return openQuickEntryBelowSelection()
+            return createInlineTodoBelowSelection()
+        }
+
+        if modifiers.isEmpty, (event.keyCode == 51 || event.keyCode == 117) {
+            guard selectedTodos.contains(where: { $0.deletedAt == nil })
+                || focusedToolbarTodo?.deletedAt == nil
+            else { return false }
+            trashItemCommand()
+            return true
         }
 
         if modifiers.contains(.command),
@@ -2058,15 +2090,14 @@ struct ContentView: View {
         return true
     }
 
-    private func openQuickEntryBelowSelection() -> Bool {
+    private func createInlineTodoBelowSelection() -> Bool {
         guard
             canAddToCurrentList,
             selectedTodos.count == 1,
             displayedTodoIDs.contains(selectedTodos[0].id)
         else { return false }
 
-        quickEntryInsertionAfterTodoID = selectedTodos[0].id
-        quickEntryOpen = true
+        createInlineTodo(after: selectedTodos[0])
         return true
     }
 
@@ -2504,6 +2535,64 @@ struct ContentView: View {
         batchMoveOpen = true
     }
 
+    private func createInlineTodo(after anchor: WaniTodo? = nil) {
+        guard canAddToCurrentList else { return }
+
+        if let inlineNewTodoID {
+            finishInlineTodoCreation(inlineNewTodoID)
+        }
+
+        let todo: WaniTodo
+        if let anchor,
+           let section = displayedTodoSections.first(where: {
+               $0.contains { $0.id == anchor.id }
+           }),
+           let anchorIndex = section.firstIndex(where: { $0.id == anchor.id }) {
+            let nextTodo = section.indices.contains(anchorIndex + 1)
+                ? section[anchorIndex + 1]
+                : nil
+            todo = WaniTaskRules.todoBelow(anchor, title: "", nextTodo: nextTodo)
+        } else {
+            todo = selection.makeTodo(
+                title: "",
+                areas: areas,
+                projects: projects
+            )
+            todo.sortOrder = (todos.map(\.sortOrder).max() ?? 0) + 1
+        }
+
+        clearTodoSelection()
+        inlineNewTodoID = todo.id
+        withAnimation(WaniMotion.standard) {
+            modelContext.insert(todo)
+        }
+        Task { @MainActor in
+            guard inlineNewTodoID == todo.id else { return }
+            withAnimation(WaniMotion.standard) {
+                expandedTodoID = todo.id
+            }
+        }
+    }
+
+    private func finishInlineTodoCreation(_ todoID: UUID) {
+        guard inlineNewTodoID == todoID else { return }
+        inlineNewTodoID = nil
+        guard let todo = todos.first(where: { $0.id == todoID }) else { return }
+
+        let title = todo.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedTitle = title.isEmpty ? "New To-Do" : title
+        if todo.title != resolvedTitle {
+            todo.title = resolvedTitle
+            todo.updatedAt = .now
+        }
+        saveChanges()
+        if expandedTodoID == todoID {
+            withAnimation(WaniMotion.standard) {
+                expandedTodoID = nil
+            }
+        }
+    }
+
     private func saveQuickEntry() {
         let title = quickEntryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !title.isEmpty else { return }
@@ -2666,6 +2755,15 @@ struct ContentView: View {
         saveChanges()
         selection = .area(area.id)
         focusHeaderTitle()
+    }
+
+    private func updateAreaSymbol(_ area: WaniArea, symbolName: String) {
+        guard NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) != nil else {
+            return
+        }
+        area.symbolName = symbolName
+        area.updatedAt = .now
+        saveChanges()
     }
 
     private func createProject() {
@@ -2993,6 +3091,12 @@ struct ContentView: View {
         saveChanges()
     }
 
+    private func moveTodo(_ todoID: UUID, to area: WaniArea) -> Bool {
+        guard let todo = todos.first(where: { $0.id == todoID }) else { return false }
+        move(todo, to: area)
+        return true
+    }
+
     private func move(
         _ todo: WaniTodo,
         to project: WaniProject,
@@ -3001,6 +3105,12 @@ struct ContentView: View {
         WaniTaskRules.move(todo, to: project, heading: heading)
         syncReminder(for: todo, requestAuthorization: false)
         saveChanges()
+    }
+
+    private func moveTodo(_ todoID: UUID, to project: WaniProject) -> Bool {
+        guard let todo = todos.first(where: { $0.id == todoID }) else { return false }
+        move(todo, to: project, heading: nil)
+        return true
     }
 
     private func saveChanges() {

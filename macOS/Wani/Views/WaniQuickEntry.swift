@@ -42,13 +42,15 @@ struct WaniQuickEntry: View {
                         .font(.system(size: 11.5))
                         .foregroundStyle(palette.tertiaryText)
                     Spacer()
-                    Button("Save", action: save)
-                        .buttonStyle(.waniInteractive(palette))
-                        .font(.system(size: 12.5, weight: .medium))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 15)
-                        .padding(.vertical, 7)
-                        .background(palette.accent, in: RoundedRectangle(cornerRadius: 9))
+                    Button(action: save) {
+                        Text("Save")
+                            .font(.system(size: 12.5, weight: .medium))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 15)
+                            .padding(.vertical, 7)
+                            .background(palette.accent, in: RoundedRectangle(cornerRadius: 9))
+                    }
+                    .buttonStyle(.waniInteractive(palette, showsHoverBackground: false))
                 }
                 .padding(.top, 11)
             }

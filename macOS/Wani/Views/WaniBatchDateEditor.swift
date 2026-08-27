@@ -56,7 +56,11 @@ struct WaniBatchDateEditor: View {
                 } label: {
                     Label("Add Reminder", systemImage: "bell")
                 }
-                .buttonStyle(.waniInteractive(palette))
+                .buttonStyle(.waniInteractive(
+                    palette,
+                    horizontalPadding: 7,
+                    verticalPadding: 5
+                ))
                 .foregroundStyle(palette.secondaryText)
 
                 Spacer()
@@ -64,7 +68,11 @@ struct WaniBatchDateEditor: View {
                 Button("Clear Reminders") {
                     applyReminder(nil)
                 }
-                .buttonStyle(.waniInteractive(palette))
+                .buttonStyle(.waniInteractive(
+                    palette,
+                    horizontalPadding: 7,
+                    verticalPadding: 5
+                ))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(palette.accent)
             }

@@ -28,7 +28,11 @@ struct WaniBatchDeadlineEditor: View {
                 Button("Clear Deadlines") {
                     apply(nil)
                 }
-                .buttonStyle(.waniInteractive(palette))
+                .buttonStyle(.waniInteractive(
+                    palette,
+                    horizontalPadding: 7,
+                    verticalPadding: 5
+                ))
                 .font(.system(size: 11.5, weight: .medium))
                 .foregroundStyle(palette.accent)
 

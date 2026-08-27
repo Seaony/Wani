@@ -197,7 +197,11 @@ struct WaniRepeatEditor: View {
                 HStack(spacing: 10) {
                     Spacer()
                     Button("Cancel", action: dismiss)
-                        .buttonStyle(.waniInteractive(palette))
+                        .buttonStyle(.waniInteractive(
+                            palette,
+                            horizontalPadding: 7,
+                            verticalPadding: 5
+                        ))
                         .keyboardShortcut(.cancelAction)
                         .foregroundStyle(palette.secondaryText)
                     Button("Save") {
@@ -404,6 +408,7 @@ struct WaniRepeatEditor: View {
                             dateRules.removeAll { $0.id == rule.id }
                         } label: {
                             Image(systemName: "minus.circle")
+                                .frame(width: 26, height: 26)
                         }
                         .buttonStyle(.waniInteractive(palette))
                         .foregroundStyle(palette.tertiaryText)
@@ -413,6 +418,7 @@ struct WaniRepeatEditor: View {
                     if rule.id == dateRules.last?.id {
                         Button(action: addDateRule) {
                             Image(systemName: "plus.circle")
+                                .frame(width: 26, height: 26)
                         }
                         .buttonStyle(.waniInteractive(palette))
                         .foregroundStyle(palette.accent)

@@ -25,7 +25,7 @@ final class WaniUITests: XCTestCase {
         createTodo(named: "UI Test Task")
 
         todoButton(named: "UI Test Task").click()
-        let titleField = app.textFields["To-do"]
+        let titleField = app.textFields["New To-Do"]
         XCTAssertTrue(titleField.waitForExistence(timeout: 2))
         titleField.click()
         titleField.typeKey("a", modifierFlags: .command)
@@ -196,11 +196,11 @@ final class WaniUITests: XCTestCase {
 
     private func createTodo(named title: String) {
         app.buttons["New To-Do"].click()
-        let titleField = app.textFields["What's on your mind?"]
+        let titleField = app.textFields["New To-Do"]
         XCTAssertTrue(titleField.waitForExistence(timeout: 2))
         titleField.click()
         app.typeText(title)
-        app.buttons["Save"].click()
+        app.typeKey(.return, modifierFlags: [])
         XCTAssertTrue(todoButton(named: title).waitForExistence(timeout: 2))
     }
 
