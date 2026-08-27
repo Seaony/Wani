@@ -13,8 +13,11 @@ struct WaniTaskRow: View {
     let isSelected: Bool
     let isExpanded: Bool
     let isPendingCompletion: Bool
+    let monitorsSelectionDismissal: Bool
     let select: () -> Void
     let toggleExpanded: () -> Void
+    let dismissExpanded: () -> Void
+    let dismissSelection: () -> Void
     let finishTitleEditing: () -> Void
     let toggleCompleted: () -> Void
     let canLogNow: Bool
@@ -28,7 +31,12 @@ struct WaniTaskRow: View {
     @State private var dateEditorOpen = false
     @State private var deadlineEditorOpen = false
     @State private var tagEditorOpen = false
+    @State private var checklistEditorOpen = false
     @State private var isHovered = false
+    @State private var isDragging = false
+    @State private var dragPreviewWidth: CGFloat = 0
+    @State private var editorContentVisible = false
+    @State private var editorRevealTask: Task<Void, Never>?
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var checklistFieldFocused: Bool
     @FocusState private var tagFieldFocused: Bool
@@ -67,13 +75,16 @@ struct WaniTaskRow: View {
                         .focused($titleFieldFocused)
                         .onSubmit(finishTitleEditing)
                         .task {
-                            try? await Task.sleep(for: .milliseconds(120))
+                            try? await Task.sleep(for: .milliseconds(180))
                             guard !Task.isCancelled else { return }
                             titleFieldFocused = true
                         }
                 } else {
                     Button(action: handleCollapsedRowClick) {
                         HStack(alignment: .firstTextBaseline, spacing: 9) {
+                            if let dateLabel {
+                                scheduleBadge(dateLabel)
+                            }
                             Text(displayTitle)
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundStyle(
@@ -82,11 +93,6 @@ struct WaniTaskRow: View {
                                 )
                                 .strikethrough(isVisuallyCompleted)
                                 .multilineTextAlignment(.leading)
-                            if let dateLabel {
-                                Text(dateLabel)
-                                    .font(.system(size: 11.5))
-                                    .foregroundStyle(palette.accent)
-                            }
                             Spacer()
                             badges
                         }
@@ -108,36 +114,68 @@ struct WaniTaskRow: View {
             }
 
             if isExpanded {
-                expandedEditor
-                    .padding(.leading, 28)
-                    .padding(.top, 10)
-                    .transition(WaniMotion.taskEditorTransition)
+                Group {
+                    if editorContentVisible {
+                        expandedEditor
+                            .transition(WaniMotion.taskEditorTransition)
+                    } else {
+                        Color.clear
+                            .frame(height: 89)
+                    }
+                }
+                .padding(.leading, 28)
+                .padding(.top, 10)
             }
         }
         .padding(.horizontal, isExpanded ? 16 : 11)
         .padding(.vertical, isExpanded ? 14 : density.rowPadding)
-        .draggable("todo:\(todo.id.uuidString)")
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.width
+        } action: { width in
+            dragPreviewWidth = width
+        }
+        .draggable("todo:\(todo.id.uuidString)") {
+            dragPreview
+                .onAppear {
+                    DispatchQueue.main.async {
+                        isDragging = true
+                    }
+                }
+                .onDisappear {
+                    DispatchQueue.main.async {
+                        isDragging = false
+                    }
+                }
+        }
+        .opacity(isDragging ? 0 : 1)
         .background {
             RoundedRectangle(cornerRadius: 10)
                 .fill(
                     isExpanded
                         ? palette.card
                         : (isSelected
-                            ? palette.softAccent
+                            ? palette.selectionBackground
                             : (isHovered ? palette.hover : Color.clear))
                 )
                 .shadow(
-                    color: isExpanded
+                    color: isExpanded && editorContentVisible
                         ? .black.opacity(colorScheme == .dark ? 0.18 : 0.08)
                         : .clear,
-                    radius: isExpanded ? 10 : 0,
-                    y: isExpanded ? 3 : 0
+                    radius: isExpanded && editorContentVisible ? 10 : 0,
+                    y: isExpanded && editorContentVisible ? 3 : 0
                 )
+            if isExpanded {
+                WaniOutsideClickMonitor(dismiss: dismissExpanded)
+                    .allowsHitTesting(false)
+            } else if monitorsSelectionDismissal {
+                WaniOutsideClickMonitor(dismiss: dismissSelection)
+                    .allowsHitTesting(false)
+            }
         }
         .overlay {
-            if isExpanded || isSelected {
+            if isExpanded {
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? palette.accent.opacity(0.45) : palette.line, lineWidth: 0.5)
+                    .stroke(palette.line, lineWidth: 0.5)
             }
         }
         .zIndex(isExpanded ? 1 : 0)
@@ -147,11 +185,13 @@ struct WaniTaskRow: View {
         .animation(WaniMotion.quick, value: isPendingCompletion)
         .onHover { isHovered = $0 }
         .onChange(of: isExpanded) { _, expanded in
-            if !expanded {
-                dateEditorOpen = false
-                deadlineEditorOpen = false
-                tagEditorOpen = false
-            }
+            updateEditorVisibility(expanded: expanded)
+        }
+        .onAppear {
+            updateEditorVisibility(expanded: isExpanded)
+        }
+        .onDisappear {
+            editorRevealTask?.cancel()
         }
         .accessibilityValue(isSelected ? "Selected" : "")
     }
@@ -164,6 +204,75 @@ struct WaniTaskRow: View {
         }
     }
 
+    private func updateEditorVisibility(expanded: Bool) {
+        editorRevealTask?.cancel()
+        if !expanded {
+            editorContentVisible = false
+            dateEditorOpen = false
+            deadlineEditorOpen = false
+            tagEditorOpen = false
+            checklistEditorOpen = false
+            return
+        }
+
+        editorContentVisible = false
+        editorRevealTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard !Task.isCancelled, isExpanded else { return }
+            withAnimation(WaniMotion.quick) {
+                editorContentVisible = true
+            }
+        }
+    }
+
+    private var dragPreview: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 11) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(isVisuallyCompleted ? palette.accent : Color.clear)
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .stroke(
+                        isVisuallyCompleted ? palette.accent : palette.tertiaryText,
+                        lineWidth: 1.5
+                    )
+                if isVisuallyCompleted {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+            }
+            .frame(width: 17, height: 17)
+
+            if let dateLabel {
+                scheduleBadge(dateLabel)
+            }
+
+            Text(displayTitle)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(
+                    !isVisuallyCompleted && hasTitle
+                        ? palette.text : palette.tertiaryText
+                )
+                .strikethrough(isVisuallyCompleted)
+                .lineLimit(1)
+
+            Spacer(minLength: 12)
+            badges
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, density.rowPadding)
+        .frame(width: max(dragPreviewWidth, 280), alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(palette.card)
+                .shadow(color: .black.opacity(0.16), radius: 12, y: 5)
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(palette.line, lineWidth: 0.5)
+        }
+    }
+
     private var expandedEditor: some View {
         VStack(alignment: .leading, spacing: 12) {
             TextEditor(text: todoNotesBinding)
@@ -172,10 +281,13 @@ struct WaniTaskRow: View {
                 .scrollContentBackground(.hidden)
                 .frame(minHeight: 52, maxHeight: 130)
 
-            checklistEditor
+            if checklistEditorOpen {
+                checklistEditor
+                    .transition(WaniMotion.taskEditorTransition)
+            }
 
             Button("New Checklist") {
-                checklistFieldFocused = true
+                openChecklistEditor()
             }
             .keyboardShortcut("c", modifiers: [.command, .shift])
             .frame(width: 0, height: 0)
@@ -203,6 +315,27 @@ struct WaniTaskRow: View {
                     )
                 }
                 Spacer()
+                Button {
+                    dateEditorOpen = false
+                    deadlineEditorOpen = false
+                    tagEditorOpen = false
+                    let willOpen = !checklistEditorOpen
+                    withAnimation(WaniMotion.taskExpansion) {
+                        checklistEditorOpen.toggle()
+                    }
+                    if willOpen {
+                        focusChecklistFieldAfterOpening()
+                    }
+                } label: {
+                    Image(systemName: "checklist")
+                        .foregroundStyle(
+                            checklistEditorOpen || !sortedChecklistItems.isEmpty
+                                ? palette.accent : palette.tertiaryText
+                        )
+                }
+                .accessibilityLabel(
+                    checklistEditorOpen ? "Hide Checklist" : "Show Checklist"
+                )
                 tagControl
                 Button {
                     dateEditorOpen = false
@@ -297,6 +430,21 @@ struct WaniTaskRow: View {
             }
         }
         .animation(WaniMotion.standard, value: sortedChecklistItems.map(\.id))
+    }
+
+    private func openChecklistEditor() {
+        withAnimation(WaniMotion.taskExpansion) {
+            checklistEditorOpen = true
+        }
+        focusChecklistFieldAfterOpening()
+    }
+
+    private func focusChecklistFieldAfterOpening() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(140))
+            guard checklistEditorOpen else { return }
+            checklistFieldFocused = true
+        }
     }
 
     @ViewBuilder
@@ -567,6 +715,32 @@ struct WaniTaskRow: View {
         return startDate.formatted(.dateTime.month(.abbreviated).day())
     }
 
+    @ViewBuilder
+    private func scheduleBadge(_ label: String) -> some View {
+        if todo.status == .open,
+           todo.schedule == .date,
+           todo.startDate.map(Calendar.current.isDateInToday) == true {
+            Image(systemName: todo.isEvening ? "moon.fill" : "star.fill")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(
+                    todo.isEvening
+                        ? palette.accent
+                        : WaniSmartList.today.symbolColor
+                )
+                .accessibilityLabel(todo.isEvening ? "This Evening" : "Today")
+        } else {
+            Text(label)
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(palette.secondaryText)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(
+                    palette.selectionBackground,
+                    in: RoundedRectangle(cornerRadius: 4, style: .continuous)
+                )
+        }
+    }
+
     private var hasTitle: Bool {
         !todo.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -592,5 +766,70 @@ struct WaniTaskRow: View {
     private var scheduleSymbol: String {
         if todo.isEvening { return "moon.fill" }
         return todo.schedule == .date ? "calendar" : "tray"
+    }
+}
+
+private struct WaniOutsideClickMonitor: NSViewRepresentable {
+    let dismiss: () -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(dismiss: dismiss)
+    }
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.start(for: view)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.dismiss = dismiss
+    }
+
+    static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
+        coordinator.stop()
+    }
+
+    final class Coordinator {
+        var dismiss: () -> Void
+        private var monitor: Any?
+        private weak var view: NSView?
+
+        init(dismiss: @escaping () -> Void) {
+            self.dismiss = dismiss
+        }
+
+        func start(for view: NSView) {
+            self.view = view
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) {
+                [weak self] event in
+                guard
+                    let self,
+                    let view = self.view,
+                    let window = view.window,
+                    event.window === window
+                else { return event }
+
+                let location = view.convert(event.locationInWindow, from: nil)
+                guard !view.bounds.contains(location) else { return event }
+
+                let dismiss = self.dismiss
+                DispatchQueue.main.async {
+                    dismiss()
+                }
+                return event
+            }
+        }
+
+        func stop() {
+            if let monitor {
+                NSEvent.removeMonitor(monitor)
+            }
+            monitor = nil
+        }
+
+        deinit {
+            stop()
+        }
     }
 }

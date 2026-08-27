@@ -40,7 +40,6 @@ struct ContentView: View {
     @State private var sidebarVisible = true
     @State private var sidebarWidth: Double
     @State private var expandedTodoID: UUID?
-    @State private var expandedTodoFrame: CGRect?
     @State private var expansionRequestID: UUID?
     @State private var inlineNewTodoID: UUID?
     @State private var pendingCompletionIDs: Set<UUID> = []
@@ -231,20 +230,6 @@ struct ContentView: View {
         .animation(WaniMotion.overlay, value: searchOpen)
         .animation(WaniMotion.overlay, value: repeatEditorTodoID)
         .animation(WaniMotion.overlay, value: batchMoveOpen)
-        .coordinateSpace(name: "WaniRoot")
-        .onPreferenceChange(WaniExpandedTodoFrameKey.self) { frame in
-            expandedTodoFrame = frame
-        }
-        .simultaneousGesture(
-            SpatialTapGesture().onEnded { event in
-                guard
-                    expandedTodoID != nil,
-                    let expandedTodoFrame,
-                    !expandedTodoFrame.contains(event.location)
-                else { return }
-                collapseExpandedTodo()
-            }
-        )
         .frame(minWidth: 760, minHeight: 520)
     }
 
@@ -321,7 +306,6 @@ struct ContentView: View {
             closeHeadingComposer()
         }
         .onChange(of: expandedTodoID) { previousID, currentID in
-            expandedTodoFrame = nil
             toolbarDateEditorOpen = false
             if let inlineNewTodoID,
                previousID == inlineNewTodoID,
@@ -1231,11 +1215,16 @@ struct ContentView: View {
                 isSelected: selectedTodoIDs.contains(todo.id),
                 isExpanded: expandedTodoID == todo.id,
                 isPendingCompletion: pendingCompletionIDs.contains(todo.id),
+                monitorsSelectionDismissal: selectionAnchorID == todo.id,
                 select: {
                     select(todo)
                 },
                 toggleExpanded: {
                     toggleExpanded(todo)
+                },
+                dismissExpanded: collapseExpandedTodo,
+                dismissSelection: {
+                    clearSelection(anchoredAt: todo.id)
                 },
                 finishTitleEditing: {
                     finishInlineTodoCreation(todo.id)
@@ -1254,16 +1243,6 @@ struct ContentView: View {
                 },
                 recurrenceChanged: generateDueRepeatingTodos
             )
-            .background {
-                if expandedTodoID == todo.id {
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: WaniExpandedTodoFrameKey.self,
-                            value: proxy.frame(in: .named("WaniRoot"))
-                        )
-                    }
-                }
-            }
             .id(todo.id)
         }
     }
@@ -1886,6 +1865,13 @@ struct ContentView: View {
         batchTagEditorOpen = false
         repeatEditorTodoID = nil
         closeBatchMove()
+    }
+
+    private func clearSelection(anchoredAt todoID: UUID) {
+        guard selectionAnchorID == todoID, selectedTodoIDs.contains(todoID) else {
+            return
+        }
+        clearTodoSelection()
     }
 
     private func handleTaskListKeyEvent(_ event: NSEvent) -> Bool {
@@ -3330,14 +3316,6 @@ private struct WaniTodayGroup: Identifiable {
     let id: String
     let title: String?
     var todos: [WaniTodo]
-}
-
-private struct WaniExpandedTodoFrameKey: PreferenceKey {
-    static var defaultValue: CGRect?
-
-    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
-        value = nextValue() ?? value
-    }
 }
 
 private struct WaniKeyEventMonitor: NSViewRepresentable {
