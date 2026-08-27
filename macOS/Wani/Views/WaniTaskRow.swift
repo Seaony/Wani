@@ -96,6 +96,7 @@ struct WaniTaskRow: View {
                 expandedEditor
                     .padding(.leading, 28)
                     .padding(.top, 10)
+                    .transition(WaniMotion.revealTransition)
             }
         }
         .padding(.horizontal, isExpanded ? 16 : 11)
@@ -108,6 +109,14 @@ struct WaniTaskRow: View {
             if isExpanded || isSelected {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(isSelected ? palette.accent.opacity(0.45) : palette.line, lineWidth: 0.5)
+            }
+        }
+        .animation(WaniMotion.standard, value: isExpanded)
+        .animation(WaniMotion.quick, value: isSelected)
+        .animation(WaniMotion.quick, value: todo.status)
+        .onChange(of: isExpanded) { _, expanded in
+            if !expanded {
+                dateEditorOpen = false
             }
         }
         .accessibilityValue(isSelected ? "Selected" : "")
@@ -144,6 +153,7 @@ struct WaniTaskRow: View {
                     reminderChanged: { syncReminder() },
                     recurrenceChanged: recurrenceChanged
                 )
+                .transition(WaniMotion.revealTransition)
             }
 
             HStack {
@@ -185,6 +195,7 @@ struct WaniTaskRow: View {
         .onAppear {
             tagDraft = todo.tagNames.joined(separator: ", ")
         }
+        .animation(WaniMotion.standard, value: dateEditorOpen)
     }
 
     private var checklistEditor: some View {
@@ -215,6 +226,7 @@ struct WaniTaskRow: View {
                 Rectangle().fill(palette.faintLine).frame(height: 1)
             }
         }
+        .animation(WaniMotion.standard, value: sortedChecklistItems.map(\.id))
     }
 
     private var tagEditor: some View {
@@ -228,8 +240,9 @@ struct WaniTaskRow: View {
                             .padding(.horizontal, 9)
                             .padding(.vertical, 3)
                             .background(palette.softAccent, in: RoundedRectangle(cornerRadius: 6))
-                    }
+                        }
                 }
+                .transition(WaniMotion.revealTransition)
             }
 
             HStack(spacing: 8) {
@@ -245,6 +258,7 @@ struct WaniTaskRow: View {
                     .foregroundStyle(palette.accent)
             }
         }
+        .animation(WaniMotion.standard, value: todo.tagNames)
     }
 
     private var moveMenu: some View {

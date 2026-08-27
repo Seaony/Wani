@@ -85,8 +85,10 @@ struct WaniBatchDateEditor: View {
                     .buttonStyle(.borderedProminent)
                     .waniPointingHand()
                 }
+                .transition(WaniMotion.revealTransition)
             }
         }
+        .animation(WaniMotion.standard, value: reminderEditorOpen)
         .padding(12)
         .background(palette.hover, in: RoundedRectangle(cornerRadius: 9))
     }

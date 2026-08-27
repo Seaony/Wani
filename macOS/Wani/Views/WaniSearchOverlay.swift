@@ -77,7 +77,7 @@ struct WaniSearchOverlay: View {
                         .font(.system(size: 15.5))
                         .focused($isFocused)
                         .onSubmit(openFirstResult)
-                    Text(query.isEmpty ? "⌘F" : "\(resultCount) found")
+                    Text(query.isEmpty ? "⌘K" : "\(resultCount) found")
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(palette.tertiaryText)
@@ -92,6 +92,7 @@ struct WaniSearchOverlay: View {
                         .foregroundStyle(palette.tertiaryText)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 34)
+                        .transition(WaniMotion.overlayTransition)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 1) {
@@ -131,8 +132,10 @@ struct WaniSearchOverlay: View {
                         .padding(7)
                     }
                     .frame(maxHeight: 330)
+                    .transition(WaniMotion.overlayTransition)
                 }
             }
+            .animation(WaniMotion.quick, value: resultCount == 0)
             .frame(width: 560)
             .background(palette.card, in: RoundedRectangle(cornerRadius: 14))
             .shadow(color: .black.opacity(0.28), radius: 34, y: 18)

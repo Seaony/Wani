@@ -39,7 +39,7 @@ struct WaniApp: App {
 
     var body: some Scene {
         WindowGroup("Wani", id: "main") {
-            ContentView(cloudSyncEnabled: cloudSyncEnabled)
+            ContentView()
         }
         .modelContainer(modelContainer)
         .windowStyle(.hiddenTitleBar)
@@ -47,6 +47,12 @@ struct WaniApp: App {
         .commands {
             WaniItemCommands()
         }
+
+        Settings {
+            WaniSettingsView(cloudSyncEnabled: cloudSyncEnabled)
+        }
+        .modelContainer(modelContainer)
+        .windowResizability(.contentSize)
 
         MenuBarExtra(
             "Wani",

@@ -10,42 +10,46 @@ struct WaniPalette {
     let secondaryText: Color
     let tertiaryText: Color
     let line: Color
+    let sidebarDivider: Color
     let faintLine: Color
     let hover: Color
+    let selectionBackground: Color
     let accent: Color
     let softAccent: Color
 
     init(colorScheme: ColorScheme, accent selectedAccent: WaniAccent = .terracotta) {
         if colorScheme == .dark {
-            desk = Color(hex: 0x100E0C)
-            background = Color(hex: 0x1D1915)
-            sidebar = Color(hex: 0x231E1A)
-            panel = Color(hex: 0x1E1A16)
-            card = Color(hex: 0x282219)
-            text = Color(hex: 0xEFE7DC)
-            secondaryText = Color(hex: 0xAC9F92)
-            tertiaryText = Color(hex: 0x83766A)
-            line = Color(hex: 0x342D26)
+            desk = Color(hex: 0x000000)
+            background = Color(hex: 0x1B1D1F)
+            sidebar = Color(hex: 0x151719)
+            panel = Color(hex: 0x1F2123)
+            card = Color(hex: 0x282A2C)
+            text = Color(hex: 0xEDEDEF)
+            secondaryText = Color(hex: 0x9DA0A3)
+            tertiaryText = Color(hex: 0x6E7174)
+            line = Color(hex: 0x2E3032)
+            sidebarDivider = Color(hex: 0x0C0D0E)
             faintLine = Color.white.opacity(0.07)
             hover = Color.white.opacity(0.07)
-            accent = selectedAccent.color
-            softAccent = selectedAccent.color.opacity(0.16)
+            selectionBackground = Color.white.opacity(0.10)
+            accent = selectedAccent.color(for: colorScheme)
+            softAccent = Color(hex: 0x3E9BFF).opacity(0.18)
         } else {
-            desk = Color(hex: 0xE7DDCE)
-            background = Color(hex: 0xF4EEE6)
-            sidebar = Color(hex: 0xEFE7DB)
-            panel = Color(hex: 0xFAF5ED)
-            card = Color(hex: 0xFFFDF9)
-            text = Color(hex: 0x3A312A)
-            secondaryText = Color(hex: 0x786A5E)
-            tertiaryText = Color(hex: 0xAAA095)
-            line = Color(hex: 0xE7DDCF)
-            faintLine = Color(hex: 0x8C735A).opacity(0.11)
-            hover = Color(hex: 0xB49678).opacity(0.14)
-            accent = selectedAccent.color
-            softAccent = selectedAccent == .terracotta
-                ? Color(hex: 0xF7E4D9)
-                : selectedAccent.color.opacity(0.14)
+            desk = Color(hex: 0xDCDEE2)
+            background = Color(hex: 0xF6F6F8)
+            sidebar = Color(hex: 0xEDEEF0)
+            panel = Color(hex: 0xFBFBFC)
+            card = Color(hex: 0xFFFFFF)
+            text = Color(hex: 0x26282B)
+            secondaryText = Color(hex: 0x6C7075)
+            tertiaryText = Color(hex: 0x9CA0A6)
+            line = Color(hex: 0xE1E3E7)
+            sidebarDivider = Color(hex: 0xE1E3E7)
+            faintLine = Color(hex: 0x3C4655).opacity(0.10)
+            hover = Color(hex: 0x3C4655).opacity(0.07)
+            selectionBackground = Color(hex: 0x3C4655).opacity(0.09)
+            accent = selectedAccent.color(for: colorScheme)
+            softAccent = Color(hex: 0xE4F0FF)
         }
     }
 }

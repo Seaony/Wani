@@ -30,6 +30,7 @@ struct WaniHeadingRow: View {
             .fixedSize()
             .waniPointerFeedback(palette: palette)
             .opacity(isHovered ? 1 : 0)
+            .animation(WaniMotion.quick, value: isHovered)
             .accessibilityLabel("Heading Actions")
         }
         .padding(.horizontal, 11)

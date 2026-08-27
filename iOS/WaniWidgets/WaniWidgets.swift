@@ -60,23 +60,23 @@ private struct WaniWidgetPalette {
 
     init(colorScheme: ColorScheme) {
         if colorScheme == .dark {
-            card = Color(widgetRGB: 0x28221B)
-            text = Color(widgetRGB: 0xEFE7DC)
-            secondary = Color(widgetRGB: 0xAC9F92)
-            tertiary = Color(widgetRGB: 0x83766A)
-            line = Color.white.opacity(0.10)
+            card = Color(widgetRGB: 0x232527).opacity(0.90)
+            text = Color(widgetRGB: 0xEDEDEF)
+            secondary = Color(widgetRGB: 0x9DA0A3)
+            tertiary = Color(widgetRGB: 0x6E7174)
+            line = Color.white.opacity(0.11)
             hover = Color.white.opacity(0.08)
-            accent = Color(widgetRGB: 0xE0794E)
-            softAccent = Color(widgetRGB: 0xE0794E).opacity(0.18)
+            accent = Color(widgetRGB: 0x3E9BFF)
+            softAccent = Color(widgetRGB: 0x3E9BFF).opacity(0.18)
         } else {
             card = Color(widgetRGB: 0xFFFDF9)
-            text = Color(widgetRGB: 0x3A312A)
-            secondary = Color(widgetRGB: 0x786A5E)
-            tertiary = Color(widgetRGB: 0xAAA095)
-            line = Color(widgetRGB: 0x8C735A).opacity(0.15)
+            text = Color(widgetRGB: 0x26282B)
+            secondary = Color(widgetRGB: 0x6C7075)
+            tertiary = Color(widgetRGB: 0x9CA0A6)
+            line = Color(widgetRGB: 0x786450).opacity(0.15)
             hover = Color(widgetRGB: 0xB49678).opacity(0.13)
-            accent = Color(widgetRGB: 0xC05A34)
-            softAccent = Color(widgetRGB: 0xF7E4D9)
+            accent = Color(widgetRGB: 0x0E7AFE)
+            softAccent = Color(widgetRGB: 0xE4F0FF)
         }
     }
 }

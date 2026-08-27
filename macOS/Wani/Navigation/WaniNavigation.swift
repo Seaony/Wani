@@ -104,12 +104,12 @@ extension WaniSmartList {
 
     var symbolColor: Color {
         switch self {
-        case .inbox: Color(red: 0.29, green: 0.48, blue: 0.65)
-        case .today: Color(red: 0.79, green: 0.57, blue: 0.16)
-        case .upcoming: Color(red: 0.76, green: 0.34, blue: 0.30)
-        case .anytime: Color(red: 0.36, green: 0.55, blue: 0.42)
-        case .someday: Color(red: 0.60, green: 0.54, blue: 0.37)
-        case .logbook: Color(red: 0.36, green: 0.55, blue: 0.42)
+        case .inbox: Color(hex: 0x4A7BA7)
+        case .today: Color(hex: 0xC9922A)
+        case .upcoming: Color(hex: 0xC3564C)
+        case .anytime: Color(hex: 0x5B8C6C)
+        case .someday: Color(hex: 0x9A8A5F)
+        case .logbook: Color(hex: 0x5B8C6C)
         case .trash: Color.gray
         }
     }

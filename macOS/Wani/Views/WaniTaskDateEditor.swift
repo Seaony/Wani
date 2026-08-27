@@ -100,8 +100,10 @@ struct WaniTaskDateEditor: View {
                         .font(.system(size: 12))
                         .waniPointingHand()
                 }
+                .transition(WaniMotion.revealTransition)
             }
         }
+        .animation(WaniMotion.standard, value: todo.repeatFrequency)
         .padding(12)
         .background(palette.hover, in: RoundedRectangle(cornerRadius: 9))
         .onDisappear(perform: recurrenceChanged)
@@ -144,8 +146,10 @@ struct WaniTaskDateEditor: View {
             Spacer()
             if enabled.wrappedValue {
                 content()
+                    .transition(WaniMotion.overlayTransition)
             }
         }
+        .animation(WaniMotion.quick, value: enabled.wrappedValue)
     }
 
     private var startDateBinding: Binding<Date> {

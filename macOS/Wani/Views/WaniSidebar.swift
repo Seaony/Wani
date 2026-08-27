@@ -26,14 +26,12 @@ struct WaniSidebar: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Color.clear.frame(height: 46)
-
             Button(action: openSearch) {
                 HStack(spacing: 7) {
                     Image(systemName: "magnifyingglass")
                     Text("Search")
                     Spacer()
-                    Text("⌘F")
+                    Text("⌘K")
                         .font(.system(size: 11))
                 }
                 .foregroundStyle(palette.tertiaryText)
@@ -44,6 +42,7 @@ struct WaniSidebar: View {
             }
             .buttonStyle(.waniInteractive(palette))
             .accessibilityLabel("Search")
+            .padding(.top, 10)
             .padding(.horizontal, 12)
             .padding(.bottom, 10)
 
@@ -75,7 +74,7 @@ struct WaniSidebar: View {
             }
 
             Rectangle()
-                .fill(palette.line)
+                .fill(palette.sidebarDivider)
                 .frame(height: 1)
 
             HStack {
@@ -101,7 +100,7 @@ struct WaniSidebar: View {
                 .accessibilityLabel("Settings")
             }
             .padding(.horizontal, 18)
-            .frame(height: 46)
+            .frame(height: 52)
         }
         .background(palette.sidebar)
     }
@@ -110,9 +109,9 @@ struct WaniSidebar: View {
         Button {
             selection = .smart(list)
         } label: {
-            HStack(spacing: 10) {
-                Image(systemName: list.symbolName)
-                    .font(.system(size: 12, weight: .semibold))
+            HStack(spacing: 8) {
+                Image(systemName: sidebarSymbolName(for: list))
+                    .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(list == .trash ? palette.tertiaryText : list.symbolColor)
                     .frame(width: 20, height: 20)
                     .accessibilityHidden(true)
@@ -127,25 +126,43 @@ struct WaniSidebar: View {
             }
             .foregroundStyle(palette.text)
             .padding(.horizontal, 8)
-            .frame(height: 32)
+            .frame(height: 30)
             .background(
-                selection == .smart(list) ? palette.softAccent : Color.clear,
+                selection == .smart(list) ? palette.selectionBackground : Color.clear,
                 in: RoundedRectangle(cornerRadius: 8)
             )
         }
-        .buttonStyle(.waniInteractive(palette))
+        .buttonStyle(.waniInteractive(
+            palette,
+            showsHoverBackground: selection != .smart(list)
+        ))
+        .animation(WaniMotion.quick, value: selection)
         .accessibilityLabel(list.title)
         .accessibilityValue(selection == .smart(list) ? "Selected" : "")
+    }
+
+    private func sidebarSymbolName(for list: WaniSmartList) -> String {
+        switch list {
+        case .inbox: "tray.full.fill"
+        case .today: "star.fill"
+        case .upcoming: "calendar"
+        case .anytime: "square.stack.3d.up.fill"
+        case .someday: "archivebox.fill"
+        case .logbook: "checkmark.square.fill"
+        case .trash: "trash.fill"
+        }
     }
 
     private func areaSection(_ area: WaniArea) -> some View {
         VStack(spacing: 1) {
             HStack(spacing: 6) {
                 Button {
-                    if collapsedAreaIDs.contains(area.id) {
-                        collapsedAreaIDs.remove(area.id)
-                    } else {
-                        collapsedAreaIDs.insert(area.id)
+                    withAnimation(WaniMotion.standard) {
+                        if collapsedAreaIDs.contains(area.id) {
+                            collapsedAreaIDs.remove(area.id)
+                        } else {
+                            collapsedAreaIDs.insert(area.id)
+                        }
                     }
                 } label: {
                     Image(systemName: "chevron.right")
@@ -162,7 +179,10 @@ struct WaniSidebar: View {
                         .font(.system(size: 10.5, weight: .bold))
                         .tracking(1.2)
                 }
-                .buttonStyle(.waniInteractive(palette))
+                .buttonStyle(.waniInteractive(
+                    palette,
+                    showsHoverBackground: selection != .area(area.id)
+                ))
                 .accessibilityLabel(area.title)
                 .accessibilityValue(selection == .area(area.id) ? "Selected" : "")
 
@@ -183,7 +203,7 @@ struct WaniSidebar: View {
             .padding(.horizontal, 8)
             .frame(height: 28)
             .background(
-                selection == .area(area.id) ? palette.softAccent : Color.clear,
+                selection == .area(area.id) ? palette.selectionBackground : Color.clear,
                 in: RoundedRectangle(cornerRadius: 8)
             )
             .padding(.bottom, 5)
@@ -195,11 +215,13 @@ struct WaniSidebar: View {
                 }
                 return reorderArea(movingID, area.id)
             }
+            .animation(WaniMotion.quick, value: selection)
 
             if !collapsedAreaIDs.contains(area.id) {
                 ForEach(projects.filter { $0.area?.id == area.id }) { project in
                     projectRow(project)
                 }
+                .transition(WaniMotion.revealTransition)
             }
         }
         .padding(.bottom, 12)
@@ -245,7 +267,7 @@ struct WaniSidebar: View {
             .padding(.horizontal, 8)
             .frame(height: 32)
             .background(
-                selection == .project(project.id) ? palette.softAccent : Color.clear,
+                selection == .project(project.id) ? palette.selectionBackground : Color.clear,
                 in: RoundedRectangle(cornerRadius: 8)
             )
             .contentShape(Rectangle())
@@ -257,7 +279,11 @@ struct WaniSidebar: View {
                 return reorderProject(movingID, project.id)
             }
         }
-        .buttonStyle(.waniInteractive(palette))
+        .buttonStyle(.waniInteractive(
+            palette,
+            showsHoverBackground: selection != .project(project.id)
+        ))
+        .animation(WaniMotion.quick, value: selection)
         .accessibilityLabel(project.title)
         .accessibilityValue(selection == .project(project.id) ? "Selected" : "")
     }
@@ -279,7 +305,7 @@ struct WaniSidebar: View {
             .fill(palette.line)
             .frame(height: 1)
             .padding(.horizontal, 8)
-            .padding(.vertical, 9)
+            .padding(.vertical, 7)
     }
 
     private func draggedID(in values: [String], prefix: String) -> UUID? {

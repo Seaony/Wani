@@ -142,15 +142,20 @@ struct WaniRepeatEditor: View {
 
                     if !afterCompletion && frequency == .weekly {
                         weekdaySelector
+                            .transition(WaniMotion.revealTransition)
                     }
 
                     if !afterCompletion && (frequency == .monthly || frequency == .yearly) {
                         dateRuleEditor
+                            .transition(WaniMotion.revealTransition)
                     }
 
                     if !afterCompletion {
-                        repeatEndSelector
-                        repeatPreview
+                        Group {
+                            repeatEndSelector
+                            repeatPreview
+                        }
+                        .transition(WaniMotion.revealTransition)
                     }
 
                     optionRow(
@@ -183,6 +188,8 @@ struct WaniRepeatEditor: View {
                         .waniPointingHand()
                     }
                 }
+                .animation(WaniMotion.standard, value: afterCompletion)
+                .animation(WaniMotion.standard, value: frequency)
                 .padding(18)
 
                 Rectangle().fill(palette.line).frame(height: 1)
@@ -302,6 +309,7 @@ struct WaniRepeatEditor: View {
                         .foregroundStyle(palette.secondaryText)
                 }
                 .waniPointingHand()
+                .transition(WaniMotion.overlayTransition)
             case .onDate:
                 DatePicker(
                     "Repeat End Date",
@@ -311,8 +319,10 @@ struct WaniRepeatEditor: View {
                 .labelsHidden()
                 .datePickerStyle(.field)
                 .waniPointingHand()
+                .transition(WaniMotion.overlayTransition)
             }
         }
+        .animation(WaniMotion.quick, value: endCondition)
     }
 
     private var repeatPreview: some View {
@@ -413,6 +423,7 @@ struct WaniRepeatEditor: View {
         }
         .padding(10)
         .background(palette.hover, in: RoundedRectangle(cornerRadius: 8))
+        .animation(WaniMotion.standard, value: dateRules.map(\.id))
     }
 
     private func ordinals(for rule: WaniRepeatDateRule) -> [Int] {
@@ -481,7 +492,9 @@ struct WaniRepeatEditor: View {
             Spacer()
             if enabled.wrappedValue {
                 content()
+                    .transition(WaniMotion.overlayTransition)
             }
         }
+        .animation(WaniMotion.quick, value: enabled.wrappedValue)
     }
 }

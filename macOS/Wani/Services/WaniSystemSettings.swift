@@ -14,13 +14,17 @@ enum WaniStartupService {
             try SMAppService.mainApp.unregister()
         }
     }
+
+    static func openManagement() {
+        SMAppService.openSystemSettingsLoginItems()
+    }
 }
 
 @MainActor
 enum WaniDockBadge {
-    static func update(enabled: Bool, todayCount: Int) {
-        NSApplication.shared.dockTile.badgeLabel = enabled && todayCount > 0
-            ? todayCount.formatted()
+    static func update(count: Int) {
+        NSApplication.shared.dockTile.badgeLabel = count > 0
+            ? count.formatted()
             : nil
     }
 }

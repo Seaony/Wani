@@ -58,6 +58,7 @@ struct WaniChecklistRow: View {
             else { return false }
             return reorder(movingID, item.id)
         }
+        .animation(WaniMotion.quick, value: item.isCompleted)
     }
 
     private var itemTitleBinding: Binding<String> {

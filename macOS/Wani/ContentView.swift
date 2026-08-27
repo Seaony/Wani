@@ -13,21 +13,24 @@ import WidgetKit
 struct ContentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.openSettings) private var openSettings
     @Query(sort: \WaniArea.sortOrder) private var areas: [WaniArea]
     @Query(sort: \WaniProject.sortOrder) private var projects: [WaniProject]
     @Query(sort: \WaniHeading.sortOrder) private var headings: [WaniHeading]
     @Query(sort: \WaniTodo.sortOrder) private var todos: [WaniTodo]
-    @StateObject private var cloudSyncMonitor: WaniCloudSyncMonitor
-
     @AppStorage("appearance") private var appearanceRaw = WaniAppearance.system.rawValue
     @AppStorage("accent") private var accentRaw = WaniAccent.terracotta.rawValue
     @AppStorage("listDensity") private var densityRaw = WaniListDensity.medium.rawValue
+    @AppStorage("sidebarWidth") private var savedSidebarWidth = 220.0
     @AppStorage("showSidebarCounts") private var showSidebarCounts = true
     @AppStorage("showAreaLines") private var showAreaLines = true
     @AppStorage("quickEntryUsesCurrentList") private var quickEntryUsesCurrentList = true
     @AppStorage("launchDestination") private var launchDestinationRaw = WaniLaunchDestination.today.rawValue
-    @AppStorage("showMenuBarIcon") private var showMenuBarIcon = true
     @AppStorage("showDockBadge") private var showDockBadge = false
+    @AppStorage("dockCountMode") private var dockCountModeRaw = WaniDockCountMode.todayOnly.rawValue
+    @AppStorage("textSize") private var textSizeRaw = WaniTextSize.standard.rawValue
+    @AppStorage("groupTodayByProjectOrArea") private var groupTodayByProjectOrArea = true
+    @AppStorage("keepWindowWidthWhenResizingSidebar") private var keepWindowWidth = true
     @AppStorage("deadlineNotificationsEnabled") private var deadlineNotificationsEnabled = true
     @AppStorage("moveToLogbookAtMidnight") private var moveToLogbookAtMidnight = false
     @AppStorage("globalQuickEntryShortcut") private var quickEntryShortcutRaw =
@@ -35,6 +38,7 @@ struct ContentView: View {
 
     @State private var selection: WaniNavigationTarget = .smart(.today)
     @State private var sidebarVisible = true
+    @State private var sidebarWidth: Double
     @State private var expandedTodoID: UUID?
     @State private var quickEntryOpen = false
     @State private var quickEntryTitle = ""
@@ -43,7 +47,6 @@ struct ContentView: View {
     @State private var widgetSnapshotRefreshTask: Task<Void, Never>?
     @State private var searchOpen = false
     @State private var searchQuery = ""
-    @State private var settingsOpen = false
     @State private var addingHeading = false
     @State private var newHeadingTitle = ""
     @State private var groupingSelectionInNewHeading = false
@@ -59,16 +62,16 @@ struct ContentView: View {
     @State private var toolbarDateEditorOpen = false
     @State private var repeatEditorTodoID: UUID?
     @State private var projectTagFilter: String?
-    @State private var quickEntryShortcutError = ""
     @State private var emptyTrashConfirmationOpen = false
     @State private var dateReference = Date.now
     @FocusState private var headerTitleFocused: Bool
     @FocusState private var headingTitleFocused: Bool
 
-    init(cloudSyncEnabled: Bool = true) {
-        _cloudSyncMonitor = StateObject(
-            wrappedValue: WaniCloudSyncMonitor(enabled: cloudSyncEnabled)
-        )
+    init() {
+        let initialSidebarWidth = (
+            UserDefaults.standard.object(forKey: "sidebarWidth") as? NSNumber
+        )?.doubleValue ?? 220
+        _sidebarWidth = State(initialValue: initialSidebarWidth)
     }
 
     private var appearance: WaniAppearance {
@@ -86,6 +89,14 @@ struct ContentView: View {
         nonmutating set { densityRaw = newValue.rawValue }
     }
 
+    private var dockCountMode: WaniDockCountMode {
+        WaniDockCountMode(rawValue: dockCountModeRaw) ?? .todayOnly
+    }
+
+    private var textSize: WaniTextSize {
+        WaniTextSize(rawValue: textSizeRaw) ?? .standard
+    }
+
     private var launchDestination: WaniLaunchDestination {
         get { WaniLaunchDestination(rawValue: launchDestinationRaw) ?? .today }
         nonmutating set { launchDestinationRaw = newValue.rawValue }
@@ -101,6 +112,10 @@ struct ContentView: View {
     }
 
     var body: some View {
+        lifecycleContent
+    }
+
+    private var rootContent: some View {
         ZStack {
             HStack(spacing: 0) {
                 if sidebarVisible {
@@ -122,9 +137,24 @@ struct ContentView: View {
                         createProject: createProject,
                         reorderArea: reorderArea,
                         reorderProject: reorderProject,
-                        openSettings: { settingsOpen = true }
+                        openSettings: { openSettings() }
                     )
-                    .frame(width: 258)
+                    .frame(width: sidebarWidth)
+                    .overlay(alignment: .trailing) {
+                        Rectangle()
+                            .fill(palette.sidebarDivider)
+                            .frame(width: 1)
+                            .ignoresSafeArea(edges: .vertical)
+                            .allowsHitTesting(false)
+                    }
+                    .overlay(alignment: .trailing) {
+                        WaniSidebarDivider(
+                            sidebarWidth: $sidebarWidth,
+                            keepWindowWidth: keepWindowWidth,
+                            resizeEnded: { savedSidebarWidth = $0 }
+                        )
+                    }
+                    .transition(WaniMotion.sidebarTransition)
                 }
 
                 mainContent
@@ -138,6 +168,7 @@ struct ContentView: View {
                     save: saveQuickEntry,
                     dismiss: closeQuickEntry
                 )
+                .transition(WaniMotion.overlayTransition)
             }
 
             if searchOpen {
@@ -153,33 +184,7 @@ struct ContentView: View {
                     openTodo: openSearchResult,
                     dismiss: closeSearch
                 )
-            }
-
-            if settingsOpen {
-                WaniSettingsOverlay(
-                    palette: palette,
-                    appearance: Binding(get: { appearance }, set: { appearance = $0 }),
-                    accent: Binding(get: { accent }, set: { accent = $0 }),
-                    density: Binding(get: { density }, set: { density = $0 }),
-                    showCounts: $showSidebarCounts,
-                    showAreaLines: $showAreaLines,
-                    quickEntryUsesCurrentList: $quickEntryUsesCurrentList,
-                    quickEntryShortcut: Binding(
-                        get: { quickEntryShortcut },
-                        set: { quickEntryShortcut = $0 }
-                    ),
-                    quickEntryShortcutError: quickEntryShortcutError,
-                    launchDestination: Binding(
-                        get: { launchDestination },
-                        set: { launchDestination = $0 }
-                    ),
-                    showMenuBarIcon: $showMenuBarIcon,
-                    showDockBadge: $showDockBadge,
-                    deadlineNotificationsEnabled: $deadlineNotificationsEnabled,
-                    moveToLogbookAtMidnight: $moveToLogbookAtMidnight,
-                    cloudSyncMonitor: cloudSyncMonitor,
-                    dismiss: { settingsOpen = false }
-                )
+                .transition(WaniMotion.overlayTransition)
             }
 
             if let todo = repeatEditorTodo {
@@ -192,6 +197,7 @@ struct ContentView: View {
                 // The editor seeds its @State from the to-do in init, so switching
                 // to-dos has to be a new identity or the old draft would stick.
                 .id(todo.id)
+                .transition(WaniMotion.overlayTransition)
             }
 
             if batchMoveOpen {
@@ -206,6 +212,7 @@ struct ContentView: View {
                     moveToProject: moveSelectedTodos,
                     dismiss: closeBatchMove
                 )
+                .transition(WaniMotion.overlayTransition)
             }
 
             navigationShortcuts
@@ -214,7 +221,16 @@ struct ContentView: View {
                 .frame(width: 0, height: 0)
 
         }
+        .animation(WaniMotion.standard, value: sidebarVisible)
+        .animation(WaniMotion.overlay, value: quickEntryOpen)
+        .animation(WaniMotion.overlay, value: searchOpen)
+        .animation(WaniMotion.overlay, value: repeatEditorTodoID)
+        .animation(WaniMotion.overlay, value: batchMoveOpen)
         .frame(minWidth: 760, minHeight: 520)
+    }
+
+    private var styledContent: some View {
+        rootContent
         .focusedSceneValue(
             \.waniItemCommandActions,
             WaniItemCommandActions(
@@ -245,6 +261,11 @@ struct ContentView: View {
         .tint(palette.accent)
         .buttonStyle(.waniInteractive(palette))
         .preferredColorScheme(appearance.colorScheme)
+        .dynamicTypeSize(textSize.dynamicTypeSize)
+    }
+
+    private var lifecycleContent: some View {
+        styledContent
         .onAppear {
             if !appliedLaunchDestination {
                 selection = .smart(launchDestination.smartList)
@@ -258,11 +279,15 @@ struct ContentView: View {
         .onOpenURL(perform: handleWidgetDeepLink)
         .onChange(of: widgetSnapshotRevision) {
             scheduleWidgetSnapshotRefresh()
+            updateDockBadge()
         }
         .onChange(of: showDockBadge) {
             updateDockBadge()
         }
         .onChange(of: todayCount) {
+            updateDockBadge()
+        }
+        .onChange(of: dockCountModeRaw) {
             updateDockBadge()
         }
         .onChange(of: deadlineNotificationsEnabled) {
@@ -284,7 +309,6 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .waniOpenQuickEntry)) { _ in
             NSApp.activate(ignoringOtherApps: true)
-            settingsOpen = false
             searchOpen = false
             quickEntryOpen = true
         }
@@ -374,15 +398,18 @@ struct ContentView: View {
                 .padding(.bottom, 24)
             }
 
-            Rectangle().fill(palette.faintLine).frame(height: 1)
+            Rectangle().fill(palette.sidebarDivider).frame(height: 1)
 
             Group {
                 if selectedTodos.isEmpty {
                     standardToolbar
+                        .transition(WaniMotion.overlayTransition)
                 } else {
                     batchToolbar
+                        .transition(WaniMotion.overlayTransition)
                 }
             }
+            .animation(WaniMotion.quick, value: selectedTodos.isEmpty)
             .frame(height: 52)
         }
         .background(palette.panel)
@@ -666,7 +693,12 @@ struct ContentView: View {
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
             )
 
-            taskRows(daytimeTodos)
+            ForEach(todayGroups(daytimeTodos)) { group in
+                if let title = group.title {
+                    listSectionHeader(title, count: group.todos.count)
+                }
+                taskRows(group.todos)
+            }
 
             if !eveningTodos.isEmpty {
                 listSectionHeader(
@@ -674,22 +706,29 @@ struct ContentView: View {
                     subtitle: "after 18:00",
                     count: eveningTodos.count
                 )
-                taskRows(eveningTodos)
+                ForEach(todayGroups(eveningTodos)) { group in
+                    if let title = group.title {
+                        listSectionHeader(title, count: group.todos.count)
+                    }
+                    taskRows(group.todos)
+                }
             }
         }
     }
 
     private func listSectionHeader(
         _ title: String,
-        subtitle: String,
+        subtitle: String? = nil,
         count: Int
     ) -> some View {
         HStack(spacing: 8) {
             Text(title.uppercased())
                 .font(.system(size: 11, weight: .bold))
                 .tracking(1.1)
-            Text(subtitle)
-                .font(.system(size: 11))
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(size: 11))
+            }
             Rectangle()
                 .fill(palette.line)
                 .frame(height: 1)
@@ -700,6 +739,39 @@ struct ContentView: View {
         .padding(.horizontal, 11)
         .padding(.top, 17)
         .padding(.bottom, 5)
+    }
+
+    private func todayGroups(_ source: [WaniTodo]) -> [WaniTodayGroup] {
+        guard groupTodayByProjectOrArea else {
+            return source.isEmpty
+                ? []
+                : [WaniTodayGroup(id: "all", title: nil, todos: source)]
+        }
+
+        var groups: [WaniTodayGroup] = []
+        var indices: [String: Int] = [:]
+        for todo in source {
+            let id: String
+            let title: String?
+            if let project = todo.project {
+                id = "project-\(project.id.uuidString)"
+                title = project.title
+            } else if let area = todo.area {
+                id = "area-\(area.id.uuidString)"
+                title = area.title
+            } else {
+                id = "standalone"
+                title = nil
+            }
+
+            if let index = indices[id] {
+                groups[index].todos.append(todo)
+            } else {
+                indices[id] = groups.count
+                groups.append(WaniTodayGroup(id: id, title: title, todos: [todo]))
+            }
+        }
+        return groups
     }
 
     @ViewBuilder
@@ -1053,11 +1125,14 @@ struct ContentView: View {
             .frame(height: 40)
             .background(palette.softAccent, in: RoundedRectangle(cornerRadius: 9))
             .onExitCommand(perform: closeHeadingComposer)
+            .transition(WaniMotion.revealTransition)
         }
 
         if projectLoggedItemCount > 0 {
             Button {
-                projectLogbookExpanded.toggle()
+                withAnimation(WaniMotion.standard) {
+                    projectLogbookExpanded.toggle()
+                }
             } label: {
                 HStack(spacing: 8) {
                     Text(projectLogbookExpanded ? "Hide Logged Items" : "Show Logged Items")
@@ -1076,15 +1151,18 @@ struct ContentView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if projectLogbookExpanded {
-                let loggedByHeading = Dictionary(grouping: projectLoggedTodos) {
-                    $0.heading?.id
-                }
-                taskRows(loggedByHeading[nil] ?? [])
+                Group {
+                    let loggedByHeading = Dictionary(grouping: projectLoggedTodos) {
+                        $0.heading?.id
+                    }
+                    taskRows(loggedByHeading[nil] ?? [])
 
-                ForEach(projectLoggedHeadings) { heading in
-                    loggedHeadingRow(heading)
-                    taskRows(loggedByHeading[heading.id] ?? [])
+                    ForEach(projectLoggedHeadings) { heading in
+                        loggedHeadingRow(heading)
+                        taskRows(loggedByHeading[heading.id] ?? [])
+                    }
                 }
+                .transition(WaniMotion.revealTransition)
             }
         }
     }
@@ -1151,7 +1229,7 @@ struct ContentView: View {
                 },
                 recurrenceChanged: generateDueRepeatingTodos
             )
-            .id("\(todo.id.uuidString):\(expandedTodoID == todo.id)")
+            .id(todo.id)
         }
     }
 
@@ -1168,6 +1246,29 @@ struct ContentView: View {
 
     private var todayCount: Int {
         smartListCounts[.today] ?? 0
+    }
+
+    private var dockBadgeCount: Int {
+        guard dockCountMode == .dueAndToday else { return todayCount }
+
+        let calendar = Calendar.current
+        let tomorrow = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: calendar.startOfDay(for: dateReference)
+        ) ?? dateReference
+        let dueIDs = todos.lazy.filter { todo in
+            todo.status == .open
+                && todo.deletedAt == nil
+                && todo.deadline.map { $0 < tomorrow } == true
+        }.map(\.id)
+        let todayIDs = WaniTaskRules.tasks(
+            todos,
+            in: .today,
+            now: dateReference,
+            deferCompletedUntilMidnight: moveToLogbookAtMidnight
+        ).lazy.filter { $0.status == .open }.map(\.id)
+        return Set(dueIDs).union(todayIDs).count
     }
 
     private var selectedTodos: [WaniTodo] {
@@ -1212,18 +1313,19 @@ struct ContentView: View {
         let sections: [[WaniTodo]]
         switch selection {
         case .smart(.today):
-            sections = [
+            sections = todayGroups(
                 WaniTaskRules.todayTasks(
                     todos,
                     evening: false,
                     deferCompletedUntilMidnight: moveToLogbookAtMidnight
-                ),
+                )
+            ).map(\.todos) + todayGroups(
                 WaniTaskRules.todayTasks(
                     todos,
                     evening: true,
                     deferCompletedUntilMidnight: moveToLogbookAtMidnight
-                ),
-            ]
+                )
+            ).map(\.todos)
         case .smart(.upcoming):
             sections = WaniTaskRules.upcomingDays(
                 todos,
@@ -1500,7 +1602,7 @@ struct ContentView: View {
             Button("Search") {
                 searchOpen = true
             }
-            .keyboardShortcut("f", modifiers: .command)
+            .keyboardShortcut("k", modifiers: .command)
 
             Button("Select All", action: selectAllTodos)
                 .keyboardShortcut("a", modifiers: .command)
@@ -1876,7 +1978,6 @@ struct ContentView: View {
             event.window == NSApp.keyWindow,
             !quickEntryOpen,
             !searchOpen,
-            !settingsOpen,
             repeatEditorTodo == nil,
             !batchMoveOpen,
             !batchDateEditorOpen,
@@ -2030,7 +2131,6 @@ struct ContentView: View {
             canAddToCurrentList,
             !quickEntryOpen,
             !searchOpen,
-            !settingsOpen,
             repeatEditorTodo == nil,
             !batchMoveOpen,
             let text = NSPasteboard.general.string(forType: .string)
@@ -2427,8 +2527,10 @@ struct ContentView: View {
             todo.sortOrder = (todos.map(\.sortOrder).max() ?? 0) + 1
         }
 
-        modelContext.insert(todo)
-        try? modelContext.save()
+        withAnimation(WaniMotion.standard) {
+            modelContext.insert(todo)
+            try? modelContext.save()
+        }
         closeQuickEntry()
         expandedTodoID = nil
         selectedTodoIDs = [todo.id]
@@ -2436,29 +2538,31 @@ struct ContentView: View {
     }
 
     private func toggleCompleted(_ todo: WaniTodo) {
-        if todo.status == .open {
-            if let next = WaniTaskRules.complete(todo) {
-                modelContext.insert(next)
+        withAnimation(WaniMotion.standard) {
+            if todo.status == .open {
+                if let next = WaniTaskRules.complete(todo) {
+                    modelContext.insert(next)
+                    Task {
+                        await WaniReminderScheduler.sync(
+                            next,
+                            requestAuthorization: false,
+                            deadlineNotificationsEnabled: deadlineNotificationsEnabled
+                        )
+                    }
+                }
+                WaniReminderScheduler.cancel(todo)
+            } else {
+                WaniTaskRules.reopen(todo)
                 Task {
                     await WaniReminderScheduler.sync(
-                        next,
+                        todo,
                         requestAuthorization: false,
                         deadlineNotificationsEnabled: deadlineNotificationsEnabled
                     )
                 }
             }
-            WaniReminderScheduler.cancel(todo)
-        } else {
-            WaniTaskRules.reopen(todo)
-            Task {
-                await WaniReminderScheduler.sync(
-                    todo,
-                    requestAuthorization: false,
-                    deadlineNotificationsEnabled: deadlineNotificationsEnabled
-                )
-            }
+            try? modelContext.save()
         }
-        try? modelContext.save()
     }
 
     private func toggleStatus(_ todo: WaniTodo) {
@@ -2470,29 +2574,37 @@ struct ContentView: View {
     }
 
     private func cancel(_ todo: WaniTodo) {
-        WaniTaskRules.cancel(todo)
-        WaniReminderScheduler.cancel(todo)
-        expandedTodoID = nil
-        saveChanges()
+        withAnimation(WaniMotion.standard) {
+            WaniTaskRules.cancel(todo)
+            WaniReminderScheduler.cancel(todo)
+            expandedTodoID = nil
+            saveChanges()
+        }
     }
 
     private func logNow(_ todo: WaniTodo) {
         guard WaniTaskRules.logNow(todo) else { return }
-        expandedTodoID = nil
-        saveChanges()
+        withAnimation(WaniMotion.standard) {
+            expandedTodoID = nil
+            saveChanges()
+        }
     }
 
     private func moveToTrash(_ todo: WaniTodo) {
-        WaniTaskRules.moveToTrash(todo)
-        WaniReminderScheduler.cancel(todo)
-        expandedTodoID = nil
-        try? modelContext.save()
+        withAnimation(WaniMotion.standard) {
+            WaniTaskRules.moveToTrash(todo)
+            WaniReminderScheduler.cancel(todo)
+            expandedTodoID = nil
+            try? modelContext.save()
+        }
     }
 
     private func restore(_ todo: WaniTodo) {
-        WaniTaskRules.restore(todo)
-        expandedTodoID = nil
-        try? modelContext.save()
+        withAnimation(WaniMotion.standard) {
+            WaniTaskRules.restore(todo)
+            expandedTodoID = nil
+            try? modelContext.save()
+        }
         Task {
             await WaniReminderScheduler.sync(
                 todo,
@@ -2742,7 +2854,9 @@ struct ContentView: View {
     private func archive(_ heading: WaniHeading) {
         guard WaniTaskRules.archiveHeading(heading, todos: todos) else { return }
         saveChanges()
-        projectLogbookExpanded = true
+        withAnimation(WaniMotion.standard) {
+            projectLogbookExpanded = true
+        }
     }
 
     private func reopen(_ heading: WaniHeading) {
@@ -2849,7 +2963,9 @@ struct ContentView: View {
     private func openHeadingComposer(groupingSelection: Bool = false) {
         guard selectedProject != nil else { return }
         groupingSelectionInNewHeading = groupingSelection
-        addingHeading = true
+        withAnimation(WaniMotion.standard) {
+            addingHeading = true
+        }
         Task { @MainActor in
             await Task.yield()
             headingTitleFocused = true
@@ -2858,7 +2974,9 @@ struct ContentView: View {
 
     private func closeHeadingComposer() {
         headingTitleFocused = false
-        addingHeading = false
+        withAnimation(WaniMotion.standard) {
+            addingHeading = false
+        }
         newHeadingTitle = ""
         groupingSelectionInNewHeading = false
     }
@@ -3017,7 +3135,7 @@ struct ContentView: View {
     }
 
     private func registerGlobalQuickEntry() {
-        quickEntryShortcutError = WaniGlobalHotKey.shared.register(quickEntryShortcut) ?? ""
+        _ = WaniGlobalHotKey.shared.register(quickEntryShortcut)
     }
 
     private func closeSearch() {
@@ -3026,7 +3144,7 @@ struct ContentView: View {
     }
 
     private func updateDockBadge() {
-        WaniDockBadge.update(enabled: showDockBadge, todayCount: todayCount)
+        WaniDockBadge.update(count: showDockBadge ? dockBadgeCount : 0)
     }
 
     private func syncAllNotifications() {
@@ -3081,6 +3199,12 @@ struct ContentView: View {
     }
 }
 
+private struct WaniTodayGroup: Identifiable {
+    let id: String
+    let title: String?
+    var todos: [WaniTodo]
+}
+
 private struct WaniKeyEventMonitor: NSViewRepresentable {
     let handle: (NSEvent) -> Bool
 
@@ -3089,8 +3213,9 @@ private struct WaniKeyEventMonitor: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        context.coordinator.start()
-        return NSView()
+        let view = NSView()
+        context.coordinator.start(for: view)
+        return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
@@ -3104,14 +3229,17 @@ private struct WaniKeyEventMonitor: NSViewRepresentable {
     final class Coordinator {
         var handle: (NSEvent) -> Bool
         private var monitor: Any?
+        private weak var view: NSView?
 
         init(handle: @escaping (NSEvent) -> Bool) {
             self.handle = handle
         }
 
-        func start() {
+        func start(for view: NSView) {
+            self.view = view
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                self?.handle(event) == true ? nil : event
+                guard let self, event.window === self.view?.window else { return event }
+                return self.handle(event) ? nil : event
             }
         }
 
@@ -3129,6 +3257,6 @@ private struct WaniKeyEventMonitor: NSViewRepresentable {
 }
 
 #Preview {
-    ContentView(cloudSyncEnabled: false)
+    ContentView()
         .modelContainer(try! WaniPersistence.makeContainer(inMemory: true, cloudSync: false))
 }

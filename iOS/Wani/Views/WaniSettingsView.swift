@@ -39,7 +39,7 @@ struct WaniSettingsView: View {
                                         }
                                     }
                             }
-                            .accessibilityLabel(accent.rawValue)
+                            .accessibilityLabel(accent.title)
                         }
                     }
                     Divider().overlay(palette.line)
