@@ -144,9 +144,15 @@ struct WaniTaskRulesTests {
             startDate: date(2026, 8, 29, 0),
             sortOrder: 3
         )
+        let spanning = widgetTask(
+            title: "Spanning",
+            startDate: date(2026, 8, 29, 0),
+            deadline: date(2026, 8, 30, 0),
+            sortOrder: 4
+        )
         let snapshot = WaniWidgetSnapshot(
             generatedAt: now,
-            tasks: [today, completed, upcoming],
+            tasks: [today, completed, upcoming, spanning],
             projects: []
         )
 
@@ -155,7 +161,9 @@ struct WaniTaskRulesTests {
         let days = snapshot.upcomingDays(count: 3, now: now, calendar: calendar)
         #expect(days.count == 3)
         #expect(days[0].tasks.isEmpty)
-        #expect(days[1].tasks.map(\.title) == ["Upcoming"])
+        // A scheduled start wins over the deadline, so the spanning task is not
+        // listed a second time on its due day.
+        #expect(days[1].tasks.map(\.title) == ["Upcoming", "Spanning"])
         #expect(days[2].tasks.isEmpty)
     }
 
@@ -173,6 +181,7 @@ struct WaniTaskRulesTests {
         title: String,
         status: WaniTaskStatus = .open,
         startDate: Date? = nil,
+        deadline: Date? = nil,
         completedAt: Date? = nil,
         sortOrder: Double
     ) -> WaniWidgetTaskSnapshot {
@@ -184,7 +193,7 @@ struct WaniTaskRulesTests {
             status: status.rawValue,
             schedule: startDate == nil ? WaniTaskSchedule.inbox.rawValue : WaniTaskSchedule.date.rawValue,
             startDate: startDate,
-            deadline: nil,
+            deadline: deadline,
             createdAt: date(2026, 8, 20, 0),
             updatedAt: date(2026, 8, 27, 0),
             completedAt: completedAt,

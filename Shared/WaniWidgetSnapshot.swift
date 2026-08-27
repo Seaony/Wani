@@ -118,15 +118,29 @@ struct WaniWidgetSnapshot: Codable, Equatable {
                 return nil
             }
             let tasks = orderedOpenTasks.filter { task in
-                if task.schedule == "date",
-                   let startDate = task.startDate,
-                   calendar.isDate(startDate, inSameDayAs: date) {
-                    return true
-                }
-                return task.deadline.map { calendar.isDate($0, inSameDayAs: date) } == true
+                upcomingDate(for: task, tomorrow: tomorrow, calendar: calendar)
+                    .map { calendar.isDate($0, inSameDayAs: date) } == true
             }
             return WaniWidgetUpcomingDay(date: date, tasks: tasks)
         }
+    }
+
+    /// Mirrors `WaniTaskRules.upcomingDate`: a scheduled start wins over the deadline,
+    /// so a task lands on one day in the widget just as it does in the app.
+    private func upcomingDate(
+        for task: WaniWidgetTaskSnapshot,
+        tomorrow: Date,
+        calendar: Calendar
+    ) -> Date? {
+        if task.schedule == "date",
+           let startDate = task.startDate,
+           startDate >= tomorrow {
+            return startDate
+        }
+        if let deadline = task.deadline, deadline >= tomorrow {
+            return deadline
+        }
+        return nil
     }
 
     func projectProgress() -> [WaniWidgetProjectProgress] {

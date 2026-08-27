@@ -1,5 +1,13 @@
 # Wani 后台构建与测试记录
 
+## 2026-08-27：复查小组件与共享数据层改动
+
+- 修正 iOS 完成/重开/删除任务与 Widget 深链接绕过共享规则的问题（重复任务不再断链、`loggedAt` 不再被直接写入、`1d` 与 macOS 一致只顺延开始日期）；共享快照的 Upcoming 改为与 `WaniTaskRules.upcomingDate` 相同的单日归属；两端快照写入改为合并 1 秒内的连续修改；Widget 时间线改为预渲染次日零点条目；iOS 「Move completed to Logbook at midnight」开关接入列表与计数。
+- macOS `WaniTests` 59 项全部通过（Debug，`CODE_SIGNING_ALLOWED=NO`），主应用与 `WaniWidgets.appex` 一并编译。
+- iOS Simulator（iPhone 17 Pro）`WaniTests` 7 项全部通过，主应用与 `WaniWidgets.appex` 一并编译。
+- 两端测试均新增断言：既有开始日期又有截止日期的任务在 Widget Upcoming 中只出现在开始日期当天。
+- 未执行：Release 构建、静态分析、前台视觉与交互验收。
+
 ## 2026-08-27：iOS 小组件
 
 - iOS Simulator 上的 `WaniTests` 6 项测试全部通过；新增覆盖 Widget 快照的 Today、当日完成数、连续 Upcoming 日期，以及完成与推迟深链接格式。

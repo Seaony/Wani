@@ -10,6 +10,7 @@ struct WaniListView: View {
     let initiallyExpandedTodoID: UUID?
     let palette: WaniPalette
     let openProject: (UUID) -> Void
+    @AppStorage("wani.logAtMidnight") private var logAtMidnight = true
     @State private var expandedTodoID: UUID?
     @State private var showLogged = false
 
@@ -90,7 +91,11 @@ struct WaniListView: View {
 
     private var smartListContent: some View {
         let list = smartList ?? .inbox
-        let matches = WaniTaskRules.tasks(todos, in: list)
+        let matches = WaniTaskRules.tasks(
+            todos,
+            in: list,
+            deferCompletedUntilMidnight: logAtMidnight
+        )
         return VStack(spacing: 0) {
             if matches.isEmpty {
                 WaniEmptyState(
@@ -154,7 +159,10 @@ struct WaniListView: View {
 
     private var upcomingContent: some View {
         VStack(spacing: 0) {
-            ForEach(WaniTaskRules.upcomingDays(todos)) { day in
+            ForEach(WaniTaskRules.upcomingDays(
+                todos,
+                deferCompletedUntilMidnight: logAtMidnight
+            )) { day in
                 VStack(alignment: .leading, spacing: 0) {
                     HStack(alignment: .firstTextBaseline, spacing: 11) {
                         Text(day.date.formatted(.dateTime.day()))
@@ -175,12 +183,10 @@ struct WaniListView: View {
     }
 
     private var logbookContent: some View {
-        let matches = WaniTaskRules.tasks(todos, in: .logbook)
-        let grouped = Dictionary(grouping: matches) { todo in
-            Calendar.current.dateInterval(of: .month, for: todo.completedAt ?? todo.createdAt)?.start
-                ?? todo.createdAt
-        }
-        let months = grouped.keys.sorted(by: >)
+        let months = WaniTaskRules.logbookMonths(
+            todos,
+            deferCompletedUntilMidnight: logAtMidnight
+        )
         return VStack(alignment: .leading, spacing: 28) {
             if months.isEmpty {
                 WaniEmptyState(
@@ -189,10 +195,10 @@ struct WaniListView: View {
                     palette: palette
                 )
             }
-            ForEach(months, id: \.self) { month in
+            ForEach(months, id: \.month) { month in
                 VStack(alignment: .leading, spacing: 0) {
-                    WaniSectionTitle(month.formatted(.dateTime.month(.wide)), palette: palette)
-                    ForEach(grouped[month] ?? []) { todo in
+                    WaniSectionTitle(month.month.formatted(.dateTime.month(.wide)), palette: palette)
+                    ForEach(month.todos) { todo in
                         taskRow(todo, showsDate: true, showsProject: true)
                     }
                 }
@@ -217,8 +223,12 @@ struct WaniListView: View {
         let projectTodos = todos.filter {
             $0.project?.id == project.id && $0.deletedAt == nil
         }
-        let open = projectTodos.filter { $0.status == .open }
-        let logged = projectTodos.filter { $0.status != .open }
+        let logged = projectTodos.filter {
+            WaniTaskRules.isProjectLogged($0, deferCompletedUntilMidnight: logAtMidnight)
+        }
+        let open = projectTodos.filter {
+            !WaniTaskRules.isProjectLogged($0, deferCompletedUntilMidnight: logAtMidnight)
+        }
         return VStack(alignment: .leading, spacing: 0) {
             ForEach(open) { todo in taskRow(todo) }
             if !logged.isEmpty {
@@ -257,9 +267,11 @@ struct WaniListView: View {
             showsProject: showsProject,
             palette: palette,
             onOpen: {
-                todo.isNew = false
-                todo.updatedAt = .now
-                try? modelContext.save()
+                if todo.isNew {
+                    todo.isNew = false
+                    todo.updatedAt = .now
+                    try? modelContext.save()
+                }
                 withAnimation(.easeInOut(duration: 0.18)) {
                     expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
                 }
@@ -307,23 +319,17 @@ struct WaniListView: View {
 
     private func toggle(_ todo: WaniTodo) {
         if todo.deletedAt != nil {
-            todo.deletedAt = nil
+            WaniTaskRules.restore(todo)
         } else if todo.status == .open {
-            todo.status = .completed
-            todo.completedAt = .now
-            todo.loggedAt = .now
+            WaniTodoActions.complete(todo, in: modelContext)
         } else {
-            todo.status = .open
-            todo.completedAt = nil
-            todo.loggedAt = nil
+            WaniTaskRules.reopen(todo)
         }
-        todo.updatedAt = .now
         try? modelContext.save()
     }
 
     private func delete(_ todo: WaniTodo) {
-        todo.deletedAt = .now
-        todo.updatedAt = .now
+        WaniTaskRules.moveToTrash(todo)
         expandedTodoID = nil
         try? modelContext.save()
     }

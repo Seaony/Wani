@@ -27,6 +27,7 @@ struct WaniTaskRulesTests {
         let todayID = UUID()
         let upcomingID = UUID()
         let completedID = UUID()
+        let spanningID = UUID()
         let project = WaniWidgetProjectSnapshot(
             id: projectID,
             title: "Mantis",
@@ -71,6 +72,16 @@ struct WaniTaskRulesTests {
                 schedule: "anytime",
                 sortOrder: 3
             ),
+            widgetTask(
+                id: spanningID,
+                title: "Starts then falls due",
+                projectID: nil,
+                status: "open",
+                schedule: "date",
+                startDate: date(2026, 8, 29, 0),
+                deadline: date(2026, 8, 30, 0),
+                sortOrder: 4
+            ),
         ]
         let snapshot = WaniWidgetSnapshot(
             generatedAt: now,
@@ -81,6 +92,9 @@ struct WaniTaskRulesTests {
         #expect(snapshot.todayTasks(now: now).map(\.id) == [todayID])
         #expect(snapshot.completedTodayCount(now: now) == 1)
         #expect(snapshot.upcomingDays(count: 1, now: now).first?.tasks.map(\.id) == [upcomingID])
+        // A scheduled start wins over the deadline, as in the app's Upcoming list.
+        let days = snapshot.upcomingDays(count: 3, now: now)
+        #expect(days.map { $0.tasks.map(\.id) } == [[upcomingID], [spanningID], []])
         let progress = try #require(snapshot.projectProgress().first)
         #expect(progress.openCount == 2)
         #expect(progress.completedCount == 1)

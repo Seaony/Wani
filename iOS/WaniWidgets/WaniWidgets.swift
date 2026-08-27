@@ -27,13 +27,24 @@ struct WaniWidgetProvider: TimelineProvider {
         in context: Context,
         completion: @escaping (Timeline<WaniWidgetEntry>) -> Void
     ) {
-        let entry = WaniWidgetEntry(
-            date: .now,
-            snapshot: WaniWidgetSnapshotStore.load() ?? .empty
+        let now = Date.now
+        let snapshot = WaniWidgetSnapshotStore.load() ?? .empty
+        var entries = [WaniWidgetEntry(date: now, snapshot: snapshot)]
+        // The app rewrites the snapshot and reloads on every change, so the only
+        // thing a timeline has to handle on its own is the day rolling over.
+        let calendar = Calendar.current
+        let startOfTomorrow = calendar.date(
+            byAdding: .day,
+            value: 1,
+            to: calendar.startOfDay(for: now)
         )
-        let refresh = Calendar.current.date(byAdding: .minute, value: 15, to: entry.date)
-            ?? entry.date.addingTimeInterval(900)
-        completion(Timeline(entries: [entry], policy: .after(refresh)))
+        if let startOfTomorrow {
+            entries.append(WaniWidgetEntry(date: startOfTomorrow, snapshot: snapshot))
+        }
+        completion(Timeline(
+            entries: entries,
+            policy: .after(startOfTomorrow ?? now.addingTimeInterval(3600))
+        ))
     }
 }
 

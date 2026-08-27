@@ -36,7 +36,7 @@ struct WaniTaskRow: View {
             .accessibilityLabel(todo.status == .completed ? "Mark incomplete" : "Complete")
 
             if showsDate {
-                Text((todo.completedAt ?? todo.createdAt).formatted(.dateTime.month().day()))
+                Text((todo.completedAt ?? todo.canceledAt ?? todo.createdAt).formatted(.dateTime.month().day()))
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(palette.accent)
                     .frame(width: 40, alignment: .leading)

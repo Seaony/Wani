@@ -40,6 +40,7 @@ struct ContentView: View {
     @State private var quickEntryTitle = ""
     @State private var quickEntryInsertionAfterTodoID: UUID?
     @State private var widgetQuickEntryDestination: WaniNavigationTarget?
+    @State private var widgetSnapshotRefreshTask: Task<Void, Never>?
     @State private var searchOpen = false
     @State private var searchQuery = ""
     @State private var settingsOpen = false
@@ -256,7 +257,7 @@ struct ContentView: View {
         }
         .onOpenURL(perform: handleWidgetDeepLink)
         .onChange(of: widgetSnapshotRevision) {
-            refreshWidgetSnapshot()
+            scheduleWidgetSnapshotRefresh()
         }
         .onChange(of: showDockBadge) {
             updateDockBadge()
@@ -2906,7 +2907,21 @@ struct ContentView: View {
         )
     }
 
+    /// Title and note edits touch `updatedAt` on every keystroke; rewriting the
+    /// snapshot and reloading every timeline that often is wasted work, so edits
+    /// are coalesced before the file is written.
+    private func scheduleWidgetSnapshotRefresh() {
+        widgetSnapshotRefreshTask?.cancel()
+        widgetSnapshotRefreshTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            refreshWidgetSnapshot()
+        }
+    }
+
     private func refreshWidgetSnapshot() {
+        widgetSnapshotRefreshTask?.cancel()
+        widgetSnapshotRefreshTask = nil
         let snapshot = WaniWidgetSnapshot(
             generatedAt: .now,
             tasks: todos.map { todo in
@@ -2951,13 +2966,17 @@ struct ContentView: View {
         case "complete":
             guard path.count == 2,
                   let id = UUID(uuidString: path[1]),
-                  let todo = todos.first(where: { $0.id == id && $0.status == .open })
+                  let todo = todos.first(where: {
+                      $0.id == id && $0.status == .open && $0.deletedAt == nil
+                  })
             else { return }
             toggleCompleted(todo)
         case "postpone":
             guard path.count == 2,
                   let id = UUID(uuidString: path[1]),
-                  let todo = todos.first(where: { $0.id == id && $0.status == .open }),
+                  let todo = todos.first(where: {
+                      $0.id == id && $0.status == .open && $0.deletedAt == nil
+                  }),
                   let tomorrow = Calendar.current.date(
                     byAdding: .day,
                     value: 1,

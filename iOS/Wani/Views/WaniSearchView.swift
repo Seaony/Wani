@@ -9,9 +9,7 @@ struct WaniSearchView: View {
     private var results: [WaniTodo] {
         guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return [] }
         return todos.filter {
-            $0.deletedAt == nil
-                && ($0.title.localizedCaseInsensitiveContains(query)
-                    || $0.notes.localizedCaseInsensitiveContains(query))
+            $0.deletedAt == nil && WaniTaskRules.matches($0, query: query)
         }
     }
 

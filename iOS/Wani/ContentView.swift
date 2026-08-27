@@ -27,13 +27,16 @@ enum WaniAddDestination: Hashable, Identifiable {
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \WaniArea.sortOrder) private var areas: [WaniArea]
     @Query(sort: \WaniProject.sortOrder) private var projects: [WaniProject]
     @Query(sort: \WaniTodo.sortOrder) private var todos: [WaniTodo]
     @AppStorage("wani.appearance") private var appearanceRawValue = WaniAppearance.system.rawValue
     @AppStorage("wani.accent") private var accentRawValue = WaniAccent.terracotta.rawValue
+    @AppStorage("wani.logAtMidnight") private var logAtMidnight = true
     @State private var path: [WaniRoute] = []
     @State private var addSheetVisible = false
+    @State private var widgetSnapshotRefreshTask: Task<Void, Never>?
 
     private var palette: WaniPalette {
         WaniPalette(
@@ -93,7 +96,13 @@ struct ContentView: View {
             }
         }
         .onChange(of: widgetSnapshotRevision, initial: true) {
-            refreshWidgetSnapshot()
+            scheduleWidgetSnapshotRefresh()
+        }
+        .onChange(of: scenePhase) {
+            // Leaving the foreground must not strand a coalesced refresh.
+            if scenePhase != .active, widgetSnapshotRefreshTask != nil {
+                refreshWidgetSnapshot()
+            }
         }
         .onOpenURL(perform: handleWidgetDeepLink)
     }
@@ -143,7 +152,7 @@ struct ContentView: View {
     }
 
     private var listCounts: [WaniSmartList: Int] {
-        WaniTaskRules.smartListCounts(todos)
+        WaniTaskRules.smartListCounts(todos, deferCompletedUntilMidnight: logAtMidnight)
     }
 
     private func listRoute(for todo: WaniTodo) -> WaniRoute {
@@ -182,7 +191,21 @@ struct ContentView: View {
         )
     }
 
+    /// Title and note edits touch `updatedAt` on every keystroke; rewriting the
+    /// snapshot and reloading every timeline that often is wasted work, so edits
+    /// are coalesced before the file is written.
+    private func scheduleWidgetSnapshotRefresh() {
+        widgetSnapshotRefreshTask?.cancel()
+        widgetSnapshotRefreshTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            refreshWidgetSnapshot()
+        }
+    }
+
     private func refreshWidgetSnapshot() {
+        widgetSnapshotRefreshTask?.cancel()
+        widgetSnapshotRefreshTask = nil
         let snapshot = WaniWidgetSnapshot(
             generatedAt: .now,
             tasks: todos.map {
@@ -217,37 +240,34 @@ struct ContentView: View {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Widgets only ever offer these actions for open to-dos, so a link from a stale
+    /// timeline must not complete or reschedule something that has since changed.
     private func handleWidgetDeepLink(_ url: URL) {
         guard url.scheme == "wani",
               url.host == "widget",
               url.pathComponents.count == 3,
               let todoID = UUID(uuidString: url.pathComponents[2]),
-              let todo = todos.first(where: { $0.id == todoID })
+              let todo = todos.first(where: {
+                  $0.id == todoID && $0.status == .open && $0.deletedAt == nil
+              })
         else { return }
 
         switch url.pathComponents[1] {
         case "complete":
-            todo.status = .completed
-            todo.completedAt = .now
-            todo.isNew = false
+            WaniTodoActions.complete(todo, in: modelContext)
         case "postpone":
+            // Same as the macOS widget: push the start to tomorrow, leave the deadline.
             let calendar = Calendar.current
-            todo.status = .open
-            todo.schedule = .date
-            todo.startDate = calendar.date(
+            guard let tomorrow = calendar.date(
                 byAdding: .day,
                 value: 1,
                 to: calendar.startOfDay(for: .now)
-            )
-            if let deadline = todo.deadline {
-                todo.deadline = calendar.date(byAdding: .day, value: 1, to: deadline)
-            }
+            ) else { return }
+            WaniTaskRules.schedule(todo, as: .date, startDate: tomorrow, isEvening: false)
         default:
             return
         }
-        todo.updatedAt = .now
         try? modelContext.save()
-        refreshWidgetSnapshot()
     }
 }
 
