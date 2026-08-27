@@ -95,6 +95,72 @@ struct WaniTaskRulesTests {
         #expect(days[2].todos.isEmpty)
     }
 
+    @Test("Widget snapshot derives Today, completed, and upcoming data")
+    func widgetSnapshot() {
+        let now = date(2026, 8, 27, 12)
+        let today = widgetTask(
+            title: "Today",
+            startDate: date(2026, 8, 27, 0),
+            sortOrder: 1
+        )
+        let completed = widgetTask(
+            title: "Completed",
+            status: .completed,
+            completedAt: date(2026, 8, 27, 10),
+            sortOrder: 2
+        )
+        let upcoming = widgetTask(
+            title: "Upcoming",
+            startDate: date(2026, 8, 29, 0),
+            sortOrder: 3
+        )
+        let snapshot = WaniWidgetSnapshot(
+            generatedAt: now,
+            tasks: [today, completed, upcoming]
+        )
+
+        #expect(snapshot.todayTasks(now: now, calendar: calendar).map(\.title) == ["Today"])
+        #expect(snapshot.completedTodayCount(now: now, calendar: calendar) == 1)
+        let days = snapshot.upcomingDays(count: 3, now: now, calendar: calendar)
+        #expect(days.count == 3)
+        #expect(days[0].tasks.isEmpty)
+        #expect(days[1].tasks.map(\.title) == ["Upcoming"])
+        #expect(days[2].tasks.isEmpty)
+    }
+
+    @Test("Widget actions produce routable URLs")
+    func widgetDeepLinks() {
+        let id = UUID(uuidString: "9A04E8D4-4EAC-4C3E-A7F2-0481715EB72C")!
+
+        #expect(WaniWidgetDeepLink.complete(todoID: id).absoluteString
+            == "wani://widget/complete/9A04E8D4-4EAC-4C3E-A7F2-0481715EB72C")
+        #expect(WaniWidgetDeepLink.postpone(todoID: id).absoluteString
+            == "wani://widget/postpone/9A04E8D4-4EAC-4C3E-A7F2-0481715EB72C")
+    }
+
+    private func widgetTask(
+        title: String,
+        status: WaniTaskStatus = .open,
+        startDate: Date? = nil,
+        completedAt: Date? = nil,
+        sortOrder: Double
+    ) -> WaniWidgetTaskSnapshot {
+        WaniWidgetTaskSnapshot(
+            id: UUID(),
+            title: title,
+            projectTitle: nil,
+            status: status.rawValue,
+            schedule: startDate == nil ? WaniTaskSchedule.inbox.rawValue : WaniTaskSchedule.date.rawValue,
+            startDate: startDate,
+            deadline: nil,
+            createdAt: date(2026, 8, 20, 0),
+            updatedAt: date(2026, 8, 27, 0),
+            completedAt: completedAt,
+            deletedAt: nil,
+            sortOrder: sortOrder
+        )
+    }
+
     private func date(
         _ year: Int,
         _ month: Int,

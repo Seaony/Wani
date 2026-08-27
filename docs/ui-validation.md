@@ -1,5 +1,17 @@
 # Wani 界面验收记录
 
+## 2026-08-27：iOS 小组件
+
+使用 iPhone 17 Pro（iOS 26.5）模拟器和 Debug 内存存储，对照 `iOS App.dc.html` 的 Widgets 区域完成系统小组件图库与实际桌面、锁屏验收；没有运行 UI 自动化。
+
+已使用 Computer Use 检查通过：
+
+- 系统主屏小组件图库识别 Wani 的 Today at a Glance 小号、Today List 中号、Next Up 小号和 Upcoming 大号，四种系统预览的尺寸、暖色卡片、排版与样例内容均与设计稿对应。
+- Next Up 已实际加入主屏并读取主应用通过 App Group 导出的快照；点击 `1d` 后任务的开始日期与截止日期同时顺延，Today 从 5 降到 4，Widget 切换到下一项。
+- 点击 Next Up 的 Complete 后任务进入 Logbook，Logbook 从 4 增到 5，Widget 再次切换到下一项。
+- 锁屏小组件图库识别 Wani 的 Today Count 圆形与 Next Up 矩形配置；两者均已实际加入锁屏槽位并保存，显示当前快照中的 3 个 Today 与下一项 `Water the fig tree`。
+- 主屏与锁屏小组件均跟随系统提供的浅深色容器环境；Widget 每 15 分钟请求新时间线，主应用写入新快照后主动请求全部时间线刷新。
+
 ## 2026-08-27：iOS App
 
 使用 iPhone 17 Pro（iOS 26.5）模拟器和 Debug 内存存储，对照 `iOS App.dc.html` 完成前台验收；没有运行 UI 自动化。

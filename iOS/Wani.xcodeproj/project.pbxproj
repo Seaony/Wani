@@ -6,20 +6,60 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E2000000000000000000000E /* WaniWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* WaniWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		75AE597E303F4B18002070BE /* Wani.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Wani.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D10000000000000000000001 /* WaniTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WaniTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E20000000000000000000001 /* WaniWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = WaniWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		E2000000000000000000000F /* Exceptions for "Wani" folder in "Wani" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				Wani.entitlements,
+			);
+			target = 75AE597D303F4B18002070BE /* Wani */;
+		};
+		E20000000000000000000010 /* Exceptions for "WaniWidgets" folder in "WaniWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				WaniWidgets.entitlements,
+			);
+			target = E20000000000000000000007 /* WaniWidgets */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		75AE5980303F4B18002070BE /* Wani */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E2000000000000000000000F /* Exceptions for "Wani" folder in "Wani" target */,
+			);
 			path = Wani;
 			sourceTree = "<group>";
 		};
 		D10000000000000000000002 /* WaniTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = WaniTests;
+			sourceTree = "<group>";
+		};
+		E20000000000000000000002 /* WaniWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				E20000000000000000000010 /* Exceptions for "WaniWidgets" folder in "WaniWidgets" target */,
+			);
+			path = WaniWidgets;
+			sourceTree = "<group>";
+		};
+		E20000000000000000000003 /* WaniShared */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WaniShared;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -32,7 +72,28 @@
 			remoteGlobalIDString = 75AE597D303F4B18002070BE;
 			remoteInfo = Wani;
 		};
+		E2000000000000000000000C /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 75AE5976303F4B18002070BE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E20000000000000000000007;
+			remoteInfo = WaniWidgets;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E2000000000000000000000B /* Embed App Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				E2000000000000000000000E /* WaniWidgets.appex in Embed App Extensions */,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		75AE597B303F4B18002070BE /* Frameworks */ = {
@@ -49,6 +110,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E20000000000000000000004 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -56,6 +124,8 @@
 			isa = PBXGroup;
 			children = (
 				75AE5980303F4B18002070BE /* Wani */,
+				E20000000000000000000002 /* WaniWidgets */,
+				E20000000000000000000003 /* WaniShared */,
 				D10000000000000000000002 /* WaniTests */,
 				75AE597F303F4B18002070BE /* Products */,
 			);
@@ -65,6 +135,7 @@
 			isa = PBXGroup;
 			children = (
 				75AE597E303F4B18002070BE /* Wani.app */,
+				E20000000000000000000001 /* WaniWidgets.appex */,
 				D10000000000000000000001 /* WaniTests.xctest */,
 			);
 			name = Products;
@@ -80,13 +151,16 @@
 				75AE597A303F4B18002070BE /* Sources */,
 				75AE597B303F4B18002070BE /* Frameworks */,
 				75AE597C303F4B18002070BE /* Resources */,
+				E2000000000000000000000B /* Embed App Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E2000000000000000000000D /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				75AE5980303F4B18002070BE /* Wani */,
+				E20000000000000000000003 /* WaniShared */,
 			);
 			name = Wani;
 			packageProductDependencies = (
@@ -118,6 +192,29 @@
 			productReference = D10000000000000000000001 /* WaniTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		E20000000000000000000007 /* WaniWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E2000000000000000000000A /* Build configuration list for PBXNativeTarget "WaniWidgets" */;
+			buildPhases = (
+				E20000000000000000000006 /* Sources */,
+				E20000000000000000000004 /* Frameworks */,
+				E20000000000000000000005 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				E20000000000000000000002 /* WaniWidgets */,
+				E20000000000000000000003 /* WaniShared */,
+			);
+			name = WaniWidgets;
+			packageProductDependencies = (
+			);
+			productName = WaniWidgets;
+			productReference = E20000000000000000000001 /* WaniWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -130,10 +227,23 @@
 				TargetAttributes = {
 					75AE597D303F4B18002070BE = {
 						CreatedOnToolsVersion = 26.6;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 					D10000000000000000000006 = {
 						CreatedOnToolsVersion = 26.6;
 						TestTargetID = 75AE597D303F4B18002070BE;
+					};
+					E20000000000000000000007 = {
+						CreatedOnToolsVersion = 26.6;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
 					};
 				};
 			};
@@ -153,6 +263,7 @@
 			targets = (
 				75AE597D303F4B18002070BE /* Wani */,
 				D10000000000000000000006 /* WaniTests */,
+				E20000000000000000000007 /* WaniWidgets */,
 			);
 		};
 /* End PBXProject section */
@@ -166,6 +277,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		D10000000000000000000004 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E20000000000000000000005 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -189,6 +307,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		E20000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -196,6 +321,11 @@
 			isa = PBXTargetDependency;
 			target = 75AE597D303F4B18002070BE /* Wani */;
 			targetProxy = D10000000000000000000007 /* PBXContainerItemProxy */;
+		};
+		E2000000000000000000000D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E20000000000000000000007 /* WaniWidgets */;
+			targetProxy = E2000000000000000000000C /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -326,16 +456,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Wani/Wani.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = G34NXJXW94;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Wani/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -343,6 +470,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.seaony.Wani;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -358,16 +486,13 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Wani/Wani.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = G34NXJXW94;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
-				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Wani/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -375,6 +500,7 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.seaony.Wani;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
@@ -427,6 +553,66 @@
 			};
 			name = Release;
 		};
+		E20000000000000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = WaniWidgets/WaniWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G34NXJXW94;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WaniWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.seaony.Wani.WaniWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E20000000000000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = WaniWidgets/WaniWidgets.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = G34NXJXW94;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = WaniWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.seaony.Wani.WaniWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -453,6 +639,15 @@
 			buildConfigurations = (
 				D10000000000000000000009 /* Debug */,
 				D1000000000000000000000A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E2000000000000000000000A /* Build configuration list for PBXNativeTarget "WaniWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E20000000000000000000008 /* Debug */,
+				E20000000000000000000009 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -1,5 +1,13 @@
 # Wani 后台构建与测试记录
 
+## 2026-08-27：iOS 小组件
+
+- iOS Simulator 上的 `WaniTests` 6 项测试全部通过；新增覆盖 Widget 快照的 Today、当日完成数、连续 Upcoming 日期，以及完成与推迟深链接格式。
+- Debug 构建成功，Wani 主应用与内嵌的 `WaniWidgets.appex` 均编译并通过嵌入二进制校验。
+- iOS Simulator 静态分析成功，没有产生源码诊断。
+- iOS Simulator Release 构建成功并通过产品校验。
+- 快照由主应用一次映射后原子写入 App Group；Upcoming 在一次任务分组后生成 6 个连续日期，周统计也只遍历一次任务快照，没有按日期重复扫描全部任务。
+
 ## 2026-08-27：iOS App
 
 - iOS Simulator 上的 `WaniTests` 4 项规则与存储隔离测试全部通过，覆盖智能列表计数、Today 与 Anytime 重叠语义、连续 Upcoming 日期、项目汇总以及 XCTest 内存存储选择。
