@@ -15,6 +15,7 @@ struct WaniSidebar: View {
     let updateAreaSymbol: (WaniArea, String) -> Void
     let reorderArea: (UUID, UUID) -> Bool
     let reorderProject: (UUID, UUID) -> Bool
+    let moveTodoToSmartList: (UUID, WaniSmartList) -> Bool
     let moveTodoToArea: (UUID, WaniArea) -> Bool
     let moveTodoToProject: (UUID, WaniProject) -> Bool
     let openSettings: () -> Void
@@ -142,6 +143,12 @@ struct WaniSidebar: View {
             palette,
             showsHoverBackground: selection != .smart(list)
         ))
+        .dropDestination(for: String.self) { values, _ in
+            guard let todoID = draggedID(in: values, prefix: "todo:") else {
+                return false
+            }
+            return moveTodoToSmartList(todoID, list)
+        }
         .animation(WaniMotion.quick, value: selection)
         .accessibilityLabel(list.title)
         .accessibilityValue(selection == .smart(list) ? "Selected" : "")
@@ -154,13 +161,16 @@ struct WaniSidebar: View {
         case .upcoming: "calendar"
         case .anytime: "square.stack.3d.up.fill"
         case .someday: "archivebox.fill"
-        case .logbook: "checkmark.square.fill"
+        case .logbook: "book.closed.fill"
         case .trash: "trash.fill"
         }
     }
 
     private func areaSection(_ area: WaniArea) -> some View {
-        VStack(spacing: 1) {
+        let areaProjects = projects.filter { $0.area?.id == area.id }
+        let isCollapsed = collapsedAreaIDs.contains(area.id)
+
+        return VStack(spacing: 1) {
             HStack(spacing: 6) {
                 Button {
                     symbolPickerAreaID = area.id
@@ -195,44 +205,38 @@ struct WaniSidebar: View {
 
                 Button {
                     selection = .area(area.id)
+                    toggleArea(area)
                 } label: {
-                    Text(area.title.uppercased())
-                        .font(.system(size: 10.5, weight: .bold))
-                        .tracking(1.2)
+                    HStack(spacing: 6) {
+                        Text(area.title.uppercased())
+                            .font(.system(size: 10.5, weight: .bold))
+                            .tracking(1.2)
+                            .lineLimit(1)
+                            .layoutPriority(1)
+
+                        if showAreaLines {
+                            Rectangle()
+                                .fill(palette.line)
+                                .frame(minWidth: 10, maxWidth: .infinity)
+                                .frame(height: 1)
+                        } else {
+                            Spacer(minLength: 0)
+                        }
+
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .bold))
+                            .rotationEffect(.degrees(isCollapsed ? 0 : 90))
+                            .frame(width: 26, height: 26)
+                            .animation(WaniMotion.sidebarDisclosure, value: isCollapsed)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.waniInteractive(
                     palette,
-                    showsHoverBackground: selection != .area(area.id),
-                    horizontalPadding: 4,
-                    verticalPadding: 3
+                    showsHoverBackground: selection != .area(area.id)
                 ))
-                .accessibilityLabel(area.title)
-                .accessibilityValue(selection == .area(area.id) ? "Selected" : "")
-
-                if showAreaLines {
-                    Rectangle()
-                        .fill(palette.line)
-                        .frame(height: 1)
-                } else {
-                    Spacer(minLength: 0)
-                }
-
-                Button {
-                    withAnimation(WaniMotion.standard) {
-                        if collapsedAreaIDs.contains(area.id) {
-                            collapsedAreaIDs.remove(area.id)
-                        } else {
-                            collapsedAreaIDs.insert(area.id)
-                        }
-                    }
-                } label: {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .rotationEffect(.degrees(collapsedAreaIDs.contains(area.id) ? 0 : 90))
-                        .frame(width: 26, height: 26)
-                }
-                .buttonStyle(.waniInteractive(palette))
-                .accessibilityLabel(collapsedAreaIDs.contains(area.id) ? "Expand Area" : "Collapse Area")
+                .accessibilityLabel(isCollapsed ? "Expand Area" : "Collapse Area")
             }
             .foregroundStyle(palette.tertiaryText)
             .padding(.horizontal, 8)
@@ -255,14 +259,38 @@ struct WaniSidebar: View {
             }
             .animation(WaniMotion.quick, value: selection)
 
-            if !collapsedAreaIDs.contains(area.id) {
-                ForEach(projects.filter { $0.area?.id == area.id }) { project in
+            VStack(spacing: 1) {
+                ForEach(areaProjects) { project in
                     projectRow(project)
                 }
-                .transition(WaniMotion.revealTransition)
             }
+            .frame(
+                height: isCollapsed ? 0 : projectGroupHeight(areaProjects.count),
+                alignment: .top
+            )
+            .opacity(isCollapsed ? 0 : 1)
+            .offset(y: isCollapsed ? -5 : 0)
+            .scaleEffect(y: isCollapsed ? 0.97 : 1, anchor: .top)
+            .clipped()
+            .allowsHitTesting(!isCollapsed)
+            .accessibilityHidden(isCollapsed)
+            .animation(WaniMotion.sidebarDisclosure, value: isCollapsed)
         }
         .padding(.bottom, 12)
+    }
+
+    private func toggleArea(_ area: WaniArea) {
+        withAnimation(WaniMotion.sidebarDisclosure) {
+            if collapsedAreaIDs.contains(area.id) {
+                collapsedAreaIDs.remove(area.id)
+            } else {
+                collapsedAreaIDs.insert(area.id)
+            }
+        }
+    }
+
+    private func projectGroupHeight(_ projectCount: Int) -> CGFloat {
+        CGFloat(max(projectCount * 33 - 1, 0))
     }
 
     private func projectSection(title: String, projects: [WaniProject]) -> some View {

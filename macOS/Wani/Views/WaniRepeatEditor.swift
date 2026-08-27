@@ -24,6 +24,7 @@ struct WaniRepeatEditor: View {
     let dismiss: () -> Void
     private let defaultMonth: Int
     private let previewStartDate: Date
+    private let initiallyRepeats: Bool
 
     @State private var frequency: WaniRepeatFrequency
     @State private var interval: Int
@@ -50,6 +51,7 @@ struct WaniRepeatEditor: View {
         let startDate = todo.startDate ?? Calendar.current.startOfDay(for: .now)
         self.defaultMonth = Calendar.current.component(.month, from: startDate)
         self.previewStartDate = startDate
+        self.initiallyRepeats = todo.repeatFrequency != .none
         _frequency = State(initialValue: todo.repeatFrequency == .none ? .weekly : todo.repeatFrequency)
         _interval = State(initialValue: max(todo.repeatInterval, 1))
         _afterCompletion = State(initialValue: todo.repeatFrequency == .none || todo.repeatsAfterCompletion)
@@ -195,6 +197,27 @@ struct WaniRepeatEditor: View {
                 Rectangle().fill(palette.line).frame(height: 1)
 
                 HStack(spacing: 10) {
+                    if initiallyRepeats {
+                        Button("Stop Repeating") {
+                            apply(WaniRepeatConfiguration(
+                                frequency: .none,
+                                interval: 1,
+                                afterCompletion: false,
+                                weekdays: [],
+                                dateRules: [],
+                                endDate: nil,
+                                endAfterCount: nil,
+                                reminderTime: reminderEnabled ? reminderTime : nil,
+                                deadline: deadlineEnabled ? deadline : nil
+                            ))
+                        }
+                        .buttonStyle(.waniInteractive(
+                            palette,
+                            horizontalPadding: 7,
+                            verticalPadding: 5
+                        ))
+                        .foregroundStyle(palette.secondaryText)
+                    }
                     Spacer()
                     Button("Cancel", action: dismiss)
                         .buttonStyle(.waniInteractive(

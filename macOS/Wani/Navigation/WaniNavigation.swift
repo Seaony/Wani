@@ -97,7 +97,7 @@ extension WaniSmartList {
         case .upcoming: "calendar"
         case .anytime: "square.3.layers.3d"
         case .someday: "archivebox.fill"
-        case .logbook: "checkmark"
+        case .logbook: "book.closed.fill"
         case .trash: "trash.fill"
         }
     }

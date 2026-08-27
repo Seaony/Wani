@@ -40,7 +40,11 @@ struct ContentView: View {
     @State private var sidebarVisible = true
     @State private var sidebarWidth: Double
     @State private var expandedTodoID: UUID?
+    @State private var expandedTodoFrame: CGRect?
+    @State private var expansionRequestID: UUID?
     @State private var inlineNewTodoID: UUID?
+    @State private var pendingCompletionIDs: Set<UUID> = []
+    @State private var pendingCompletionTokens: [UUID: UUID] = [:]
     @State private var quickEntryOpen = false
     @State private var quickEntryTitle = ""
     @State private var quickEntryInsertionAfterTodoID: UUID?
@@ -135,6 +139,7 @@ struct ContentView: View {
                         updateAreaSymbol: updateAreaSymbol,
                         reorderArea: reorderArea,
                         reorderProject: reorderProject,
+                        moveTodoToSmartList: moveTodo,
                         moveTodoToArea: moveTodo,
                         moveTodoToProject: moveTodo,
                         openSettings: { openSettings() }
@@ -226,6 +231,20 @@ struct ContentView: View {
         .animation(WaniMotion.overlay, value: searchOpen)
         .animation(WaniMotion.overlay, value: repeatEditorTodoID)
         .animation(WaniMotion.overlay, value: batchMoveOpen)
+        .coordinateSpace(name: "WaniRoot")
+        .onPreferenceChange(WaniExpandedTodoFrameKey.self) { frame in
+            expandedTodoFrame = frame
+        }
+        .simultaneousGesture(
+            SpatialTapGesture().onEnded { event in
+                guard
+                    expandedTodoID != nil,
+                    let expandedTodoFrame,
+                    !expandedTodoFrame.contains(event.location)
+                else { return }
+                collapseExpandedTodo()
+            }
+        )
         .frame(minWidth: 760, minHeight: 520)
     }
 
@@ -302,6 +321,7 @@ struct ContentView: View {
             closeHeadingComposer()
         }
         .onChange(of: expandedTodoID) { previousID, currentID in
+            expandedTodoFrame = nil
             toolbarDateEditorOpen = false
             if let inlineNewTodoID,
                previousID == inlineNewTodoID,
@@ -369,10 +389,12 @@ struct ContentView: View {
                     .padding(.top, 18)
                 }
 
-                Rectangle()
-                    .fill(palette.line)
-                    .frame(height: 1)
-                    .padding(.top, 20)
+                if selection != .smart(.logbook) {
+                    Rectangle()
+                        .fill(palette.line)
+                        .frame(height: 1)
+                        .padding(.top, 20)
+                }
             }
             .padding(.horizontal, 52)
             .padding(.top, 8)
@@ -403,8 +425,6 @@ struct ContentView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 24)
             }
-            .onTapGesture(perform: collapseExpandedTodo)
-
             Rectangle().fill(palette.sidebarDivider).frame(height: 1)
 
             Group {
@@ -947,7 +967,7 @@ struct ContentView: View {
             emptyState
         } else {
             ForEach(logbookMonthDates, id: \.self) { month in
-                HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 8) {
                     Text(month.formatted(.dateTime.month(.wide)))
                         .font(.system(size: 13.5, weight: .semibold))
                     Rectangle()
@@ -1209,16 +1229,22 @@ struct ContentView: View {
 
     @ViewBuilder
     private func taskRows(_ rows: [WaniTodo]) -> some View {
+        let knownTags = WaniTaskRules.tags(in: todos)
         ForEach(rows) { todo in
             WaniTaskRow(
                 todo: todo,
                 palette: palette,
+                knownTags: knownTags,
                 density: density,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled,
                 isSelected: selectedTodoIDs.contains(todo.id),
                 isExpanded: expandedTodoID == todo.id,
+                isPendingCompletion: pendingCompletionIDs.contains(todo.id),
+                select: {
+                    select(todo)
+                },
                 toggleExpanded: {
-                    activate(todo)
+                    toggleExpanded(todo)
                 },
                 finishTitleEditing: {
                     finishInlineTodoCreation(todo.id)
@@ -1229,13 +1255,24 @@ struct ContentView: View {
                     enabled: moveToLogbookAtMidnight
                 ),
                 logNow: { logNow(todo) },
-                restore: { restore(todo) },
-                deletePermanently: { deletePermanently(todo) },
                 reorder: { movingID, targetID in
                     reorderTodo(movingID, to: targetID, in: rows)
                 },
+                openRepeat: {
+                    repeatEditorTodoID = todo.id
+                },
                 recurrenceChanged: generateDueRepeatingTodos
             )
+            .background {
+                if expandedTodoID == todo.id {
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: WaniExpandedTodoFrameKey.self,
+                            value: proxy.frame(in: .named("WaniRoot"))
+                        )
+                    }
+                }
+            }
             .id(todo.id)
         }
     }
@@ -1750,11 +1787,9 @@ struct ContentView: View {
                         palette: palette,
                         save: saveChanges,
                         reminderChanged: { syncReminder(for: todo) },
-                        recurrenceChanged: generateDueRepeatingTodos
+                        recurrenceChanged: generateDueRepeatingTodos,
+                        dismiss: { toolbarDateEditorOpen = false }
                     )
-                    .frame(width: 420)
-                    .padding(8)
-                    .background(palette.panel)
                 }
             }
             toolbarButton("arrow.right", label: "Move", action: openMoveForExpandedTodo)
@@ -1938,10 +1973,11 @@ struct ContentView: View {
         .accessibilityLabel(title)
     }
 
-    private func activate(_ todo: WaniTodo) {
+    private func select(_ todo: WaniTodo) {
         let modifiers = NSEvent.modifierFlags.intersection([.command, .shift])
 
         if modifiers.contains(.shift) {
+            expansionRequestID = nil
             withAnimation(WaniMotion.standard) {
                 selectedTodoIDs.formUnion(WaniSelectionRules.range(
                     from: selectionAnchorID,
@@ -1954,6 +1990,7 @@ struct ContentView: View {
         }
 
         if modifiers.contains(.command) {
+            expansionRequestID = nil
             withAnimation(WaniMotion.standard) {
                 if selectedTodoIDs.contains(todo.id) {
                     selectedTodoIDs.remove(todo.id)
@@ -1966,15 +2003,49 @@ struct ContentView: View {
             return
         }
 
+        clearTodoSelection()
         withAnimation(WaniMotion.standard) {
-            clearTodoSelection()
-            expandedTodoID = expandedTodoID == todo.id ? nil : todo.id
+            selectedTodoIDs = [todo.id]
+            selectionAnchorID = todo.id
+            expandedTodoID = nil
+        }
+    }
+
+    private func toggleExpanded(_ todo: WaniTodo) {
+        clearTodoSelection()
+        if expandedTodoID == todo.id {
+            expansionRequestID = nil
+            withAnimation(WaniMotion.taskExpansion) {
+                expandedTodoID = nil
+            }
+        } else if expandedTodoID != nil {
+            let requestID = UUID()
+            expansionRequestID = requestID
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                expandedTodoID = nil
+            }
+            Task { @MainActor in
+                await Task.yield()
+                guard expansionRequestID == requestID else { return }
+                withAnimation(WaniMotion.taskExpansion) {
+                    expandedTodoID = todo.id
+                }
+                expansionRequestID = nil
+            }
+        } else {
+            expansionRequestID = nil
+            withAnimation(WaniMotion.taskExpansion) {
+                expandedTodoID = todo.id
+            }
         }
     }
 
     private func collapseExpandedTodo() {
+        expansionRequestID = nil
         guard expandedTodoID != nil else { return }
-        withAnimation(WaniMotion.standard) {
+        withAnimation(WaniMotion.taskExpansion) {
             expandedTodoID = nil
         }
     }
@@ -1988,6 +2059,7 @@ struct ContentView: View {
     }
 
     private func clearTodoSelection() {
+        expansionRequestID = nil
         selectedTodoIDs.removeAll()
         selectionAnchorID = nil
         batchDateEditorOpen = false
@@ -2626,8 +2698,13 @@ struct ContentView: View {
         selectionAnchorID = todo.id
     }
 
-    private func toggleCompleted(_ todo: WaniTodo) {
-        withAnimation(WaniMotion.standard) {
+    private func toggleCompleted(
+        _ todo: WaniTodo,
+        animation: Animation = WaniMotion.standard
+    ) {
+        withAnimation(animation) {
+            pendingCompletionIDs.remove(todo.id)
+            pendingCompletionTokens[todo.id] = nil
             if todo.status == .open {
                 if let next = WaniTaskRules.complete(todo) {
                     modelContext.insert(next)
@@ -2655,10 +2732,36 @@ struct ContentView: View {
     }
 
     private func toggleStatus(_ todo: WaniTodo) {
-        if todo.status == .open, NSEvent.modifierFlags.contains(.option) {
+        if pendingCompletionIDs.contains(todo.id) {
+            withAnimation(WaniMotion.quick) {
+                pendingCompletionIDs.remove(todo.id)
+                pendingCompletionTokens[todo.id] = nil
+            }
+        } else if todo.status == .open, NSEvent.modifierFlags.contains(.option) {
             cancel(todo)
+        } else if todo.status == .open {
+            scheduleCompletion(of: todo)
         } else {
             toggleCompleted(todo)
+        }
+    }
+
+    private func scheduleCompletion(of todo: WaniTodo) {
+        let token = UUID()
+        pendingCompletionTokens[todo.id] = token
+        withAnimation(WaniMotion.quick) {
+            _ = pendingCompletionIDs.insert(todo.id)
+        }
+
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            guard pendingCompletionTokens[todo.id] == token else { return }
+            guard todo.status == .open, todo.deletedAt == nil else {
+                pendingCompletionIDs.remove(todo.id)
+                pendingCompletionTokens[todo.id] = nil
+                return
+            }
+            toggleCompleted(todo, animation: WaniMotion.completionRemoval)
         }
     }
 
@@ -3085,6 +3188,73 @@ struct ContentView: View {
         saveChanges()
     }
 
+    private func moveTodo(_ todoID: UUID, to list: WaniSmartList) -> Bool {
+        guard let todo = todos.first(where: { $0.id == todoID }) else { return false }
+        cancelPendingCompletion(for: todo.id)
+
+        let now = Date.now
+        let calendar = Calendar.current
+        switch list {
+        case .inbox:
+            WaniTaskRules.moveToInbox(todo, at: now)
+            if todo.status != .open {
+                WaniTaskRules.reopen(todo, at: now)
+            }
+            syncReminder(for: todo, requestAuthorization: false)
+            saveChanges()
+        case .today:
+            prepareForActiveDestination(todo, at: now)
+            WaniTaskRules.schedule(
+                todo,
+                as: .date,
+                startDate: calendar.startOfDay(for: now),
+                at: now,
+                calendar: calendar
+            )
+            syncReminder(for: todo, requestAuthorization: false)
+            saveChanges()
+        case .upcoming:
+            prepareForActiveDestination(todo, at: now)
+            let tomorrow = calendar.date(
+                byAdding: .day,
+                value: 1,
+                to: calendar.startOfDay(for: now)
+            )!
+            WaniTaskRules.schedule(
+                todo,
+                as: .date,
+                startDate: tomorrow,
+                at: now,
+                calendar: calendar
+            )
+            syncReminder(for: todo, requestAuthorization: false)
+            saveChanges()
+        case .anytime:
+            prepareForActiveDestination(todo, at: now)
+            WaniTaskRules.schedule(todo, as: .anytime, at: now, calendar: calendar)
+            syncReminder(for: todo, requestAuthorization: false)
+            saveChanges()
+        case .someday:
+            prepareForActiveDestination(todo, at: now)
+            WaniTaskRules.schedule(todo, as: .someday, at: now, calendar: calendar)
+            syncReminder(for: todo, requestAuthorization: false)
+            saveChanges()
+        case .logbook:
+            if todo.deletedAt != nil {
+                WaniTaskRules.restore(todo, at: now)
+            }
+            if todo.status == .open {
+                toggleCompleted(todo)
+            }
+            WaniTaskRules.logNow(todo, at: now)
+            saveChanges()
+        case .trash:
+            guard todo.deletedAt == nil else { return false }
+            moveToTrash(todo)
+        }
+        return true
+    }
+
     private func move(_ todo: WaniTodo, to area: WaniArea) {
         WaniTaskRules.move(todo, to: area)
         syncReminder(for: todo, requestAuthorization: false)
@@ -3093,7 +3263,14 @@ struct ContentView: View {
 
     private func moveTodo(_ todoID: UUID, to area: WaniArea) -> Bool {
         guard let todo = todos.first(where: { $0.id == todoID }) else { return false }
-        move(todo, to: area)
+        cancelPendingCompletion(for: todo.id)
+        let now = Date.now
+        WaniTaskRules.move(todo, to: area, at: now)
+        if todo.status != .open {
+            WaniTaskRules.reopen(todo, at: now)
+        }
+        syncReminder(for: todo, requestAuthorization: false)
+        saveChanges()
         return true
     }
 
@@ -3109,8 +3286,29 @@ struct ContentView: View {
 
     private func moveTodo(_ todoID: UUID, to project: WaniProject) -> Bool {
         guard let todo = todos.first(where: { $0.id == todoID }) else { return false }
-        move(todo, to: project, heading: nil)
+        cancelPendingCompletion(for: todo.id)
+        let now = Date.now
+        WaniTaskRules.move(todo, to: project, heading: nil, at: now)
+        if todo.status != .open {
+            WaniTaskRules.reopen(todo, at: now)
+        }
+        syncReminder(for: todo, requestAuthorization: false)
+        saveChanges()
         return true
+    }
+
+    private func prepareForActiveDestination(_ todo: WaniTodo, at date: Date) {
+        if todo.deletedAt != nil {
+            WaniTaskRules.restore(todo, at: date)
+        }
+        if todo.status != .open {
+            WaniTaskRules.reopen(todo, at: date)
+        }
+    }
+
+    private func cancelPendingCompletion(for todoID: UUID) {
+        pendingCompletionIDs.remove(todoID)
+        pendingCompletionTokens[todoID] = nil
     }
 
     private func saveChanges() {
@@ -3313,6 +3511,14 @@ private struct WaniTodayGroup: Identifiable {
     let id: String
     let title: String?
     var todos: [WaniTodo]
+}
+
+private struct WaniExpandedTodoFrameKey: PreferenceKey {
+    static var defaultValue: CGRect?
+
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
+    }
 }
 
 private struct WaniKeyEventMonitor: NSViewRepresentable {

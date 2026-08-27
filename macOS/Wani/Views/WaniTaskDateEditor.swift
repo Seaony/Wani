@@ -6,52 +6,63 @@ struct WaniTaskDateEditor: View {
     let save: () -> Void
     let reminderChanged: () -> Void
     let recurrenceChanged: () -> Void
+    let dismiss: () -> Void
+
+    private let calendar = Calendar.current
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            HStack(spacing: 7) {
-                scheduleButton("Today", symbol: "star.fill") {
-                    schedule(on: Calendar.current.startOfDay(for: .now))
-                }
-                scheduleButton("Evening", symbol: "moon.fill") {
-                    schedule(on: Calendar.current.startOfDay(for: .now), isEvening: true)
-                }
-                scheduleButton("Tomorrow", symbol: "sunrise.fill") {
-                    let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: .now)!
-                    schedule(on: Calendar.current.startOfDay(for: tomorrow))
-                }
-                scheduleButton("Anytime", symbol: "square.3.layers.3d") {
-                    setSchedule(.anytime)
-                }
-                scheduleButton("Someday", symbol: "archivebox.fill") {
-                    setSchedule(.someday)
-                }
-            }
-
-            DatePicker(
-                "Schedule",
-                selection: startDateBinding,
-                displayedComponents: .date
-            )
-            .datePickerStyle(.field)
-            .waniPointingHand()
-
-            Divider().overlay(palette.faintLine)
-
-            detailRow(
-                title: "Deadline",
-                symbol: "flag",
-                enabled: deadlineEnabled
+        VStack(alignment: .leading, spacing: 0) {
+            scheduleRow(
+                "Today",
+                symbol: "star.fill",
+                symbolColor: WaniSmartList.today.symbolColor,
+                isSelected: isTodaySelected
             ) {
-                DatePicker(
-                    "",
-                    selection: deadlineBinding,
-                    displayedComponents: .date
-                )
-                .labelsHidden()
-                .datePickerStyle(.field)
-                .waniPointingHand()
+                scheduleAndDismiss(on: calendar.startOfDay(for: .now))
             }
+
+            scheduleRow(
+                "Evening",
+                symbol: "moon.fill",
+                symbolColor: palette.accent,
+                isSelected: isEveningSelected
+            ) {
+                scheduleAndDismiss(
+                    on: calendar.startOfDay(for: .now),
+                    isEvening: true
+                )
+            }
+
+            WaniCompactDateGrid(
+                palette: palette,
+                selectedDate: todo.schedule == .date ? todo.startDate : nil
+            ) { date in
+                scheduleAndDismiss(on: date, isEvening: todo.isEvening)
+            }
+            .padding(.top, 5)
+            .padding(.bottom, 7)
+
+            scheduleRow(
+                "Anytime",
+                symbol: WaniSmartList.anytime.symbolName,
+                symbolColor: WaniSmartList.anytime.symbolColor,
+                isSelected: todo.schedule == .anytime
+            ) {
+                setScheduleAndDismiss(.anytime)
+            }
+
+            scheduleRow(
+                "Someday",
+                symbol: WaniSmartList.someday.symbolName,
+                symbolColor: WaniSmartList.someday.symbolColor,
+                isSelected: todo.schedule == .someday
+            ) {
+                setScheduleAndDismiss(.someday)
+            }
+
+            Divider()
+                .overlay(palette.faintLine)
+                .padding(.vertical, 7)
 
             detailRow(
                 title: "Reminder",
@@ -68,65 +79,43 @@ struct WaniTaskDateEditor: View {
                 .waniPointingHand()
             }
 
-            HStack(spacing: 10) {
-                Image(systemName: "repeat")
-                    .frame(width: 18)
-                    .foregroundStyle(palette.tertiaryText)
-                Text("Repeat")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(palette.secondaryText)
-                Spacer()
-                Picker("Repeat", selection: repeatBinding) {
-                    ForEach(WaniRepeatFrequency.allCases, id: \.self) { frequency in
-                        Text(frequency.title).tag(frequency)
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 112)
-                .waniPointingHand()
-            }
-
-            if todo.repeatFrequency != .none {
-                HStack(spacing: 14) {
-                    Stepper(value: repeatIntervalBinding, in: 1...99) {
-                        Text("Every \(todo.repeatInterval) \(todo.repeatFrequency.unitTitle(todo.repeatInterval))")
-                            .font(.system(size: 12))
-                            .foregroundStyle(palette.secondaryText)
-                    }
-                    .waniPointingHand()
-                    Spacer()
-                    Toggle("After completion", isOn: repeatAfterCompletionBinding)
-                        .toggleStyle(.checkbox)
-                        .font(.system(size: 12))
-                        .waniPointingHand()
-                }
-                .transition(WaniMotion.revealTransition)
-            }
         }
-        .animation(WaniMotion.standard, value: todo.repeatFrequency)
-        .padding(12)
-        .background(palette.hover, in: RoundedRectangle(cornerRadius: 9))
+        .padding(10)
+        .frame(width: 304)
+        .background(palette.panel)
         .onDisappear(perform: recurrenceChanged)
     }
 
-    private func scheduleButton(
+    private func scheduleRow(
         _ title: String,
         symbol: String,
+        symbolColor: Color,
+        isSelected: Bool,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            VStack(spacing: 5) {
+            HStack(spacing: 9) {
                 Image(systemName: symbol)
-                    .font(.system(size: 12))
+                    .font(.system(size: 14))
+                    .foregroundStyle(symbolColor)
+                    .frame(width: 22)
                 Text(title)
-                    .font(.system(size: 10.5))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.text)
+                Spacer()
             }
-            .foregroundStyle(palette.secondaryText)
-            .frame(maxWidth: .infinity)
-            .frame(height: 46)
-            .background(palette.card, in: RoundedRectangle(cornerRadius: 7))
+            .padding(.horizontal, 7)
+            .frame(height: 32)
+            .background(
+                isSelected ? palette.selectionBackground : Color.clear,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
         }
-        .buttonStyle(.waniInteractive(palette))
+        .buttonStyle(.waniInteractive(
+            palette,
+            cornerRadius: 7,
+            showsHoverBackground: !isSelected
+        ))
     }
 
     private func detailRow<Content: View>(
@@ -149,39 +138,20 @@ struct WaniTaskDateEditor: View {
                     .transition(WaniMotion.overlayTransition)
             }
         }
+        .frame(height: 32)
         .animation(WaniMotion.quick, value: enabled.wrappedValue)
     }
 
-    private var startDateBinding: Binding<Date> {
-        Binding(
-            get: { todo.startDate ?? .now },
-            set: { schedule(on: $0, isEvening: todo.isEvening) }
-        )
+    private var isTodaySelected: Bool {
+        todo.schedule == .date
+            && !todo.isEvening
+            && todo.startDate.map(calendar.isDateInToday) == true
     }
 
-    private var deadlineEnabled: Binding<Bool> {
-        Binding(
-            get: { todo.deadline != nil },
-            set: { enabled in
-                let deadline = enabled
-                    ? Calendar.current.date(byAdding: .day, value: 7, to: todo.startDate ?? .now)
-                    : nil
-                WaniTaskRules.setDeadline(todo, to: deadline)
-                save()
-                reminderChanged()
-            }
-        )
-    }
-
-    private var deadlineBinding: Binding<Date> {
-        Binding(
-            get: { todo.deadline ?? .now },
-            set: {
-                WaniTaskRules.setDeadline(todo, to: $0)
-                save()
-                reminderChanged()
-            }
-        )
+    private var isEveningSelected: Bool {
+        todo.schedule == .date
+            && todo.isEvening
+            && todo.startDate.map(calendar.isDateInToday) == true
     }
 
     private var reminderEnabled: Binding<Bool> {
@@ -209,56 +179,253 @@ struct WaniTaskDateEditor: View {
         )
     }
 
-    private var repeatBinding: Binding<WaniRepeatFrequency> {
-        Binding(
-            get: { todo.repeatFrequency },
-            set: {
-                WaniTaskRules.setRepeatFrequency($0, for: todo)
-                save()
-                reminderChanged()
-            }
-        )
-    }
-
-    private var repeatIntervalBinding: Binding<Int> {
-        Binding(
-            get: { todo.repeatInterval },
-            set: { todo.repeatInterval = $0; touchAndSave() }
-        )
-    }
-
-    private var repeatAfterCompletionBinding: Binding<Bool> {
-        Binding(
-            get: { todo.repeatsAfterCompletion },
-            set: {
-                todo.repeatsAfterCompletion = $0
-                if $0 {
-                    todo.repeatWeekdays = []
-                    todo.repeatDateRules = []
-                    todo.repeatEndDate = nil
-                    todo.repeatEndAfterCount = nil
-                }
-                touchAndSave()
-            }
-        )
-    }
-
-    private func schedule(on date: Date, isEvening: Bool = false) {
+    private func scheduleAndDismiss(on date: Date, isEvening: Bool = false) {
         WaniTaskRules.schedule(todo, as: .date, startDate: date, isEvening: isEvening)
         save()
         reminderChanged()
+        dismiss()
     }
 
-    private func setSchedule(_ schedule: WaniTaskSchedule) {
+    private func setScheduleAndDismiss(_ schedule: WaniTaskSchedule) {
         WaniTaskRules.schedule(todo, as: schedule)
         save()
         reminderChanged()
+        dismiss()
+    }
+}
+
+struct WaniTaskDeadlineEditor: View {
+    @Bindable var todo: WaniTodo
+    let palette: WaniPalette
+    let save: () -> Void
+    let reminderChanged: () -> Void
+    let dismiss: () -> Void
+
+    private let calendar = Calendar.current
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            deadlineRow("Today", symbol: "star.fill", date: today)
+            deadlineRow("Tomorrow", symbol: "sunrise.fill", date: tomorrow)
+            deadlineRow("Next Week", symbol: "calendar.badge.plus", date: nextWeek)
+
+            WaniCompactDateGrid(
+                palette: palette,
+                selectedDate: todo.deadline,
+                select: setDeadlineAndDismiss
+            )
+            .padding(.top, 7)
+
+            if todo.deadline != nil {
+                Divider()
+                    .overlay(palette.faintLine)
+                    .padding(.vertical, 7)
+
+                Button {
+                    WaniTaskRules.setDeadline(todo, to: nil)
+                    save()
+                    reminderChanged()
+                    dismiss()
+                } label: {
+                    Label("Clear Deadline", systemImage: "xmark.circle")
+                        .font(.system(size: 12.5, weight: .medium))
+                        .foregroundStyle(palette.secondaryText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 7)
+                        .frame(height: 32)
+                }
+                .buttonStyle(.waniInteractive(palette, cornerRadius: 7))
+            }
+        }
+        .padding(10)
+        .frame(width: 304)
+        .background(palette.panel)
     }
 
-    private func touchAndSave() {
-        todo.updatedAt = .now
-        save()
+    private var today: Date {
+        calendar.startOfDay(for: .now)
     }
+
+    private var tomorrow: Date {
+        calendar.date(byAdding: .day, value: 1, to: today)!
+    }
+
+    private var nextWeek: Date {
+        calendar.date(byAdding: .day, value: 7, to: today)!
+    }
+
+    private func deadlineRow(_ title: String, symbol: String, date: Date) -> some View {
+        let isSelected = todo.deadline.map {
+            calendar.isDate($0, inSameDayAs: date)
+        } == true
+
+        return Button {
+            setDeadlineAndDismiss(date)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: symbol)
+                    .font(.system(size: 14))
+                    .foregroundStyle(palette.accent)
+                    .frame(width: 22)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.text)
+                Spacer()
+            }
+            .padding(.horizontal, 7)
+            .frame(height: 32)
+            .background(
+                isSelected ? palette.selectionBackground : Color.clear,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+        }
+        .buttonStyle(.waniInteractive(
+            palette,
+            cornerRadius: 7,
+            showsHoverBackground: !isSelected
+        ))
+    }
+
+    private func setDeadlineAndDismiss(_ date: Date) {
+        WaniTaskRules.setDeadline(todo, to: calendar.startOfDay(for: date))
+        save()
+        reminderChanged()
+        dismiss()
+    }
+}
+
+private struct WaniCompactDateGrid: View {
+    let palette: WaniPalette
+    let selectedDate: Date?
+    let select: (Date) -> Void
+
+    @State private var calendarPage: Int
+
+    private let calendar = Calendar.current
+    private let calendarColumns = Array(
+        repeating: GridItem(.flexible(), spacing: 4),
+        count: 7
+    )
+
+    init(
+        palette: WaniPalette,
+        selectedDate: Date?,
+        select: @escaping (Date) -> Void
+    ) {
+        self.palette = palette
+        self.selectedDate = selectedDate
+        self.select = select
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+        let selectedDay = selectedDate.map(calendar.startOfDay(for:)) ?? today
+        let dayOffset = calendar.dateComponents(
+            [.day],
+            from: weekStart,
+            to: selectedDay
+        ).day ?? 0
+        _calendarPage = State(initialValue: max(0, dayOffset / 28))
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            LazyVGrid(columns: calendarColumns, spacing: 2) {
+                ForEach(weekdaySymbols, id: \.self) { symbol in
+                    Text(symbol)
+                        .font(.system(size: 10.5, weight: .semibold))
+                        .foregroundStyle(palette.tertiaryText)
+                        .frame(height: 20)
+                }
+
+                ForEach(visibleDates, id: \.self, content: calendarDay)
+            }
+
+            HStack {
+                Button {
+                    withAnimation(WaniMotion.quick) {
+                        calendarPage -= 1
+                    }
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .frame(width: 24, height: 22)
+                }
+                .buttonStyle(.waniInteractive(palette, cornerRadius: 6))
+                .disabled(calendarPage == 0)
+                .accessibilityLabel("Earlier dates")
+
+                Spacer()
+
+                Button {
+                    withAnimation(WaniMotion.quick) {
+                        calendarPage += 1
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .frame(width: 24, height: 22)
+                }
+                .buttonStyle(.waniInteractive(palette, cornerRadius: 6))
+                .accessibilityLabel("Later dates")
+            }
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(palette.secondaryText)
+        }
+        .animation(WaniMotion.quick, value: calendarPage)
+    }
+
+    private func calendarDay(_ date: Date) -> some View {
+        let isToday = calendar.isDateInToday(date)
+        let isSelected = selectedDate.map {
+            calendar.isDate($0, inSameDayAs: date)
+        } == true
+
+        return Button {
+            select(date)
+        } label: {
+            Group {
+                if isToday {
+                    Image(systemName: "star.fill")
+                        .font(.system(size: 11))
+                } else {
+                    Text(date.formatted(.dateTime.day()))
+                        .font(.system(size: 12.5, weight: .medium))
+                }
+            }
+            .foregroundStyle(isSelected ? palette.accent : palette.text)
+            .frame(maxWidth: .infinity)
+            .frame(height: 27)
+            .background(
+                isSelected ? palette.softAccent : Color.clear,
+                in: RoundedRectangle(cornerRadius: 6)
+            )
+        }
+        .buttonStyle(.waniInteractive(
+            palette,
+            cornerRadius: 6,
+            showsHoverBackground: !isSelected
+        ))
+        .accessibilityLabel(date.formatted(date: .complete, time: .omitted))
+    }
+
+    private var weekdaySymbols: [String] {
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols
+        let firstIndex = max(0, min(symbols.count - 1, calendar.firstWeekday - 1))
+        return Array(symbols[firstIndex...] + symbols[..<firstIndex])
+    }
+
+    private var visibleDates: [Date] {
+        let today = calendar.startOfDay(for: .now)
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start ?? today
+        let pageStart = calendar.date(
+            byAdding: .day,
+            value: calendarPage * 28,
+            to: weekStart
+        ) ?? weekStart
+        return (0..<28).compactMap {
+            calendar.date(byAdding: .day, value: $0, to: pageStart)
+        }
+    }
+
 }
 
 extension WaniRepeatFrequency {
