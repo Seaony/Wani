@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct WaniChecklistRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Bindable var item: WaniChecklistItem
     let palette: WaniPalette
     let toggle: () -> Void
@@ -8,15 +9,16 @@ struct WaniChecklistRow: View {
     let delete: () -> Void
     let reorder: (UUID, UUID) -> Bool
 
+    @State private var isHovered = false
+
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Button(action: toggle) {
                 ZStack {
-                    Circle()
-                        .fill(item.isCompleted ? palette.accent : Color.clear)
+                    Circle().fill(item.isCompleted ? checklistAccent : Color.clear)
                     Circle()
                         .stroke(
-                            item.isCompleted ? palette.accent : palette.tertiaryText,
+                            checklistAccent,
                             lineWidth: 1.4
                         )
                     if item.isCompleted {
@@ -25,10 +27,10 @@ struct WaniChecklistRow: View {
                             .foregroundStyle(.white)
                     }
                 }
-                .frame(width: 14, height: 14)
-                .padding(5)
+                .frame(width: 10.5, height: 10.5)
+                .frame(width: 15, height: 15)
             }
-            .buttonStyle(.waniInteractive(palette))
+            .buttonStyle(.waniInteractive(palette, showsHoverBackground: false))
             .accessibilityLabel(item.isCompleted ? "Reopen checklist item" : "Complete checklist item")
 
             TextField("Checklist item", text: itemTitleBinding)
@@ -44,12 +46,16 @@ struct WaniChecklistRow: View {
             }
             .buttonStyle(.waniInteractive(palette))
             .foregroundStyle(palette.tertiaryText)
+            .opacity(isHovered ? 1 : 0)
+            .allowsHitTesting(isHovered)
             .accessibilityLabel("Delete checklist item")
         }
-        .padding(.vertical, 7)
+        .frame(height: 28)
         .overlay(alignment: .top) {
             Rectangle().fill(palette.faintLine).frame(height: 1)
         }
+        .padding(.trailing, 11)
+        .onHover { isHovered = $0 }
         .draggable("checklist:\(item.id.uuidString)")
         .dropDestination(for: String.self) { values, _ in
             guard
@@ -61,6 +67,10 @@ struct WaniChecklistRow: View {
             return reorder(movingID, item.id)
         }
         .animation(WaniMotion.quick, value: item.isCompleted)
+    }
+
+    private var checklistAccent: Color {
+        colorScheme == .dark ? Color(hex: 0x66ABFF) : palette.accent
     }
 
     private var itemTitleBinding: Binding<String> {

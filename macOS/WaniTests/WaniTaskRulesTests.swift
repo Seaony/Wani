@@ -20,6 +20,33 @@ struct WaniTaskRulesTests {
         #expect(WaniAppearance.allCases.first == .system)
     }
 
+    @Test("Date search lists the next matching days and skips invalid months")
+    func dateSearchSuggestions() {
+        #expect(WaniDateSearchRules.matchingDays(
+            "24",
+            now: date(2026, 8, 25, 9),
+            calendar: calendar
+        ) == [
+            date(2026, 9, 24, 0),
+            date(2026, 10, 24, 0),
+            date(2026, 11, 24, 0),
+        ])
+        #expect(WaniDateSearchRules.matchingDays(
+            "31",
+            now: date(2026, 9, 1, 9),
+            calendar: calendar
+        ) == [
+            date(2026, 10, 31, 0),
+            date(2026, 12, 31, 0),
+            date(2027, 1, 31, 0),
+        ])
+        #expect(WaniDateSearchRules.matchingDays(
+            "not a date",
+            now: date(2026, 8, 25, 9),
+            calendar: calendar
+        ).isEmpty)
+    }
+
     @Test("Widget snapshots classify tasks and project progress")
     func widgetSnapshotClassification() throws {
         let now = date(2026, 8, 27, 12)

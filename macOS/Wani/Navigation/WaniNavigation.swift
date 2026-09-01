@@ -105,8 +105,8 @@ extension WaniSmartList {
     var symbolColor: Color {
         switch self {
         case .inbox: Color(hex: 0x4A7BA7)
-        case .today: Color(hex: 0xC9922A)
-        case .upcoming: Color(hex: 0xC3564C)
+        case .today: Color(hex: 0xFFD60A)
+        case .upcoming: Color(hex: 0xED375F)
         case .anytime: Color(hex: 0x5B8C6C)
         case .someday: Color(hex: 0x9A8A5F)
         case .logbook: Color(hex: 0x5B8C6C)

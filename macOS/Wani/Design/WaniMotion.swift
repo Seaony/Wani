@@ -5,6 +5,7 @@ enum WaniMotion {
     static let standard = Animation.easeInOut(duration: 0.2)
     static let overlay = Animation.easeOut(duration: 0.18)
     static let taskExpansion = Animation.easeOut(duration: 0.16)
+    static let taskRowExpansion = Animation.easeOut(duration: 0.38)
     static let completionRemoval = Animation.easeInOut(duration: 0.45)
     static let sidebarDisclosure = Animation.spring(
         response: 0.3,

@@ -9,6 +9,9 @@ struct WaniTaskRow: View {
     let palette: WaniPalette
     let knownTags: [String]
     let density: WaniListDensity
+    let showsCollapsedSchedule: Bool
+    let showsCollapsedLocation: Bool
+    let usesArchiveListStyle: Bool
     let deadlineNotificationsEnabled: Bool
     let isSelected: Bool
     let isExpanded: Bool
@@ -18,86 +21,135 @@ struct WaniTaskRow: View {
     let toggleExpanded: () -> Void
     let dismissExpanded: () -> Void
     let dismissSelection: () -> Void
+    let openLocation: () -> Void
     let finishTitleEditing: () -> Void
     let toggleCompleted: () -> Void
     let canLogNow: Bool
     let logNow: () -> Void
     let reorder: (UUID, UUID) -> Bool
-    let openRepeat: () -> Void
     let recurrenceChanged: () -> Void
 
     @State private var checklistTitle = ""
     @State private var tagDraft = ""
+    @State private var deadlineDraft = ""
     @State private var dateEditorOpen = false
     @State private var deadlineEditorOpen = false
     @State private var tagEditorOpen = false
+    @State private var tagSuggestionsOpen = false
     @State private var checklistEditorOpen = false
-    @State private var isHovered = false
-    @State private var isDragging = false
     @State private var dragPreviewWidth: CGFloat = 0
-    @State private var editorContentVisible = false
-    @State private var editorRevealTask: Task<Void, Never>?
+    @State private var titleSelection: TextSelection?
     @FocusState private var titleFieldFocused: Bool
     @FocusState private var checklistFieldFocused: Bool
     @FocusState private var tagFieldFocused: Bool
+    @FocusState private var deadlineFieldFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .top, spacing: 11) {
+            HStack(alignment: .center, spacing: 7) {
                 Button(action: toggleCompleted) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(isVisuallyCompleted ? palette.accent : Color.clear)
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                            .fill(isVisuallyCompleted ? completionAccent : Color.clear)
+                        RoundedRectangle(cornerRadius: 3.5, style: .continuous)
                             .stroke(
-                                isVisuallyCompleted ? palette.accent : palette.tertiaryText,
-                                lineWidth: 1.5
+                                isVisuallyCompleted
+                                    ? completionAccent
+                                    : incompleteCheckboxColor,
+                                lineWidth: isVisuallyCompleted ? 1.5 : 0.75
                             )
                         if isVisuallyCompleted {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 8, weight: .bold))
+                                .font(.system(size: archiveCheckboxCheckmarkSize, weight: .bold))
                                 .foregroundStyle(.white)
                         }
                     }
-                    .frame(width: 17, height: 17)
+                    .frame(width: archiveCheckboxSize, height: archiveCheckboxSize)
+                    .frame(width: 15, height: 15)
+                    .offset(y: isExpanded ? 0 : -0.5)
                 }
                 .buttonStyle(.waniInteractive(palette, showsHoverBackground: false))
                 .accessibilityLabel(isVisuallyCompleted ? "Reopen" : "Complete")
 
-                if isExpanded {
-                    TextField("New To-Do", text: todoTitleBinding)
-                        .textFieldStyle(.plain)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(
-                            isVisuallyCompleted ? palette.tertiaryText : palette.text
-                        )
-                        .strikethrough(isVisuallyCompleted)
-                        .focused($titleFieldFocused)
-                        .onSubmit(finishTitleEditing)
-                        .task {
-                            try? await Task.sleep(for: .milliseconds(180))
-                            guard !Task.isCancelled else { return }
-                            titleFieldFocused = true
+                HStack(alignment: .center, spacing: 5) {
+                    if !isExpanded, showsCollapsedSchedule {
+                        if todo.status == .open, isScheduledByToday {
+                            scheduleBadge("")
+                                .transition(.opacity)
+                        } else if let dateLabel {
+                            scheduleBadge(dateLabel)
+                                .transition(.opacity)
                         }
-                } else {
-                    Button(action: handleCollapsedRowClick) {
-                        HStack(alignment: .firstTextBaseline, spacing: 9) {
-                            if let dateLabel {
-                                scheduleBadge(dateLabel)
+                    }
+
+                    ZStack(alignment: .leading) {
+                        TextField(
+                            "New To-Do",
+                            text: todoTitleBinding,
+                            selection: $titleSelection
+                        )
+                            .textFieldStyle(.plain)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(titleColor)
+                            .strikethrough(titleUsesStrikethrough)
+                            .multilineTextAlignment(.leading)
+                            .focused($titleFieldFocused)
+                            .opacity(isExpanded ? 1 : 0)
+                            .allowsHitTesting(isExpanded)
+                            .accessibilityHidden(!isExpanded)
+                            .onSubmit(finishTitleEditing)
+                            .onExitCommand(perform: dismissExpanded)
+                            .task(id: isExpanded) {
+                                guard isExpanded else { return }
+                                await Task.yield()
+                                guard !Task.isCancelled, isExpanded else { return }
+                                titleFieldFocused = true
+                                await Task.yield()
+                                guard !Task.isCancelled, isExpanded else { return }
+                                titleSelection = TextSelection(
+                                    insertionPoint: todo.title.endIndex
+                                )
                             }
+
+                        VStack(alignment: .leading, spacing: 0) {
                             Text(displayTitle)
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(
-                                    !isVisuallyCompleted && hasTitle
-                                        ? palette.text : palette.tertiaryText
-                                )
-                                .strikethrough(isVisuallyCompleted)
-                                .multilineTextAlignment(.leading)
-                            Spacer()
-                            badges
+                                .foregroundStyle(titleColor)
+                                .strikethrough(titleUsesStrikethrough)
+                                .lineLimit(1)
+                            if (usesArchiveListStyle || showsCollapsedLocation),
+                               !isExpanded,
+                               let locationTitle {
+                                Text(locationTitle)
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(palette.tertiaryText)
+                                    .lineLimit(1)
+                            }
                         }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
+                            .opacity(isExpanded ? 0 : 1)
+                            .allowsHitTesting(false)
+                            .accessibilityHidden(true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if !isExpanded {
+                        Spacer()
+                        badges
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .overlay {
+                    if !isExpanded {
+                        Button(action: handleCollapsedRowClick) {
+                            Color.clear
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.waniInteractive(
+                            palette,
+                            showsHoverBackground: false
+                        ))
+                        .accessibilityLabel(displayTitle)
                         .dropDestination(for: String.self) { values, _ in
                             guard
                                 let value = values.first(where: { $0.hasPrefix("todo:") }),
@@ -108,27 +160,21 @@ struct WaniTaskRow: View {
                             return reorder(movingID, todo.id)
                         }
                     }
-                    .buttonStyle(.waniInteractive(palette, showsHoverBackground: false))
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
 
             if isExpanded {
-                Group {
-                    if editorContentVisible {
-                        expandedEditor
-                            .transition(WaniMotion.taskEditorTransition)
-                    } else {
-                        Color.clear
-                            .frame(height: 89)
-                    }
-                }
-                .padding(.leading, 28)
-                .padding(.top, 10)
+                expandedEditor
+                    .transition(WaniMotion.taskEditorTransition)
+                    .padding(.leading, 23)
+                    .padding(.top, 10)
             }
         }
-        .padding(.horizontal, isExpanded ? 16 : 11)
-        .padding(.vertical, isExpanded ? 14 : density.rowPadding)
+        .padding(.leading, 7)
+        .padding(.trailing, 10)
+        .padding(.top, isExpanded ? 18 : collapsedVerticalPadding)
+        .padding(.bottom, isExpanded ? 16 : collapsedVerticalPadding)
+        .frame(minHeight: collapsedMinimumHeight)
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.width
         } action: { width in
@@ -136,34 +182,23 @@ struct WaniTaskRow: View {
         }
         .draggable("todo:\(todo.id.uuidString)") {
             dragPreview
-                .onAppear {
-                    DispatchQueue.main.async {
-                        isDragging = true
-                    }
-                }
-                .onDisappear {
-                    DispatchQueue.main.async {
-                        isDragging = false
-                    }
-                }
         }
-        .opacity(isDragging ? 0 : 1)
         .background {
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: isExpanded ? 13 : 7)
                 .fill(
                     isExpanded
-                        ? palette.card
-                        : (isSelected
-                            ? palette.selectionBackground
-                            : (isHovered ? palette.hover : Color.clear))
+                        ? (colorScheme == .dark ? Color(hex: 0x363636) : palette.card)
+                        : (isSelected ? taskSelectionBackground : Color.clear)
                 )
+                .padding(.horizontal, isExpanded ? -5 : 0)
                 .shadow(
-                    color: isExpanded && editorContentVisible
-                        ? .black.opacity(colorScheme == .dark ? 0.18 : 0.08)
+                    color: isExpanded
+                        ? .black.opacity(colorScheme == .dark ? 0.26 : 0.08)
                         : .clear,
-                    radius: isExpanded && editorContentVisible ? 10 : 0,
-                    y: isExpanded && editorContentVisible ? 3 : 0
+                    radius: isExpanded ? 5 : 0,
+                    y: isExpanded ? 2 : 0
                 )
+                .animation(nil, value: isSelected)
             if isExpanded {
                 WaniOutsideClickMonitor(dismiss: dismissExpanded)
                     .allowsHitTesting(false)
@@ -174,24 +209,53 @@ struct WaniTaskRow: View {
         }
         .overlay {
             if isExpanded {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(palette.line, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 13)
+                    .stroke(
+                        colorScheme == .dark ? Color(hex: 0x333333) : palette.line,
+                        lineWidth: 0.5
+                    )
+                    .padding(.horizontal, -5)
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            if isExpanded, let locationTitle {
+                Button(action: openLocation) {
+                    HStack(spacing: 5) {
+                        Image(systemName: todo.project == nil
+                            ? (todo.area?.symbolName ?? "circle")
+                            : "circle")
+                            .font(.system(size: 14, weight: .medium))
+                        Text(locationTitle)
+                            .font(.system(size: 13, weight: .medium))
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(palette.tertiaryText)
+                    .frame(height: 14)
+                }
+                .buttonStyle(.waniInteractive(
+                    palette,
+                    showsHoverBackground: false
+                ))
+                .padding(.trailing, 13)
+                .offset(y: 24)
+                .accessibilityLabel("Open \(locationTitle)")
+            }
+        }
+        .padding(.bottom, isExpanded && locationTitle != nil ? 24 : 0)
         .zIndex(isExpanded ? 1 : 0)
-        .animation(WaniMotion.quick, value: isSelected)
-        .animation(WaniMotion.quick, value: isHovered)
         .animation(WaniMotion.quick, value: todo.status)
         .animation(WaniMotion.quick, value: isPendingCompletion)
-        .onHover { isHovered = $0 }
         .onChange(of: isExpanded) { _, expanded in
-            updateEditorVisibility(expanded: expanded)
-        }
-        .onAppear {
-            updateEditorVisibility(expanded: isExpanded)
-        }
-        .onDisappear {
-            editorRevealTask?.cancel()
+            guard !expanded else { return }
+            titleSelection = nil
+            titleFieldFocused = false
+            dateEditorOpen = false
+            deadlineEditorOpen = false
+            deadlineDraft = ""
+            tagEditorOpen = false
+            tagSuggestionsOpen = false
+            checklistEditorOpen = false
         }
         .accessibilityValue(isSelected ? "Selected" : "")
     }
@@ -204,44 +268,26 @@ struct WaniTaskRow: View {
         }
     }
 
-    private func updateEditorVisibility(expanded: Bool) {
-        editorRevealTask?.cancel()
-        if !expanded {
-            editorContentVisible = false
-            dateEditorOpen = false
-            deadlineEditorOpen = false
-            tagEditorOpen = false
-            checklistEditorOpen = false
-            return
-        }
-
-        editorContentVisible = false
-        editorRevealTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(150))
-            guard !Task.isCancelled, isExpanded else { return }
-            withAnimation(WaniMotion.quick) {
-                editorContentVisible = true
-            }
-        }
-    }
-
     private var dragPreview: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 11) {
+        HStack(alignment: .center, spacing: 7) {
             ZStack {
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(isVisuallyCompleted ? palette.accent : Color.clear)
-                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                RoundedRectangle(cornerRadius: 3.5, style: .continuous)
+                    .fill(isVisuallyCompleted ? completionAccent : Color.clear)
+                RoundedRectangle(cornerRadius: 3.5, style: .continuous)
                     .stroke(
-                        isVisuallyCompleted ? palette.accent : palette.tertiaryText,
-                        lineWidth: 1.5
+                        isVisuallyCompleted
+                            ? completionAccent
+                            : incompleteCheckboxColor,
+                        lineWidth: isVisuallyCompleted ? 1.5 : 0.75
                     )
                 if isVisuallyCompleted {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 8, weight: .bold))
+                        .font(.system(size: 7, weight: .bold))
                         .foregroundStyle(.white)
                 }
             }
-            .frame(width: 17, height: 17)
+            .frame(width: 10.5, height: 10.5)
+            .frame(width: 15, height: 15)
 
             if let dateLabel {
                 scheduleBadge(dateLabel)
@@ -249,18 +295,15 @@ struct WaniTaskRow: View {
 
             Text(displayTitle)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(
-                    !isVisuallyCompleted && hasTitle
-                        ? palette.text : palette.tertiaryText
-                )
-                .strikethrough(isVisuallyCompleted)
+                .foregroundStyle(titleColor)
+                .strikethrough(titleUsesStrikethrough)
                 .lineLimit(1)
 
             Spacer(minLength: 12)
             badges
         }
-        .padding(.horizontal, 11)
-        .padding(.vertical, density.rowPadding)
+        .padding(.horizontal, 10)
+        .padding(.vertical, density.rowPadding + 1)
         .frame(width: max(dragPreviewWidth, 280), alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 10)
@@ -277,11 +320,27 @@ struct WaniTaskRow: View {
         VStack(alignment: .leading, spacing: 12) {
             TextEditor(text: todoNotesBinding)
                 .font(.system(size: 13))
-                .foregroundStyle(palette.secondaryText)
+                .foregroundStyle(
+                    colorScheme == .dark ? Color(hex: 0x8E8E8E) : palette.secondaryText
+                )
                 .scrollContentBackground(.hidden)
-                .frame(minHeight: 52, maxHeight: 130)
+                .onExitCommand(perform: dismissExpanded)
+                .overlay(alignment: .topLeading) {
+                    if todo.notes.isEmpty {
+                        Text("Notes")
+                            .font(.system(size: 13))
+                            .foregroundStyle(
+                                colorScheme == .dark
+                                    ? Color(hex: 0x8E8E8E)
+                                    : palette.tertiaryText
+                            )
+                            .allowsHitTesting(false)
+                    }
+                }
+                .padding(.leading, -5)
+                .frame(minHeight: 31, maxHeight: 130)
 
-            if checklistEditorOpen {
+            if !sortedChecklistItems.isEmpty {
                 checklistEditor
                     .transition(WaniMotion.taskEditorTransition)
             }
@@ -294,15 +353,30 @@ struct WaniTaskRow: View {
             .opacity(0)
             .accessibilityHidden(true)
 
-            HStack {
+            HStack(spacing: 3) {
                 Button {
                     deadlineEditorOpen = false
                     tagEditorOpen = false
+                    checklistEditorOpen = false
                     dateEditorOpen.toggle()
                 } label: {
-                    Label(scheduleLabel, systemImage: scheduleSymbol)
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(palette.secondaryText)
+                    HStack(spacing: 4) {
+                        if isScheduledByToday, !todo.isEvening {
+                            Image(systemName: scheduleSymbol)
+                                .resizable()
+                                .frame(width: 16, height: 14)
+                                .foregroundStyle(scheduleSymbolColor)
+                                .scaleEffect(y: 1.04, anchor: .top)
+                                .offset(x: -1)
+                        } else {
+                            Image(systemName: scheduleSymbol)
+                                .font(.system(size: 12.5))
+                                .foregroundStyle(scheduleSymbolColor)
+                        }
+                        Text(scheduleLabel)
+                            .font(.system(size: isScheduledByToday ? 13 : 12.5))
+                            .foregroundStyle(scheduleTextColor)
+                    }
                 }
                 .popover(isPresented: $dateEditorOpen, arrowEdge: .bottom) {
                     WaniTaskDateEditor(
@@ -314,83 +388,21 @@ struct WaniTaskRow: View {
                         dismiss: { dateEditorOpen = false }
                     )
                 }
+                .padding(.leading, -6)
                 Spacer()
-                Button {
-                    dateEditorOpen = false
-                    deadlineEditorOpen = false
-                    tagEditorOpen = false
-                    let willOpen = !checklistEditorOpen
-                    withAnimation(WaniMotion.taskExpansion) {
-                        checklistEditorOpen.toggle()
-                    }
-                    if willOpen {
-                        focusChecklistFieldAfterOpening()
-                    }
-                } label: {
-                    Image(systemName: "checklist")
-                        .foregroundStyle(
-                            checklistEditorOpen || !sortedChecklistItems.isEmpty
-                                ? palette.accent : palette.tertiaryText
-                        )
-                }
-                .accessibilityLabel(
-                    checklistEditorOpen ? "Hide Checklist" : "Show Checklist"
-                )
                 tagControl
-                Button {
-                    dateEditorOpen = false
-                    tagEditorOpen = false
-                    deadlineEditorOpen.toggle()
-                } label: {
-                    if let deadline = todo.deadline {
-                        Label(
-                            deadline.formatted(.dateTime.month(.abbreviated).day()),
-                            systemImage: "flag"
-                        )
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(palette.accent)
-                    } else {
-                        Image(systemName: "flag")
-                            .foregroundStyle(palette.tertiaryText)
+                    .padding(.trailing, checklistEditorOpen ? 3 : 0)
+                checklistControl
+                deadlineControl
+                if todo.deletedAt == nil, canLogNow {
+                    Button(action: logNow) {
+                        Image(systemName: "archivebox")
                     }
-                }
-                .popover(isPresented: $deadlineEditorOpen, arrowEdge: .bottom) {
-                    WaniTaskDeadlineEditor(
-                        todo: todo,
-                        palette: palette,
-                        save: saveChanges,
-                        reminderChanged: { syncReminder() },
-                        dismiss: { deadlineEditorOpen = false }
-                    )
-                }
-                .accessibilityLabel(
-                    todo.deadline == nil ? "Set Deadline" : "Edit Deadline"
-                )
-                if todo.deletedAt == nil {
-                    Button {
-                        dateEditorOpen = false
-                        deadlineEditorOpen = false
-                        tagEditorOpen = false
-                        openRepeat()
-                    } label: {
-                        Image(systemName: "repeat")
-                            .foregroundStyle(
-                                todo.repeatFrequency == .none
-                                    ? palette.tertiaryText : palette.accent
-                            )
-                    }
-                    .accessibilityLabel(
-                        todo.repeatFrequency == .none ? "Set Repeat" : "Edit Repeat"
-                    )
-                    if canLogNow {
-                        Button(action: logNow) {
-                            Image(systemName: "archivebox")
-                        }
-                        .keyboardShortcut("y", modifiers: [.command, .shift])
-                        .accessibilityLabel("Move to Logbook Now")
-                    }
+                    .keyboardShortcut("y", modifiers: [.command, .shift])
+                    .accessibilityLabel("Move to Logbook Now")
                 }
             }
+            .padding(.trailing, 6)
             .animation(WaniMotion.quick, value: tagEditorOpen)
             .buttonStyle(.waniInteractive(
                 palette,
@@ -412,21 +424,6 @@ struct WaniTaskRow: View {
                     delete: { deleteChecklistItem(item) },
                     reorder: reorderChecklistItem
                 )
-            }
-
-            HStack(spacing: 10) {
-                Image(systemName: "plus.circle")
-                    .font(.system(size: 14))
-                    .foregroundStyle(palette.tertiaryText)
-                TextField("Add checklist item", text: $checklistTitle)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 13))
-                    .focused($checklistFieldFocused)
-                    .onSubmit(addChecklistItem)
-            }
-            .padding(.vertical, 7)
-            .overlay(alignment: .top) {
-                Rectangle().fill(palette.faintLine).frame(height: 1)
             }
         }
         .animation(WaniMotion.standard, value: sortedChecklistItems.map(\.id))
@@ -460,21 +457,34 @@ struct WaniTaskRow: View {
                     .onSubmit(addDraftTag)
             }
             .padding(.horizontal, 8)
-            .frame(width: 174, height: 28)
-            .background(palette.selectionBackground, in: RoundedRectangle(cornerRadius: 7))
-            .popover(isPresented: $tagEditorOpen, arrowEdge: .bottom) {
+            .frame(width: 128, height: 24)
+            .background(
+                colorScheme == .dark ? Color(hex: 0x4A4A4A) : palette.selectionBackground,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+            .offset(y: 1)
+            .popover(isPresented: $tagSuggestionsOpen, arrowEdge: .bottom) {
                 tagSuggestions
+            }
+            .onExitCommand {
+                if tagSuggestionsOpen {
+                    tagSuggestionsOpen = false
+                } else {
+                    dismissExpanded()
+                }
             }
             .task {
                 await Task.yield()
                 guard tagEditorOpen else { return }
                 tagFieldFocused = true
+                tagSuggestionsOpen = true
             }
             .transition(WaniMotion.overlayTransition)
         } else {
             Button {
                 dateEditorOpen = false
                 deadlineEditorOpen = false
+                checklistEditorOpen = false
                 tagDraft = ""
                 withAnimation(WaniMotion.quick) {
                     tagEditorOpen = true
@@ -482,8 +492,11 @@ struct WaniTaskRow: View {
             } label: {
                 Image(systemName: "tag")
                     .foregroundStyle(
-                        todo.tagNames.isEmpty ? palette.tertiaryText : palette.accent
+                        todo.tagNames.isEmpty ? palette.secondaryText : palette.accent
                     )
+                    .opacity(todo.tagNames.isEmpty ? 0.92 : 1)
+                    .scaleEffect(x: 0.98, y: 1.07, anchor: .topLeading)
+                    .offset(x: 2, y: 2)
             }
             .accessibilityLabel(todo.tagNames.isEmpty ? "Add Tag" : "Edit Tags")
             .transition(WaniMotion.overlayTransition)
@@ -493,21 +506,34 @@ struct WaniTaskRow: View {
     private var tagSuggestions: some View {
         ScrollView {
             LazyVStack(spacing: 2) {
-                ForEach(filteredKnownTags, id: \.self) { tag in
-                    tagSuggestionButton(tag)
+                ForEach(Array(filteredKnownTags.enumerated()), id: \.element) { index, tag in
+                    tagSuggestionButton(tag, isHighlighted: index == 0)
                 }
 
                 if canCreateDraftTag {
                     Button(action: addDraftTag) {
-                        Label("Add “\(normalizedTagDraft)”", systemImage: "plus")
-                            .font(.system(size: 12.5))
-                            .foregroundStyle(palette.accent)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10)
-                            .frame(height: 34)
-                            .contentShape(Rectangle())
+                        HStack(spacing: 7) {
+                            Image(systemName: "tag")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.white.opacity(0.65))
+                            Text("Add “\(normalizedTagDraft)”")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(Color.white)
+                            Spacer()
+                        }
+                        .padding(.horizontal, 6)
+                        .frame(height: 24)
+                        .background(
+                            Color(hex: 0x356ABB),
+                            in: RoundedRectangle(cornerRadius: 7)
+                        )
+                        .contentShape(Rectangle())
                     }
-                    .buttonStyle(.waniInteractive(palette))
+                    .buttonStyle(.waniInteractive(
+                        palette,
+                        cornerRadius: 7,
+                        showsHoverBackground: false
+                    ))
                 } else if filteredKnownTags.isEmpty {
                     Text("No tags yet")
                         .font(.system(size: 12.5))
@@ -515,14 +541,92 @@ struct WaniTaskRow: View {
                         .padding(.vertical, 18)
                 }
             }
-            .padding(6)
+            .padding(.leading, canCreateDraftTag ? 11.5 : 3.5)
+            .padding(.trailing, canCreateDraftTag ? 1.5 : 9.5)
+            .padding(.top, 1)
+            .padding(.bottom, 6)
         }
-        .frame(width: 230)
+        .frame(width: canCreateDraftTag ? 136 : 120)
         .frame(maxHeight: 220)
         .background(palette.panel)
     }
 
-    private func tagSuggestionButton(_ tag: String) -> some View {
+    @ViewBuilder
+    private var deadlineControl: some View {
+        if deadlineEditorOpen {
+            HStack(spacing: 5) {
+                Image(systemName: "flag")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(palette.tertiaryText)
+                TextField("Deadline", text: $deadlineDraft)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12.5, weight: .medium))
+                    .focused($deadlineFieldFocused)
+                Image(systemName: "line.3.horizontal.decrease")
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(palette.tertiaryText)
+                    .popover(isPresented: $deadlineEditorOpen, arrowEdge: .bottom) {
+                        WaniTaskDeadlineEditor(
+                            todo: todo,
+                            palette: palette,
+                            query: $deadlineDraft,
+                            save: saveChanges,
+                            reminderChanged: { syncReminder() },
+                            dismiss: { deadlineEditorOpen = false }
+                        )
+                    }
+            }
+            .padding(.horizontal, 7)
+            .frame(width: 128, height: 24)
+            .background(
+                colorScheme == .dark ? Color(hex: 0x4A4A4A) : palette.selectionBackground,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+            .offset(y: 1)
+            .task {
+                await Task.yield()
+                guard deadlineEditorOpen else { return }
+                deadlineFieldFocused = true
+            }
+            .transition(WaniMotion.overlayTransition)
+        } else {
+            Button {
+                dateEditorOpen = false
+                tagEditorOpen = false
+                checklistEditorOpen = false
+                deadlineDraft = ""
+                withAnimation(WaniMotion.quick) {
+                    deadlineEditorOpen = true
+                }
+            } label: {
+                if let deadline = todo.deadline {
+                    Label(
+                        deadline.formatted(.dateTime.month(.abbreviated).day()),
+                        systemImage: "flag"
+                    )
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(palette.accent)
+                    .offset(y: 2)
+                } else {
+                    Image(systemName: "flag")
+                        .fontWeight(.light)
+                        .foregroundStyle(palette.secondaryText)
+                        .brightness(0.11)
+                        .scaleEffect(x: 1.20, y: 1.08, anchor: .trailing)
+                        .offset(x: 1, y: 2)
+                }
+            }
+            .accessibilityLabel(
+                todo.deadline == nil ? "Set Deadline" : "Edit Deadline"
+            )
+            .transition(WaniMotion.overlayTransition)
+        }
+    }
+
+    private func tagSuggestionButton(
+        _ tag: String,
+        isHighlighted: Bool
+    ) -> some View {
         let isSelected = todo.tagNames.contains {
             $0.caseInsensitiveCompare(tag) == .orderedSame
         }
@@ -530,19 +634,32 @@ struct WaniTaskRow: View {
         return Button {
             setTag(tag, enabled: !isSelected)
         } label: {
-            HStack(spacing: 9) {
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .foregroundStyle(isSelected ? palette.accent : palette.tertiaryText)
+            HStack(spacing: 7) {
+                Image(systemName: "tag")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(
+                        isHighlighted
+                            ? Color.white.opacity(0.65)
+                            : (isSelected ? palette.accent : palette.tertiaryText)
+                    )
                 Text(tag)
-                    .font(.system(size: 13))
-                    .foregroundStyle(palette.text)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(isHighlighted ? Color.white : palette.text)
                 Spacer()
             }
-            .padding(.horizontal, 10)
-            .frame(height: 34)
+            .padding(.horizontal, 6)
+            .frame(height: 24)
+            .background(
+                isHighlighted ? Color(hex: 0x356ABB) : Color.clear,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
             .contentShape(Rectangle())
         }
-        .buttonStyle(.waniInteractive(palette))
+        .buttonStyle(.waniInteractive(
+            palette,
+            cornerRadius: 7,
+            showsHoverBackground: !isHighlighted
+        ))
     }
 
     private var sortedChecklistItems: [WaniChecklistItem] {
@@ -617,6 +734,52 @@ struct WaniTaskRow: View {
         tagDraft = ""
     }
 
+    @ViewBuilder
+    private var checklistControl: some View {
+        if checklistEditorOpen {
+            HStack(spacing: 5) {
+                Image(systemName: "checklist")
+                    .foregroundStyle(palette.tertiaryText)
+                    .scaleEffect(x: 0.87, y: 1)
+                TextField("Checklist", text: $checklistTitle)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12.5))
+                    .focused($checklistFieldFocused)
+                    .onSubmit(addChecklistItem)
+            }
+            .padding(.horizontal, 3)
+            .frame(width: 130, height: 24)
+            .background(
+                colorScheme == .dark ? Color(hex: 0x4A4A4A) : palette.selectionBackground,
+                in: RoundedRectangle(cornerRadius: 7)
+            )
+            .offset(y: 1)
+            .transition(WaniMotion.overlayTransition)
+        } else {
+            Button {
+                dateEditorOpen = false
+                deadlineEditorOpen = false
+                tagEditorOpen = false
+                withAnimation(WaniMotion.quick) {
+                    checklistEditorOpen = true
+                }
+                focusChecklistFieldAfterOpening()
+            } label: {
+                Image(systemName: "checklist")
+                    .foregroundStyle(
+                        sortedChecklistItems.isEmpty
+                            ? palette.secondaryText
+                            : palette.accent
+                    )
+                    .brightness(sortedChecklistItems.isEmpty ? 0.02 : 0)
+                    .scaleEffect(x: 0.78, y: 1.11)
+                    .offset(x: -0.5, y: 2)
+            }
+            .accessibilityLabel("Show Checklist")
+            .transition(WaniMotion.overlayTransition)
+        }
+    }
+
     private func setTag(_ tag: String, enabled: Bool) {
         var tags = todo.tagNames.filter {
             $0.caseInsensitiveCompare(tag) != .orderedSame
@@ -673,22 +836,21 @@ struct WaniTaskRow: View {
     @ViewBuilder
     private var badges: some View {
         HStack(spacing: 8) {
-            if !todo.notes.isEmpty {
-                Image(systemName: "text.alignleft")
-            }
             if let checklist = todo.checklistItems, !checklist.isEmpty {
                 Text("\(checklist.filter(\.isCompleted).count)/\(checklist.count)")
             }
-            if let project = todo.project {
-                Text(project.title)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(palette.hover, in: Capsule())
-            } else if let area = todo.area {
-                Text(area.title)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 2)
-                    .background(palette.hover, in: Capsule())
+            if !usesArchiveListStyle && !showsCollapsedLocation {
+                if let project = todo.project {
+                    Text(project.title)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(palette.hover, in: Capsule())
+                } else if let area = todo.area {
+                    Text(area.title)
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 2)
+                        .background(palette.hover, in: Capsule())
+                }
             }
             if todo.deadline != nil {
                 Image(systemName: "flag")
@@ -717,9 +879,7 @@ struct WaniTaskRow: View {
 
     @ViewBuilder
     private func scheduleBadge(_ label: String) -> some View {
-        if todo.status == .open,
-           todo.schedule == .date,
-           todo.startDate.map(Calendar.current.isDateInToday) == true {
+        if todo.status == .open, isScheduledByToday {
             Image(systemName: todo.isEvening ? "moon.fill" : "star.fill")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(
@@ -728,6 +888,11 @@ struct WaniTaskRow: View {
                         : WaniSmartList.today.symbolColor
                 )
                 .accessibilityLabel(todo.isEvening ? "This Evening" : "Today")
+        } else if usesArchiveListStyle, todo.status != .open {
+            Text(label)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(completionAccent)
+                .frame(width: 50, alignment: .leading)
         } else {
             Text(label)
                 .font(.system(size: 11.5, weight: .semibold))
@@ -745,6 +910,55 @@ struct WaniTaskRow: View {
         !todo.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
+    private var locationTitle: String? {
+        todo.project?.title ?? todo.area?.title
+    }
+
+    private var titleColor: Color {
+        if usesArchiveListStyle, hasTitle {
+            return palette.text
+        }
+        return !isVisuallyCompleted && hasTitle ? palette.text : palette.tertiaryText
+    }
+
+    private var titleUsesStrikethrough: Bool {
+        isVisuallyCompleted && !usesArchiveListStyle
+    }
+
+    private var taskSelectionBackground: Color {
+        colorScheme == .dark ? Color(hex: 0x254075) : palette.selectionBackground
+    }
+
+    private var completionAccent: Color {
+        colorScheme == .dark ? Color(hex: 0x66ABFF) : palette.accent
+    }
+
+    private var incompleteCheckboxColor: Color {
+        colorScheme == .dark ? Color(hex: 0x898C8F) : palette.tertiaryText
+    }
+
+    private var collapsedVerticalPadding: CGFloat {
+        if usesArchiveListStyle || showsCollapsedLocation && locationTitle != nil {
+            return 0
+        }
+        return density.rowPadding - 3.5
+    }
+
+    private var collapsedMinimumHeight: CGFloat? {
+        guard !isExpanded else { return nil }
+        if usesArchiveListStyle { return 33 }
+        if showsCollapsedLocation, locationTitle != nil { return 39 }
+        return nil
+    }
+
+    private var archiveCheckboxSize: CGFloat {
+        usesArchiveListStyle && isVisuallyCompleted ? 13.5 : 11.5
+    }
+
+    private var archiveCheckboxCheckmarkSize: CGFloat {
+        usesArchiveListStyle && isVisuallyCompleted ? 8 : 7
+    }
+
     private var isVisuallyCompleted: Bool {
         todo.status != .open || isPendingCompletion
     }
@@ -759,13 +973,44 @@ struct WaniTaskRow: View {
         case .anytime: "Anytime"
         case .someday: "Someday"
         case .date:
-            todo.startDate?.formatted(date: .abbreviated, time: .omitted) ?? "Scheduled"
+            if isScheduledByToday {
+                todo.isEvening ? "Evening" : "Today"
+            } else {
+                todo.startDate?.formatted(date: .abbreviated, time: .omitted)
+                    ?? "Scheduled"
+            }
         }
     }
 
     private var scheduleSymbol: String {
         if todo.isEvening { return "moon.fill" }
+        if isScheduledByToday {
+            return "star.fill"
+        }
         return todo.schedule == .date ? "calendar" : "tray"
+    }
+
+    private var scheduleSymbolColor: Color {
+        if todo.isEvening { return palette.accent }
+        if isScheduledByToday {
+            return WaniSmartList.today.symbolColor
+        }
+        return palette.secondaryText
+    }
+
+    private var scheduleTextColor: Color {
+        if isScheduledByToday {
+            return palette.text
+        }
+        return palette.secondaryText
+    }
+
+    private var isScheduledByToday: Bool {
+        guard todo.schedule == .date, let startDate = todo.startDate else {
+            return false
+        }
+        let calendar = Calendar.current
+        return calendar.startOfDay(for: startDate) <= calendar.startOfDay(for: .now)
     }
 }
 
@@ -801,7 +1046,7 @@ private struct WaniOutsideClickMonitor: NSViewRepresentable {
 
         func start(for view: NSView) {
             self.view = view
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) {
                 [weak self] event in
                 guard
                     let self,
@@ -814,7 +1059,7 @@ private struct WaniOutsideClickMonitor: NSViewRepresentable {
                 guard !view.bounds.contains(location) else { return event }
 
                 let dismiss = self.dismiss
-                DispatchQueue.main.async {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                     dismiss()
                 }
                 return event

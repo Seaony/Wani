@@ -60,6 +60,7 @@ struct ContentView: View {
     @State private var selectionAnchorID: UUID?
     @State private var batchMoveOpen = false
     @State private var batchMoveQuery = ""
+    @State private var batchMoveSourceExpandedTodoID: UUID?
     @State private var batchDateEditorOpen = false
     @State private var batchDeadlineEditorOpen = false
     @State private var batchTagEditorOpen = false
@@ -211,6 +212,19 @@ struct ContentView: View {
                     projects: activeProjects,
                     headings: activeHeadings,
                     query: $batchMoveQuery,
+                    inboxSelected: selectedTodos.count == 1
+                        && selectedTodos.first?.schedule == .inbox
+                        && selectedTodos.first?.project == nil
+                        && selectedTodos.first?.area == nil,
+                    selectedAreaID: selectedTodos.count == 1
+                        ? selectedTodos.first?.area?.id
+                        : nil,
+                    selectedProjectID: selectedTodos.count == 1
+                        ? selectedTodos.first?.project?.id
+                        : nil,
+                    selectedHeadingID: selectedTodos.count == 1
+                        ? selectedTodos.first?.heading?.id
+                        : nil,
                     moveToInbox: moveSelectedToInbox,
                     moveToArea: moveSelectedTodos,
                     moveToProject: moveSelectedTodos,
@@ -356,7 +370,7 @@ struct ContentView: View {
             .buttonStyle(.waniInteractive(palette))
             .foregroundStyle(palette.tertiaryText)
             .padding(.horizontal, 16)
-            .frame(height: 46)
+            .frame(height: 26)
 
             pageHeader
 
@@ -373,7 +387,7 @@ struct ContentView: View {
                     .padding(.top, 18)
                 }
 
-                if selection != .smart(.logbook) {
+                if selectedProject != nil || selectedArea != nil {
                     Rectangle()
                         .fill(palette.line)
                         .frame(height: 1)
@@ -384,7 +398,7 @@ struct ContentView: View {
             .padding(.top, 8)
 
             ScrollView {
-                LazyVStack(spacing: 1) {
+                LazyVStack(spacing: 0) {
                     if case .project = selection {
                         projectTaskContent
                     } else if case .area = selection {
@@ -405,22 +419,33 @@ struct ContentView: View {
                         taskRows(visibleTodos)
                     }
                 }
-                .padding(.horizontal, 52)
-                .padding(.top, 14)
+                .id(selection)
+                .padding(.leading, 54)
+                .padding(.trailing, 43)
+                .padding(
+                    .top,
+                    selectedProject == nil && selectedArea == nil
+                        ? (expandedTodoID == nil ? 15 : 18)
+                        : 14
+                )
                 .padding(.bottom, 24)
             }
             Rectangle().fill(palette.sidebarDivider).frame(height: 1)
 
             standardToolbar
-            .frame(height: 52)
+            .frame(height: 40)
         }
-        .background(palette.panel)
+        .background(
+            colorScheme == .dark
+                ? Color(hex: expandedTodoID == nil ? 0x2C2C2C : 0x282828)
+                : palette.panel
+        )
     }
 
     private var pageHeader: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: 0) {
             Image(systemName: pageSymbol)
-                .font(.system(size: 25, weight: .medium))
+                .font(.system(size: 23, weight: .medium))
                 .foregroundStyle(pageSymbolColor)
                 .frame(width: 34, height: 34)
 
@@ -429,7 +454,7 @@ struct ContentView: View {
                     if selectedProject != nil || selectedArea != nil {
                         TextField(pageTitle, text: pageTitleBinding)
                             .textFieldStyle(.plain)
-                            .font(.system(size: 29, weight: .semibold))
+                            .font(.system(size: 23, weight: .semibold))
                             .tracking(-0.3)
                             .foregroundStyle(palette.text)
                             .frame(width: pageTitleFieldWidth, height: 36, alignment: .leading)
@@ -443,7 +468,7 @@ struct ContentView: View {
                             .accessibilityLabel(selectedProject == nil ? "Area Name" : "Project Name")
                     } else {
                         Text(pageTitle)
-                            .font(.system(size: 29, weight: .semibold))
+                            .font(.system(size: 23, weight: .semibold))
                             .tracking(-0.3)
                             .foregroundStyle(palette.text)
                     }
@@ -461,12 +486,15 @@ struct ContentView: View {
                         .accessibilityLabel("Project Notes")
                 }
 
-                Text(pageMetadata)
-                    .font(.system(size: 13))
-                    .foregroundStyle(palette.tertiaryText)
+                if selectedProject != nil || selectedArea != nil {
+                    Text(pageMetadata)
+                        .font(.system(size: 13))
+                        .foregroundStyle(palette.tertiaryText)
+                }
             }
+            .padding(.top, 3)
         }
-        .padding(.horizontal, 52)
+        .padding(.horizontal, 57)
         .padding(.top, 8)
     }
 
@@ -699,7 +727,11 @@ struct ContentView: View {
                 if let title = group.title {
                     listSectionHeader(title, count: group.todos.count)
                 }
-                taskRows(group.todos)
+                taskRows(
+                    group.todos,
+                    showsCollapsedSchedule: false,
+                    showsCollapsedLocation: !groupTodayByProjectOrArea
+                )
             }
 
             if !eveningTodos.isEmpty {
@@ -712,7 +744,11 @@ struct ContentView: View {
                     if let title = group.title {
                         listSectionHeader(title, count: group.todos.count)
                     }
-                    taskRows(group.todos)
+                    taskRows(
+                        group.todos,
+                        showsCollapsedSchedule: false,
+                        showsCollapsedLocation: !groupTodayByProjectOrArea
+                    )
                 }
             }
         }
@@ -783,27 +819,32 @@ struct ContentView: View {
         } else {
             let days = WaniTaskRules.upcomingDays(
                 todos,
+                previewDayCount: 7,
                 deferCompletedUntilMidnight: moveToLogbookAtMidnight
             )
-            ForEach(Array(days.enumerated()), id: \.element.date) { index, day in
-                if index > 0, !Calendar.current.isDate(
-                    days[index - 1].date,
-                    equalTo: day.date,
-                    toGranularity: .month
-                ) {
-                    Text(day.date.formatted(.dateTime.month(.wide)))
-                        .font(.system(size: 13))
-                        .foregroundStyle(palette.tertiaryText)
-                        .padding(.horizontal, 11)
-                        .padding(.top, 10)
-                        .padding(.bottom, 14)
-                }
+            let previewDays = Array(days.prefix(7))
+            let previewEnd = previewDays.last?.date
+                ?? Calendar.current.date(byAdding: .day, value: 7, to: .now)!
 
+            ForEach(Array(previewDays.enumerated()), id: \.element.date) { index, day in
                 upcomingDayHeader(day)
+                    .padding(.top, index == 0 ? -8 : 0)
                 if day.todos.isEmpty {
-                    Color.clear.frame(height: 14)
+                    Color.clear.frame(height: 42)
                 } else {
-                    taskRows(day.todos)
+                    taskRows(day.todos, showsCollapsedLocation: true)
+                }
+            }
+
+            let monthStarts = upcomingMonthStarts(after: previewEnd, days: days)
+            ForEach(Array(monthStarts.enumerated()), id: \.offset) { index, month in
+                upcomingMonthHeader(month, after: previewEnd)
+                    .padding(.top, index == 0 ? 3.5 : 0)
+                let monthTodos = upcomingTodos(in: month, after: previewEnd, days: days)
+                if !monthTodos.isEmpty {
+                    taskRows(monthTodos, showsCollapsedLocation: true)
+                } else {
+                    Color.clear.frame(height: 45)
                 }
             }
         }
@@ -819,25 +860,105 @@ struct ContentView: View {
             ? "Tomorrow"
             : day.date.formatted(.dateTime.weekday(.wide))
 
-        return HStack(alignment: .firstTextBaseline, spacing: 10) {
+        return HStack(alignment: .top, spacing: 10) {
             Text(day.date.formatted(.dateTime.day()))
-                .font(.system(size: 25, weight: .semibold))
+                .font(.system(size: 26, weight: .bold))
                 .tracking(-0.3)
             Text(label)
-                .font(.system(size: 12.5, weight: .medium))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(palette.secondaryText)
+                .padding(.top, 7)
             Rectangle()
-                .fill(palette.line)
-                .frame(height: 1)
+                .fill(upcomingDividerColor)
+                .frame(height: 1.5)
+                .padding(.top, 3)
             if !day.todos.isEmpty {
                 Text("\(day.todos.count) \(day.todos.count == 1 ? "item" : "items")")
                     .font(.system(size: 11.5))
                     .foregroundStyle(palette.tertiaryText)
+                    .padding(.top, 7)
             }
         }
         .foregroundStyle(palette.text)
-        .padding(.horizontal, 11)
+        .padding(.horizontal, 7)
         .padding(.bottom, 9)
+    }
+
+    private func upcomingMonthHeader(_ month: Date, after previewEnd: Date) -> some View {
+        let calendar = Calendar.current
+        let firstRemainingDate = calendar.date(byAdding: .day, value: 1, to: previewEnd)!
+        let isFirstMonth = calendar.isDate(
+            month,
+            equalTo: firstRemainingDate,
+            toGranularity: .month
+        )
+        let monthTitle = month.formatted(.dateTime.month(.wide))
+        let title: String
+        if isFirstMonth, calendar.component(.day, from: firstRemainingDate) > 1 {
+            let monthEnd = calendar.date(
+                byAdding: DateComponents(month: 1, day: -1),
+                to: month
+            )!
+            title = "\(monthTitle) \(calendar.component(.day, from: firstRemainingDate))–\(calendar.component(.day, from: monthEnd))"
+        } else {
+            title = monthTitle
+        }
+
+        return VStack(alignment: .leading, spacing: 0) {
+            Rectangle()
+                .fill(upcomingDividerColor)
+                .frame(height: 1.5)
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(palette.text)
+                .padding(.top, 5)
+                .padding(.bottom, 14)
+        }
+        .padding(.horizontal, 7)
+    }
+
+    private var upcomingDividerColor: Color {
+        colorScheme == .dark ? Color(hex: 0x555555) : palette.line
+    }
+
+    private func upcomingMonthStarts(
+        after previewEnd: Date,
+        days: [WaniUpcomingDay]
+    ) -> [Date] {
+        let calendar = Calendar.current
+        let firstRemainingDate = calendar.date(byAdding: .day, value: 1, to: previewEnd)!
+        let firstMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: firstRemainingDate)
+        )!
+        let minimumLastMonth = calendar.date(byAdding: .month, value: 4, to: firstMonth)!
+        let farthestDate = days.last?.date ?? firstRemainingDate
+        let farthestMonth = calendar.date(
+            from: calendar.dateComponents([.year, .month], from: farthestDate)
+        )!
+        let lastMonth = max(minimumLastMonth, farthestMonth)
+        let monthCount = (calendar.dateComponents(
+            [.month],
+            from: firstMonth,
+            to: lastMonth
+        ).month ?? 0) + 1
+
+        return (0..<monthCount).compactMap {
+            calendar.date(byAdding: .month, value: $0, to: firstMonth)
+        }
+    }
+
+    private func upcomingTodos(
+        in month: Date,
+        after previewEnd: Date,
+        days: [WaniUpcomingDay]
+    ) -> [WaniTodo] {
+        let calendar = Calendar.current
+        return days
+            .filter {
+                $0.date > previewEnd
+                    && calendar.isDate($0.date, equalTo: month, toGranularity: .month)
+            }
+            .flatMap(\.todos)
     }
 
     @ViewBuilder
@@ -855,19 +976,19 @@ struct ContentView: View {
                 grouping: listTodos.filter { $0.project != nil }
             ) { $0.project?.id }
 
-            taskRows(byArea[nil] ?? [])
+            taskRows(byArea[nil] ?? [], showsCollapsedSchedule: true)
 
             ForEach(areas) { area in
                 if let areaTodos = byArea[area.id], !areaTodos.isEmpty {
                     smartAreaHeader(area)
-                    taskRows(areaTodos)
+                    taskRows(areaTodos, showsCollapsedSchedule: true)
                 }
             }
 
             ForEach(activeProjects) { project in
                 if let projectTodos = byProject[project.id], !projectTodos.isEmpty {
                     smartProjectHeader(project)
-                    taskRows(projectTodos)
+                    taskRows(projectTodos, showsCollapsedSchedule: true)
                 }
             }
         }
@@ -959,7 +1080,7 @@ struct ContentView: View {
                     loggedProjectRow(project)
                 }
                 if let todoGroup = logbookMonths.first(where: { $0.month == month }) {
-                    taskRows(todoGroup.todos)
+                    taskRows(todoGroup.todos, usesArchiveListStyle: true)
                 }
             }
         }
@@ -1064,7 +1185,11 @@ struct ContentView: View {
             ForEach(trashedProjects) { project in
                 trashedProjectRow(project)
             }
-            taskRows(standaloneTrashedTodos)
+            taskRows(
+                standaloneTrashedTodos,
+                showsCollapsedSchedule: false,
+                usesArchiveListStyle: true
+            )
         }
     }
 
@@ -1203,7 +1328,12 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func taskRows(_ rows: [WaniTodo]) -> some View {
+    private func taskRows(
+        _ rows: [WaniTodo],
+        showsCollapsedSchedule: Bool = true,
+        showsCollapsedLocation: Bool = false,
+        usesArchiveListStyle: Bool = false
+    ) -> some View {
         let knownTags = WaniTaskRules.tags(in: todos)
         ForEach(rows) { todo in
             WaniTaskRow(
@@ -1211,6 +1341,9 @@ struct ContentView: View {
                 palette: palette,
                 knownTags: knownTags,
                 density: density,
+                showsCollapsedSchedule: showsCollapsedSchedule,
+                showsCollapsedLocation: showsCollapsedLocation,
+                usesArchiveListStyle: usesArchiveListStyle,
                 deadlineNotificationsEnabled: deadlineNotificationsEnabled,
                 isSelected: selectedTodoIDs.contains(todo.id),
                 isExpanded: expandedTodoID == todo.id,
@@ -1226,6 +1359,9 @@ struct ContentView: View {
                 dismissSelection: {
                     clearSelection(anchoredAt: todo.id)
                 },
+                openLocation: {
+                    openLocation(for: todo)
+                },
                 finishTitleEditing: {
                     finishInlineTodoCreation(todo.id)
                 },
@@ -1238,12 +1374,10 @@ struct ContentView: View {
                 reorder: { movingID, targetID in
                     reorderTodo(movingID, to: targetID, in: rows)
                 },
-                openRepeat: {
-                    repeatEditorTodoID = todo.id
-                },
                 recurrenceChanged: generateDueRepeatingTodos
             )
             .id(todo.id)
+            .padding(.top, expandedTodoID == todo.id ? 30 : 0)
         }
     }
 
@@ -1432,7 +1566,7 @@ struct ContentView: View {
 
     private var pageTitleFieldWidth: CGFloat {
         let value = pageTitle.isEmpty ? "Untitled" : pageTitle
-        let font = NSFont.systemFont(ofSize: 29, weight: .semibold)
+        let font = NSFont.systemFont(ofSize: 23, weight: .semibold)
         let width = (value as NSString).size(withAttributes: [.font: font]).width + 12
         return min(max(width, 90), 520)
     }
@@ -1592,11 +1726,12 @@ struct ContentView: View {
     private func toolbarButton(
         _ symbol: String,
         label: String,
+        symbolSize: CGFloat = 17,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .font(.system(size: 17))
+                .font(.system(size: symbolSize))
                 .foregroundStyle(palette.secondaryText)
                 .frame(width: 36, height: 32)
         }
@@ -1728,44 +1863,130 @@ struct ContentView: View {
     }
 
     private var standardToolbar: some View {
-        HStack(spacing: 4) {
-            toolbarButton("plus", label: "New To-Do") {
+        Group {
+            if focusedToolbarTodo != nil {
+                expandedTodoToolbar
+            } else {
+                defaultToolbar
+            }
+        }
+        .popover(isPresented: $toolbarDateEditorOpen, arrowEdge: .bottom) {
+            if let todo = focusedToolbarTodo {
+                WaniTaskDateEditor(
+                    todo: todo,
+                    palette: palette,
+                    save: saveChanges,
+                    reminderChanged: { syncReminder(for: todo) },
+                    recurrenceChanged: generateDueRepeatingTodos,
+                    dismiss: { toolbarDateEditorOpen = false }
+                )
+            }
+        }
+    }
+
+    private var expandedTodoToolbar: some View {
+        HStack(spacing: 72) {
+            toolbarButton(
+                "arrow.right",
+                label: "Move",
+                symbolSize: 14,
+                action: openMoveForExpandedTodo
+            )
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+
+            toolbarButton(
+                "trash",
+                label: "Move to Trash",
+                symbolSize: 14,
+                action: trashItemCommand
+            )
+
+            Menu {
+                Button("Duplicate To-Do", systemImage: "plus.square.on.square") {
+                    duplicateItemCommand()
+                }
+
+                Button("Repeat…", systemImage: "repeat") {
+                    openRepeatCommand()
+                }
+
+                Divider()
+
+                Button("Mark as Completed", systemImage: "checkmark.circle") {
+                    completeItemCommand()
+                }
+
+                Button("Mark as Canceled", systemImage: "xmark.circle") {
+                    cancelItemCommand()
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 17))
+                    .foregroundStyle(palette.secondaryText)
+                    .frame(width: 36, height: 32)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 36, height: 32)
+            .waniPointerFeedback(palette: palette)
+            .accessibilityLabel("More")
+        }
+    }
+
+    private var defaultToolbar: some View {
+        HStack(spacing: selectedProject == nil ? 51 : 4) {
+            toolbarButton("plus", label: "New To-Do", symbolSize: 14) {
                 createInlineTodo()
             }
             .keyboardShortcut("n", modifiers: [])
             .disabled(!canAddToCurrentList)
+            .offset(x: -1)
             if selectedProject != nil {
                 toolbarButton("rectangle.stack.badge.plus", label: "New Heading") {
                     openHeadingComposer()
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
-            } else {
-                toolbarButton("plus.app", label: "Quick Entry") {
-                    quickEntryOpen = true
-                }
-                .disabled(!canAddToCurrentList)
             }
-            toolbarButton("calendar", label: "When") {
-                toolbarDateEditorOpen = true
+            toolbarButton("calendar", label: "When", symbolSize: 16) {
+                openWhenCommand()
             }
             .keyboardShortcut("s", modifiers: .command)
-            .disabled(focusedToolbarTodo == nil)
-            .popover(isPresented: $toolbarDateEditorOpen, arrowEdge: .bottom) {
-                if let todo = focusedToolbarTodo {
+            .disabled(selectedTodos.isEmpty)
+            .offset(x: -1)
+            .popover(isPresented: $batchDateEditorOpen, arrowEdge: .bottom) {
+                if selectedTodos.count == 1, let todo = selectedTodos.first {
                     WaniTaskDateEditor(
                         todo: todo,
                         palette: palette,
                         save: saveChanges,
                         reminderChanged: { syncReminder(for: todo) },
                         recurrenceChanged: generateDueRepeatingTodos,
-                        dismiss: { toolbarDateEditorOpen = false }
+                        dismiss: { batchDateEditorOpen = false }
+                    )
+                } else if let todo = selectedTodos.first {
+                    WaniTaskDateEditor(
+                        todo: todo,
+                        palette: palette,
+                        save: saveChanges,
+                        reminderChanged: { syncReminder(for: todo) },
+                        recurrenceChanged: generateDueRepeatingTodos,
+                        dismiss: { batchDateEditorOpen = false },
+                        batchSchedule: scheduleSelectedTodos,
+                        batchReminder: setReminderForSelectedTodos,
+                        batchClearSchedule: clearScheduleForSelectedTodos,
+                        showsSelection: false
                     )
                 }
             }
-            toolbarButton("arrow.right", label: "Move", action: openMoveForExpandedTodo)
+            toolbarButton(
+                "arrow.right",
+                label: "Move",
+                symbolSize: 14,
+                action: openMoveCommand
+            )
                 .keyboardShortcut("m", modifiers: [.command, .shift])
-                .disabled(focusedToolbarTodo == nil)
-            toolbarButton("magnifyingglass", label: "Search") {
+                .disabled(selectedTodos.isEmpty)
+            toolbarButton("magnifyingglass", label: "Search", symbolSize: 14) {
                 searchOpen = true
             }
         }
@@ -1813,7 +2034,7 @@ struct ContentView: View {
         clearTodoSelection()
         if expandedTodoID == todo.id {
             expansionRequestID = nil
-            withAnimation(WaniMotion.taskExpansion) {
+            withAnimation(WaniMotion.taskRowExpansion) {
                 expandedTodoID = nil
             }
         } else if expandedTodoID != nil {
@@ -1827,14 +2048,14 @@ struct ContentView: View {
             Task { @MainActor in
                 await Task.yield()
                 guard expansionRequestID == requestID else { return }
-                withAnimation(WaniMotion.taskExpansion) {
+                withAnimation(WaniMotion.taskRowExpansion) {
                     expandedTodoID = todo.id
                 }
                 expansionRequestID = nil
             }
         } else {
             expansionRequestID = nil
-            withAnimation(WaniMotion.taskExpansion) {
+            withAnimation(WaniMotion.taskRowExpansion) {
                 expandedTodoID = todo.id
             }
         }
@@ -1843,12 +2064,21 @@ struct ContentView: View {
     private func collapseExpandedTodo() {
         expansionRequestID = nil
         guard expandedTodoID != nil else { return }
-        withAnimation(WaniMotion.taskExpansion) {
+        withAnimation(WaniMotion.taskRowExpansion) {
             expandedTodoID = nil
         }
     }
 
     private func selectAllTodos() {
+        if NSApp.keyWindow?.firstResponder is NSTextView {
+            NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil)
+            return
+        }
+
+        selectAllDisplayedTodos()
+    }
+
+    private func selectAllDisplayedTodos() {
         let ids = displayedTodoIDs
         guard !ids.isEmpty else { return }
         selectedTodoIDs = Set(ids)
@@ -1868,6 +2098,12 @@ struct ContentView: View {
     }
 
     private func clearSelection(anchoredAt todoID: UUID) {
+        guard
+            !batchMoveOpen,
+            !batchDateEditorOpen,
+            !batchDeadlineEditorOpen,
+            !batchTagEditorOpen
+        else { return }
         guard selectionAnchorID == todoID, selectedTodoIDs.contains(todoID) else {
             return
         }
@@ -1875,8 +2111,14 @@ struct ContentView: View {
     }
 
     private func handleTaskListKeyEvent(_ event: NSEvent) -> Bool {
+        guard event.window == NSApp.keyWindow else { return false }
+
+        if batchMoveOpen, event.keyCode == 53 {
+            closeBatchMove()
+            return true
+        }
+
         guard
-            event.window == NSApp.keyWindow,
             !quickEntryOpen,
             !searchOpen,
             repeatEditorTodo == nil,
@@ -1884,11 +2126,21 @@ struct ContentView: View {
             !batchDateEditorOpen,
             !batchDeadlineEditorOpen,
             !batchTagEditorOpen,
-            !toolbarDateEditorOpen,
-            !(NSApp.keyWindow?.firstResponder is NSTextView)
+            !toolbarDateEditorOpen
         else { return false }
 
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
+        if modifiers == .command,
+           event.charactersIgnoringModifiers?.lowercased() == "a",
+           expandedTodoID == nil,
+           selectedProject == nil,
+           selectedArea == nil {
+            selectAllDisplayedTodos()
+            return true
+        }
+
+        guard !(NSApp.keyWindow?.firstResponder is NSTextView) else { return false }
+
         if modifiers.isEmpty, event.charactersIgnoringModifiers == " " {
             return createInlineTodoBelowSelection()
         }
@@ -2162,6 +2414,20 @@ struct ContentView: View {
         clearTodoSelection()
     }
 
+    private func clearScheduleForSelectedTodos() {
+        let updatedAt = Date.now
+        for todo in selectedTodos {
+            WaniTaskRules.schedule(
+                todo,
+                as: todo.project == nil && todo.area == nil ? .inbox : .anytime,
+                at: updatedAt
+            )
+            syncReminder(for: todo, requestAuthorization: false)
+        }
+        saveChanges()
+        clearTodoSelection()
+    }
+
     private func scheduleItemCommand(
         _ schedule: WaniTaskSchedule,
         startDate: Date?,
@@ -2400,15 +2666,22 @@ struct ContentView: View {
     }
 
     private func closeBatchMove() {
+        if let batchMoveSourceExpandedTodoID {
+            selectedTodoIDs.remove(batchMoveSourceExpandedTodoID)
+            if selectionAnchorID == batchMoveSourceExpandedTodoID {
+                selectionAnchorID = nil
+            }
+        }
+        batchMoveSourceExpandedTodoID = nil
         batchMoveOpen = false
         batchMoveQuery = ""
     }
 
     private func openMoveForExpandedTodo() {
         guard let todo = focusedToolbarTodo else { return }
+        batchMoveSourceExpandedTodoID = todo.id
         selectedTodoIDs = [todo.id]
         selectionAnchorID = todo.id
-        expandedTodoID = nil
         batchMoveOpen = true
     }
 
@@ -2640,6 +2913,14 @@ struct ContentView: View {
         }
         expandedTodoID = todo.id
         closeSearch()
+    }
+
+    private func openLocation(for todo: WaniTodo) {
+        if let project = todo.project {
+            selection = .project(project.id)
+        } else if let area = todo.area {
+            selection = .area(area.id)
+        }
     }
 
     private func openSearchResult(_ project: WaniProject) {
